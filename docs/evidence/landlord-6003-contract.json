@@ -1,0 +1,362 @@
+{
+  "generatedAt": "2026-11-06T19:05:20.197061+00:00",
+  "scope": "6003 客户端动作、素材与候选重算事实；不是经济规则确认或联机完成证据",
+  "sources": [
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/game-api.ts",
+      "sha256": "a9120e3ed48e7718811f7ac9b3d4b22bfd322d9ddf8acfd1df7a10ae7744124a"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/static-classes.ts",
+      "sha256": "9fb292a3ffee97d6d2888a328ccf8fe477d6ee770ed4305e6ab5c7217d377590"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/standard-poker/poker-patterns.ts",
+      "sha256": "e22c3bf4b89102f5fb11d0c1a90a98592ba937c907f2cf4d0a3c01b4b300e10e"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/standard-poker/poker-hints.ts",
+      "sha256": "8c5f84886d30d5fe3213c82ce890ec56cd18423aa8eea76fb184000e2783589b"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/create-panel/standard-create-panel.ts",
+      "sha256": "fd4f8a5186c7549d79e7001c205f924b5d746bd438efe56bbf7fc18015fb9c9b"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/create-panel/panel-shared.ts",
+      "sha256": "3e3206134632e402a08dd41d37e5335a2b014edbd1d3b7ee26b6f6963c858a48"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/table-view/table-class.ts",
+      "sha256": "b20c8169f91a19035f7ab72c95934a0493627eafd7af403f7946f69cf1e426ea"
+    },
+    {
+      "path": "archive/8.137.34.190/client/games/6003/assets/pai/pai_swf.json",
+      "sha256": "23bd21799d11799c7b6079e5c0f9927a8e95aa2da768a0da31f9cbc7b2973d1a"
+    },
+    {
+      "path": "archive/8.137.34.190/client/games/6003/assets/pai1/pai1_swf.json",
+      "sha256": "e9e414f651a729ee306bc4ab42c658196a8fb45908917d681b201b1b6c2dee7d"
+    }
+  ],
+  "cardEncoding": {
+    "ordinarySuits": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "ordinaryRanks": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15
+    ],
+    "jokers": [
+      [
+        0,
+        16
+      ],
+      [
+        0,
+        17
+      ]
+    ],
+    "displayOnly": [
+      [
+        0,
+        0
+      ]
+    ],
+    "physicalCards": [
+      [
+        0,
+        16
+      ],
+      [
+        0,
+        17
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        1,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        1,
+        6
+      ],
+      [
+        1,
+        7
+      ],
+      [
+        1,
+        8
+      ],
+      [
+        1,
+        9
+      ],
+      [
+        1,
+        10
+      ],
+      [
+        1,
+        11
+      ],
+      [
+        1,
+        12
+      ],
+      [
+        1,
+        13
+      ],
+      [
+        1,
+        14
+      ],
+      [
+        1,
+        15
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        2,
+        7
+      ],
+      [
+        2,
+        8
+      ],
+      [
+        2,
+        9
+      ],
+      [
+        2,
+        10
+      ],
+      [
+        2,
+        11
+      ],
+      [
+        2,
+        12
+      ],
+      [
+        2,
+        13
+      ],
+      [
+        2,
+        14
+      ],
+      [
+        2,
+        15
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        3,
+        4
+      ],
+      [
+        3,
+        5
+      ],
+      [
+        3,
+        6
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        8
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        3,
+        10
+      ],
+      [
+        3,
+        11
+      ],
+      [
+        3,
+        12
+      ],
+      [
+        3,
+        13
+      ],
+      [
+        3,
+        14
+      ],
+      [
+        3,
+        15
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        10
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        4,
+        12
+      ],
+      [
+        4,
+        13
+      ],
+      [
+        4,
+        14
+      ],
+      [
+        4,
+        15
+      ]
+    ]
+  },
+  "flatActions": {
+    "api": "room",
+    "c": "gameMessage",
+    "tags": {
+      "ready": {},
+      "score": {
+        "score": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "jiabei": {
+        "jiabei": [
+          0,
+          1
+        ]
+      },
+      "chupai": {
+        "outCards": "integer [suit,rank] tuples",
+        "opCardType": "1..13 recomputed by server"
+      },
+      "buchu": {},
+      "auto": {}
+    }
+  },
+  "wireCardTypes": {
+    "1": "单张",
+    "2": "对子",
+    "3": "三张",
+    "4": "三带一",
+    "5": "三带二",
+    "6": "顺子",
+    "7": "连对",
+    "8": "裸飞机",
+    "9": "飞机带单",
+    "10": "飞机带对",
+    "11": "四带二",
+    "12": "炸弹",
+    "13": "火箭"
+  },
+  "createFacts": [
+    {
+      "cardType": 4,
+      "playNumber": 6,
+      "displayedAaPerPlayer": 1,
+      "displayedOwnerTotal": 3
+    },
+    {
+      "cardType": 8,
+      "playNumber": 12,
+      "displayedAaPerPlayer": 2,
+      "displayedOwnerTotal": 6
+    }
+  ],
+  "unconfirmed": [
+    "扣费时点、AA 与圈付款方及未开局/中途解散退款",
+    "计分基数、倍数/封顶、春天/反春天",
+    "裸飞机奇数组数被客户端长度判断排除，不能直接视作完整地方规则",
+    "飞机单带/对带中的四张拆分与比较主体差异",
+    "标准状态按钮只发现 0 等待、1 叫分、2 出牌；jiabei 发送处理存在但不能据此开放未启用流程"
+  ]
+}
