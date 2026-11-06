@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T18:21:16.830024+00:00",
+  "executedAt": "2026-11-06T18:29:14.008070+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.AdminExecutorTest",
@@ -18,7 +18,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.826,
+      "seconds": 0.798,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -38,7 +38,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.131,
+      "seconds": 1.0,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -57,7 +57,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.933,
+      "seconds": 0.74,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "boundedRetryBecomesDeadAndManualRetryPreservesEventAndAudit",
@@ -72,7 +72,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.706,
+      "seconds": 1.496,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
@@ -90,10 +90,32 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.051,
+      "seconds": 0.048,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.room.RoomMailboxesTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.099,
+      "cases": [
+        "acceptedCommandsHaveOneSerialEngineAndMonotonicPersistedVersions",
+        "completionUsesReservedCapacityWhenOrdinaryAdmissionIsExhausted",
+        "knownRollbackDiscardsCandidateAndNextCommandUsesCommittedState",
+        "ownershipLossRejectsBufferedCommandsAndAllowsNewEpochRegistration",
+        "rejectedEngineDoesNotPersistAndRoomCanAcceptNextLegalAction",
+        "roomAndShardAdmissionAreBoundedWithoutBlockingCaller",
+        "serialCandidatesArePublishedOnlyAfterPersistenceAndAnotherRoomKeepsRunning",
+        "shutdownCompletesPendingAsUnknownAndReleasesAdmission",
+        "slowResultCallbackRunsOutsideShardAndDoesNotBlockAnotherRoom",
+        "staleTimerAndWrongOwnerNeverReachEngineOrDatabase",
+        "storageExceptionIsUnknownAndDoesNotSendPrematureFailure",
+        "unknownCommitKeepsRoomPausedUntilPersistentResultIsConfirmed"
       ]
     },
     {
@@ -102,7 +124,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.13,
+      "seconds": 0.126,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -117,7 +139,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.005,
+      "seconds": 0.004,
       "cases": [
         "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
@@ -128,7 +150,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.013,
+      "seconds": 0.014,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "delayedRevocationCannotDisconnectFreshSessionVersion",
@@ -141,12 +163,12 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.629,
+      "seconds": 0.606,
       "cases": [
         "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
       ]
     }
   ],
-  "total": 45,
+  "total": 57,
   "result": "PASS"
 }
