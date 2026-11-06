@@ -1,0 +1,62 @@
+{
+  "executedAt": "2026-11-06T22:20:31.629621+00:00",
+  "result": "PASS",
+  "scope": "隔离 MySQL/Redis 的内部 6003 单张/过牌及测试换局持久提交；没有 WS、叫分、收费、积分结算或生产容量结论",
+  "sourceCommit": "0e10eed9df634bd449f8059889ddce0e860a6381",
+  "snapshotSha256": "c147db6d78e20a6619c5179aa2445abd9d272d985b24cbf6112d5445f2517ece",
+  "artifactVerified": true,
+  "heapMiB": {
+    "min": 73.174,
+    "max": 239.2,
+    "first": 164.655,
+    "last": 209.82
+  },
+  "nonHeapMiB": {
+    "min": 142.557,
+    "max": 165.097,
+    "first": 165.097,
+    "last": 147.042
+  },
+  "threads": {
+    "min": 62.0,
+    "max": 65.0,
+    "first": 65.0,
+    "last": 62.0
+  },
+  "roomSqlActive": {
+    "min": 1.0,
+    "max": 8.0,
+    "first": 1.0,
+    "last": 3.0
+  },
+  "roomSqlWaiters": {
+    "min": 0.0,
+    "max": 0.0,
+    "first": 0.0,
+    "last": 0.0
+  },
+  "generalSqlActive": {
+    "min": 0.0,
+    "max": 5.0,
+    "first": 4.0,
+    "last": 2.0
+  },
+  "generalSqlWaiters": {
+    "min": 0.0,
+    "max": 0.0,
+    "first": 0.0,
+    "last": 0.0
+  },
+  "outboxReady": {
+    "min": 0.0,
+    "max": 36.0,
+    "first": 14.0,
+    "last": 3.0
+  },
+  "maxOutboxLagSeconds": 0.294,
+  "eventPayloadMeanBytes": 42.258,
+  "eventPayloadP95Bytes": 40,
+  "mysqlDirectoryGrowthBytes": 5681818761,
+  "recoveryMaxMs": 26.671,
+  "recoveryMaxTailEvents": 54
+}
