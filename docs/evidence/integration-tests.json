@@ -1,13 +1,26 @@
 {
-  "executedAt": "2026-11-06T22:27:03.330612+00:00",
+  "executedAt": "2026-11-06T23:13:49.795954+00:00",
   "suites": [
+    {
+      "suite": "com.ruoyi.AdminBootstrapTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.811,
+      "cases": [
+        "acceptedBoundariesOnlyInitializeTheUntouchedAdministrator",
+        "omittedPasswordLeavesTheAdministratorDisabled",
+        "passwordOutsideLoginLimitsCannotInitializeAnUnusableAdministrator"
+      ]
+    },
     {
       "suite": "com.ruoyi.AdminExecutorTest",
       "tests": 1,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.003,
+      "seconds": 0.002,
       "cases": [
         "saturationRejectsWithoutRunningOnRequestThread"
       ]
@@ -18,7 +31,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.645,
+      "seconds": 0.155,
       "cases": [
         "completionAndAuditUseObservedTimeAfterTheBusinessEffect"
       ]
@@ -29,7 +42,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.788,
+      "seconds": 0.772,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -49,7 +62,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.204,
+      "seconds": 0.214,
       "cases": [
         "beijingDateBoundsAndStableOrderingDoNotLeakNeighbouringDay",
         "commandLinksExactAuditAndReadQueriesDoNotRepeatItsEffect",
@@ -66,7 +79,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.864,
+      "seconds": 0.889,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -85,7 +98,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.956,
+      "seconds": 0.971,
       "cases": [
         "accountSnapshotStaysConsistentWhileAnotherThreadPostsMoney",
         "adminRunCommandIsIdempotentAndQueriesRemainScopedAndBounded",
@@ -106,7 +119,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 6.866,
+      "seconds": 6.969,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "backlogQueryUsesCoveringStatusRangesDespiteLargeCompletedHistory",
@@ -139,7 +152,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.693,
+      "seconds": 2.654,
       "cases": [
         "afterCommitExceptionCannotBeMistakenForKnownPrecommitRejection",
         "committedButLostBoundaryResultResolvesWithoutRepeatingEffects",
@@ -171,7 +184,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.729,
+      "seconds": 2.71,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts",
@@ -192,7 +205,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 6.281,
+      "seconds": 6.274,
       "cases": [
         "afterScheduleItCreatesOneDailyRunAndCountsOnlyCommittedChecks",
         "beforeAutomaticScheduleItStillProcessesAnExistingManualJob",
@@ -208,7 +221,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.006,
+      "seconds": 0.003,
       "cases": [
         "allThirteenWireTypesAreRecomputedFromPhysicalCards",
         "comparisonsUseMainGroupAndRequireSameSequenceLength",
@@ -226,7 +239,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.109,
+      "seconds": 0.112,
       "cases": [
         "exactEventFieldsRejectUnknownKeysWrongTypesAndUnknownVersions",
         "persistedEventsCanRebuildACompleteNaturallyPlayedRound",
@@ -242,7 +255,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.638,
+      "seconds": 0.628,
       "cases": [
         "actorTurnOwnershipAndPhaseAreValidatedBeforeAnyStateChange",
         "autoFlagMayChangeOutOfTurnButDoesNotPlayCardsOrChangeTurn",
@@ -288,7 +301,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.006,
+      "seconds": 0.007,
       "cases": [
         "internalPlayCannotCarryAForgedPatternEither",
         "originalFlatTagsHaveExplicitTypedActions",
@@ -303,7 +316,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.071,
+      "seconds": 0.068,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "internalCanonicalDigestKeepsPrecisionAndIgnoresObjectKeyOrder",
@@ -312,13 +325,14 @@
     },
     {
       "suite": "com.ruoyi.game.room.RoomMailboxesTest",
-      "tests": 13,
+      "tests": 14,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.073,
+      "seconds": 0.077,
       "cases": [
         "acceptedCommandsHaveOneSerialEngineAndMonotonicPersistedVersions",
+        "committedCallbacksKeepRoomVersionOrderWhileAnotherRoomCanNotify",
         "completionUsesReservedCapacityWhenOrdinaryAdmissionIsExhausted",
         "knownRollbackDiscardsCandidateAndNextCommandUsesCommittedState",
         "ownershipLossRejectsBufferedCommandsAndAllowsNewEpochRegistration",
@@ -339,7 +353,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.176,
+      "seconds": 0.172,
       "cases": [
         "aTimerQueuedDuringCommitCannotActOnTheNextVersion",
         "capacityCancellationAndShutdownReleaseAllRegistrations",
@@ -355,7 +369,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.152,
+      "seconds": 0.112,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -370,7 +384,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.117,
+      "seconds": 0.119,
       "cases": [
         "admittedResultHasReservedReplyCapacityEvenWhenBusinessPoolIsFull",
         "bothDeferredAndActionPushesFollowTheSingleOrdinaryAck",
@@ -389,7 +403,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.005,
+      "seconds": 0.003,
       "cases": [
         "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
@@ -400,7 +414,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.018,
+      "seconds": 0.015,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "delayedRevocationCannotDisconnectFreshSessionVersion",
@@ -415,7 +429,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.746,
+      "seconds": 0.611,
       "cases": [
         "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
       ]
@@ -426,7 +440,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.132,
+      "seconds": 0.112,
       "cases": [
         "failedWriteDoesNotIncrementConfirmedObservationCounter",
         "persistsOnlyActualSampleTimeAndDefaultNonTestPopulation",
@@ -434,6 +448,6 @@
       ]
     }
   ],
-  "total": 172,
+  "total": 176,
   "result": "PASS"
 }

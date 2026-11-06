@@ -1,0 +1,2044 @@
+{
+  "executedAt": "2026-11-06T23:11:37.951Z",
+  "scope": "本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论",
+  "base": "http://localhost:8080",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "cpu": "Apple M1 Pro",
+    "totalMemoryBytes": 17179869184,
+    "node": "v24.19.0",
+    "java": "23767:\nOpenJDK 64-Bit Server VM version 21.0.11+10-b1163.116\nJDK 21.0.11",
+    "git": "c40f06fa0a6ed9d0c81dec3aaa153ba63284ac6b",
+    "artifactSha256": "d2fc951a606d32eddf7a7cea12773d1f1e1f6f861d6e9db321c17617653fecda",
+    "proxy": {
+      "mode": "host-native",
+      "version": "nginx version: nginx/1.31.3",
+      "masterPid": "27391",
+      "launchNofile": 16384,
+      "binarySha256": "f942a965323ac6e8510968ee62c26da0bd3ca56ec54fba0193cea1f54ff80f95",
+      "dockerContext": "default",
+      "portForwarder": "unrecorded",
+      "configSha256": "70eb6ea65fbd47cb61563ce3529f77679edffdbd11f174ce5c4475e0dd24ec0b"
+    },
+    "dockerCpuMemoryVersion": "4 6197444608 29.5.2",
+    "mysqlDurability": {
+      "innodbFlushLogAtTrxCommit": 1,
+      "syncBinlog": 1,
+      "logBin": 1
+    }
+  },
+  "requested": {
+    "connections": 1000,
+    "active": 200,
+    "idle": 800,
+    "seconds": 120,
+    "queriesPerSecond": 200,
+    "routes": [
+      {
+        "api": "role",
+        "c": "syncCard"
+      },
+      {
+        "api": "club",
+        "c": "getClubs"
+      },
+      {
+        "api": "manager",
+        "c": "getNotices"
+      },
+      {
+        "api": "cfg",
+        "c": "getGame",
+        "game_id": "6003"
+      }
+    ]
+  },
+  "startedAt": "2026-11-06T23:09:37.415Z",
+  "endedAt": "2026-11-06T23:11:37.418Z",
+  "measurementMs": 120002.44,
+  "fatalDetail": null,
+  "socketFailures": [],
+  "metricFailures": [],
+  "hostCompetition": "isolated_room_admin_trial_separate_jvm",
+  "connectionLatencyMs": {
+    "p50": 18.875,
+    "p95": 33.403,
+    "max": 211.533
+  },
+  "actual": {
+    "authenticated": 1000,
+    "sent": 23999,
+    "completed": 23999,
+    "closed": 0,
+    "pushes": 0,
+    "busy": 0,
+    "missed": 0,
+    "heartbeats": {
+      "receivedPings": 3667,
+      "sentPongs": 3667
+    },
+    "errors": {},
+    "throughputPerSecond": 199.988,
+    "latencyMs": {
+      "p50": 4.18,
+      "p95": 12.31,
+      "p99": 58.43,
+      "max": 222.906
+    }
+  },
+  "samples": [
+    {
+      "at": "2026-11-06T23:09:37.412Z",
+      "phase": "warmup",
+      "sent": 0,
+      "completed": 0,
+      "closed": 0,
+      "pings": 466,
+      "pongs": 466,
+      "recentP95Ms": null,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 396559576
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.0025287496574761983
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:09:42.441Z",
+      "phase": "measurement",
+      "sent": 1004,
+      "completed": 1001,
+      "closed": 0,
+      "pings": 566,
+      "pongs": 566,
+      "recentP95Ms": 10.889,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 234
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 509876184
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.025777959483329633
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:09:47.531Z",
+      "phase": "measurement",
+      "sent": 2022,
+      "completed": 1990,
+      "closed": 0,
+      "pings": 668,
+      "pongs": 668,
+      "recentP95Ms": 20.128,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 4750
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 23
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 16
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 40
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 425541648
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.030139107849474232
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:09:52.442Z",
+      "phase": "measurement",
+      "sent": 3005,
+      "completed": 3003,
+      "closed": 0,
+      "pings": 764,
+      "pongs": 764,
+      "recentP95Ms": 16.043,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 132
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 522021136
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.02748166739490399
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:09:57.450Z",
+      "phase": "measurement",
+      "sent": 4006,
+      "completed": 4004,
+      "closed": 0,
+      "pings": 936,
+      "pongs": 936,
+      "recentP95Ms": 28.178,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 234
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 421419944
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.03612656136064188
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:02.438Z",
+      "phase": "measurement",
+      "sent": 5004,
+      "completed": 5000,
+      "closed": 0,
+      "pings": 1132,
+      "pongs": 1132,
+      "recentP95Ms": 11.732,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 351
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 3
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 545174696
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.026890666352359916
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:07.437Z",
+      "phase": "measurement",
+      "sent": 6004,
+      "completed": 6002,
+      "closed": 0,
+      "pings": 1267,
+      "pongs": 1267,
+      "recentP95Ms": 10.497,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 478
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 4
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 4
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 459188944
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.025733421615055273
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:12.446Z",
+      "phase": "measurement",
+      "sent": 7006,
+      "completed": 7005,
+      "closed": 0,
+      "pings": 1367,
+      "pongs": 1367,
+      "recentP95Ms": 100.259,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 386
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 3
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 3
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 412979400
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.03373854473585779
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:17.445Z",
+      "phase": "measurement",
+      "sent": 8005,
+      "completed": 8004,
+      "closed": 0,
+      "pings": 1466,
+      "pongs": 1466,
+      "recentP95Ms": 15.893,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 351
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 503165768
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.02519293719829183
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:22.441Z",
+      "phase": "measurement",
+      "sent": 9005,
+      "completed": 9000,
+      "closed": 0,
+      "pings": 1564,
+      "pongs": 1564,
+      "recentP95Ms": 10.787,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 234
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 410637840
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.034876786986021965
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:27.446Z",
+      "phase": "measurement",
+      "sent": 10006,
+      "completed": 10005,
+      "closed": 0,
+      "pings": 1736,
+      "pongs": 1736,
+      "recentP95Ms": 49.028,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 244
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 517630376
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.028479739522848786
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:32.443Z",
+      "phase": "measurement",
+      "sent": 11005,
+      "completed": 11003,
+      "closed": 0,
+      "pings": 1932,
+      "pongs": 1932,
+      "recentP95Ms": 12.969,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 264
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 421265424
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.02574291686972324
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:37.435Z",
+      "phase": "measurement",
+      "sent": 12003,
+      "completed": 12001,
+      "closed": 0,
+      "pings": 2067,
+      "pongs": 2067,
+      "recentP95Ms": 8.657,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 117
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 511452304
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.022673197465786027
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:42.442Z",
+      "phase": "measurement",
+      "sent": 13005,
+      "completed": 13002,
+      "closed": 0,
+      "pings": 2166,
+      "pongs": 2166,
+      "recentP95Ms": 17.648,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 351
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 3
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 3
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 426834736
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.026134730918578146
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:47.430Z",
+      "phase": "measurement",
+      "sent": 14002,
+      "completed": 14001,
+      "closed": 0,
+      "pings": 2266,
+      "pongs": 2266,
+      "recentP95Ms": 7.195,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 239
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 382525048
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.029218452953557652
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:52.431Z",
+      "phase": "measurement",
+      "sent": 15003,
+      "completed": 15002,
+      "closed": 0,
+      "pings": 2364,
+      "pongs": 2364,
+      "recentP95Ms": 6.423,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 132
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 479016056
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.015587547141291312
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:10:57.430Z",
+      "phase": "measurement",
+      "sent": 16002,
+      "completed": 16001,
+      "closed": 0,
+      "pings": 2536,
+      "pongs": 2536,
+      "recentP95Ms": 6.408,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 376464624
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.014842724665330764
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:02.430Z",
+      "phase": "measurement",
+      "sent": 17002,
+      "completed": 17000,
+      "closed": 0,
+      "pings": 2731,
+      "pongs": 2731,
+      "recentP95Ms": 6.901,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 117
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 502298768
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.016384154802395027
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:07.429Z",
+      "phase": "measurement",
+      "sent": 18002,
+      "completed": 18001,
+      "closed": 0,
+      "pings": 2867,
+      "pongs": 2867,
+      "recentP95Ms": 9.683,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 117
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 416351680
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.01747489665446068
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:12.430Z",
+      "phase": "measurement",
+      "sent": 19002,
+      "completed": 19002,
+      "closed": 0,
+      "pings": 2966,
+      "pongs": 2966,
+      "recentP95Ms": 6.501,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 132
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 512841280
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.01560599934330691
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:17.429Z",
+      "phase": "measurement",
+      "sent": 20002,
+      "completed": 20001,
+      "closed": 0,
+      "pings": 3066,
+      "pongs": 3066,
+      "recentP95Ms": 6.78,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 117
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 462869320
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.027822177002806252
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:22.429Z",
+      "phase": "measurement",
+      "sent": 21002,
+      "completed": 21000,
+      "closed": 0,
+      "pings": 3164,
+      "pongs": 3164,
+      "recentP95Ms": 6.283,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 563535304
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.015149532730841084
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:27.429Z",
+      "phase": "measurement",
+      "sent": 22002,
+      "completed": 22001,
+      "closed": 0,
+      "pings": 3336,
+      "pongs": 3336,
+      "recentP95Ms": 6.565,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 239
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 2
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 476899192
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.01639088808636533
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:32.429Z",
+      "phase": "measurement",
+      "sent": 23002,
+      "completed": 23002,
+      "closed": 0,
+      "pings": 3531,
+      "pongs": 3531,
+      "recentP95Ms": 10.548,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 132
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 1
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 380552080
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.02079410149056506
+          }
+        ]
+      }
+    },
+    {
+      "at": "2026-11-06T23:11:37.432Z",
+      "phase": "drain",
+      "sent": 23999,
+      "completed": 23999,
+      "closed": 0,
+      "pings": 3667,
+      "pongs": 3667,
+      "recentP95Ms": 6.512,
+      "metrics": {
+        "game.accepted.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.authenticated.connections": [
+          {
+            "statistic": "VALUE",
+            "value": 1000
+          }
+        ],
+        "game.inbound.bytes": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.business.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.active": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.reply.queue": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "game.push.pending": [
+          {
+            "statistic": "VALUE",
+            "value": 0
+          }
+        ],
+        "jvm.memory.used": [
+          {
+            "statistic": "VALUE",
+            "value": 470735760
+          }
+        ],
+        "process.cpu.usage": [
+          {
+            "statistic": "VALUE",
+            "value": 0.014673365066241712
+          }
+        ]
+      }
+    }
+  ],
+  "result": "PASS"
+}

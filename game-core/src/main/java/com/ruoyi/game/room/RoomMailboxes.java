@@ -160,8 +160,19 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
             try{if(failure==null)request.result.complete(result);else request.result.completeExceptionally(new RoomRejected(failure));}
             finally{request.actor.shard.requests.remove(request);request.actor.commands.release();request.actor.shard.commands.release();}
         };
-        // 通知队列容量等于全部已准入命令预算，准入票据在通知结束后才释放。
-        try{notifications.execute(notify);}catch(RejectedExecutionException rejected){notify.run();}
+        // 同房间通知串行，避免两个结果线程把已提交版本 v+1 的完成回调抢在 v 前执行。
+        // 每条通知仍持有原命令票据，队列受 commandsPerRoom / commandsPerShard 共同约束。
+        request.actor.notices.add(notify);scheduleNotices(request.actor);
+    }
+    private void scheduleNotices(Actor actor){
+        if(!actor.notifying.compareAndSet(false,true))return;
+        Runnable drain=()->{
+            // 有界批次后重新排队，热点房间不能一直占住结果线程而饿死其他房间。
+            try{for(int i=0;i<8;i++){Runnable notice=actor.notices.poll();if(notice==null)break;notice.run();}}
+            finally{actor.notifying.set(false);if(!actor.notices.isEmpty())scheduleNotices(actor);}
+        };
+        // 正常运行时已准入预算保证调度容量；停机时也只能有一个线程排空本房间。
+        try{notifications.execute(drain);}catch(RejectedExecutionException rejected){drain.run();}
     }
     @Override public void close(){
         if(!accepting.compareAndSet(true,false))return;
@@ -178,6 +189,7 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
     private final class Actor{
         final Shard shard;final Engine<S,C,E> engine;final Semaphore commands=new Semaphore(config.commandsPerRoom());
         final Queue<Request> waiting=new ArrayDeque<>();
+        final Queue<Runnable> notices=new ConcurrentLinkedQueue<>();final AtomicBoolean notifying=new AtomicBoolean();
         volatile RoomSnapshot<S> snapshot;volatile boolean closed;Commit commit;
         Actor(Shard shard,RoomSnapshot<S> snapshot,Engine<S,C,E> engine){this.shard=shard;this.snapshot=snapshot;this.engine=engine;}
     }

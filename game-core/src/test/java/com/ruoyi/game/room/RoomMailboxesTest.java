@@ -167,6 +167,23 @@ class RoomMailboxesTest {
             waitFor(()->rooms.pendingCommands()==0);assertEquals("NOT_OWNED",rejection(rooms.submit(handle,1)));rooms.close();
         }finally{release.countDown();rooms.close();}
     }
+    @Test void committedCallbacksKeepRoomVersionOrderWhileAnotherRoomCanNotify() throws Exception {
+        Store store=new Store();String firstId=UUID.randomUUID().toString();
+        CountDownLatch dbEntered=new CountDownLatch(1),dbRelease=new CountDownLatch(1),callbackEntered=new CountDownLatch(1),callbackRelease=new CountDownLatch(1);
+        List<Long> delivered=new CopyOnWriteArrayList<>();
+        store.commit=write->{if(write.previous().roomId().equals(firstId)&&write.candidate().version()==1){dbEntered.countDown();await(dbRelease);}return Decision.COMMITTED;};
+        try(var rooms=new RoomMailboxes<Integer,Integer,Integer>(config(8,4),store)){
+            var a=rooms.register(state(firstId),ADD);var b=rooms.register(state(UUID.randomUUID().toString()),ADD);
+            var first=rooms.submit(a,1);await(dbEntered);
+            first.thenAccept(snapshot->{callbackEntered.countDown();await(callbackRelease);delivered.add(snapshot.version());});
+            var second=rooms.submit(a,1);second.thenAccept(snapshot->delivered.add(snapshot.version()));
+            dbRelease.countDown();await(callbackEntered);waitFor(()->rooms.snapshot(a).version()==2);
+            assertFalse(second.toCompletableFuture().isDone(),"数据库已提交的下一版不能越过前一版通知");
+            assertEquals(2,rooms.pendingCommands());assertEquals(1,result(rooms.submit(b,1)).state());
+            callbackRelease.countDown();assertEquals(2,result(second).version());waitFor(()->rooms.pendingCommands()==0);
+            assertEquals(List.of(1L,2L),delivered);
+        }finally{dbRelease.countDown();callbackRelease.countDown();}
+    }
     @Test void rejectedEngineDoesNotPersistAndRoomCanAcceptNextLegalAction() throws Exception {
         Store store=new Store();
         try(var rooms=new RoomMailboxes<Integer,Integer,Integer>(config(8,4),store)){
