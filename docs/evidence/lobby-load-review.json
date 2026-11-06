@@ -1,0 +1,66 @@
+{
+  "executedAt": "2026-11-06T19:33:22.941Z",
+  "scope": "本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论",
+  "measurementSummary": {
+    "authenticated": {
+      "min": 1000,
+      "max": 1000,
+      "first": 1000,
+      "last": 1000
+    },
+    "accepted": {
+      "min": 1000,
+      "max": 1000,
+      "first": 1000,
+      "last": 1000
+    },
+    "inboundBytes": {
+      "min": 0,
+      "max": 473,
+      "first": 0,
+      "last": 0
+    },
+    "businessQueue": {
+      "min": 0,
+      "max": 1,
+      "first": 0,
+      "last": 0
+    },
+    "businessActive": {
+      "min": 0,
+      "max": 4,
+      "first": 0,
+      "last": 0
+    },
+    "pendingPushes": {
+      "min": 0,
+      "max": 0,
+      "first": 0,
+      "last": 0
+    },
+    "jvmUsedMiB": {
+      "min": 345.149,
+      "max": 495.079,
+      "first": 390.804,
+      "last": 375.617
+    },
+    "processCpuFraction": {
+      "min": 0,
+      "max": 0.049,
+      "first": 0,
+      "last": 0.02
+    }
+  },
+  "afterClose": {
+    "asOf": "2026-11-06T19:33:22.940Z",
+    "metrics": {
+      "game.accepted.connections": 0,
+      "game.authenticated.connections": 0,
+      "game.inbound.bytes": 0,
+      "game.business.queue": 0,
+      "game.business.active": 0,
+      "game.push.pending": 0
+    }
+  },
+  "result": "PASS"
+}
