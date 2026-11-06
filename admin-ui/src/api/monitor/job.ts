@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { JobQueryParams, SysJob, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询定时任务调度列表
-export function listJob(query: JobQueryParams): Promise<TableDataInfo<SysJob[]>> {
+export function listJob(query: JobQueryParams): Promise<TableDataInfo<SysJob>> {
   return request({
     url: '/monitor/job/list',
     method: 'get',

@@ -124,12 +124,13 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
 import { handleThemeStyle } from '@/utils/theme'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const appStore = useAppStore()
 const settingsStore = useSettingsStore()
 const permissionStore = usePermissionStore()
@@ -146,12 +147,14 @@ function dynamicTitleChange(): void {
   useSettingsStore().setTitle(useSettingsStore().title)
 }
 
-function tagsViewPersistChange(val: boolean): void {
+function tagsViewPersistChange(input: string|number|boolean): void {
+  const val=input===true
   settingsStore.tagsViewPersist = val
   tagsViewPersist.value = val
 }
 
-function themeChange(val: string): void {
+function themeChange(val: string|null): void {
+  if (!val) {theme.value=settingsStore.theme;return}
   settingsStore.theme = val
   handleThemeStyle(val)
 }
@@ -204,7 +207,7 @@ function saveSetting(): void {
     "theme": storeSettings.value.theme
   }
   localStorage.setItem("layout-setting", JSON.stringify(layoutSetting))
-  setTimeout(proxy.$modal.closeLoading(), 1000)
+  setTimeout(() => proxy.$modal.closeLoading(), 1000)
 }
 
 function resetSetting(): void {

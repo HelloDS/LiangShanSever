@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { JobLogQueryParams, SysJobLog, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询调度日志列表
-export function listJobLog(query: JobLogQueryParams): Promise<TableDataInfo<SysJobLog[]>> {
+export function listJobLog(query: JobLogQueryParams): Promise<TableDataInfo<SysJobLog>> {
   return request({
     url: '/monitor/jobLog/list',
     method: 'get',

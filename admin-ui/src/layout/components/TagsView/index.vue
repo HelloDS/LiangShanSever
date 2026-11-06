@@ -12,7 +12,7 @@
         :key="tag.path"
         :data-path="tag.path"
         :class="{ 'active': isActive(tag), 'has-icon': tagsIcon }"
-        :to="{ path: tag.path, query: tag.query, fullPath: tag.fullPath }"
+        :to="tag.fullPath || { path: tag.path, query: tag.query }"
         class="tags-view-item"
         :style="tagActiveStyle(tag)"
         @click.middle="!isAffix(tag) ? closeSelectedTag(tag) : ''"
@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import ScrollPane from './ScrollPane.vue'
 import { getNormalPath } from '@/utils/ruoyi'
 import useTagsViewStore from '@/store/modules/tagsView'
@@ -86,7 +87,7 @@ const canScrollRight = ref<boolean>(false)
 const isFullscreen = ref<boolean>(false)
 const hiddenElements = ref<any>([])
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const route = useRoute()
 const router = useRouter()
 const settingsStore = useSettingsStore()

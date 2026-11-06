@@ -55,7 +55,7 @@
                type="primary"
                plain
                icon="Plus"
-               @click="handleAdd"
+               @click="handleAdd()"
                v-hasPermi="['system:role:add']"
             >新增</el-button>
          </el-col>
@@ -65,7 +65,7 @@
                plain
                icon="Edit"
                :disabled="single"
-               @click="handleUpdate"
+               @click="handleUpdate()"
                v-hasPermi="['system:role:edit']"
             >修改</el-button>
          </el-col>
@@ -75,7 +75,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['system:role:remove']"
             >删除</el-button>
          </el-col>
@@ -101,6 +101,7 @@
          <el-table-column label="状态" align="center" width="100">
             <template #default="scope">
                <el-switch
+                  :disabled="!checkPermi(['system:role:edit']) || scope.row.roleId===1"
                   v-model="scope.row.status"
                   active-value="0"
                   inactive-value="1"
@@ -214,7 +215,7 @@
                   ></el-option>
                </el-select>
             </el-form-item>
-            <el-form-item label="数据权限" v-show="form.dataScope == 2">
+            <el-form-item label="数据权限" v-show="form.dataScope === '2'">
                <el-checkbox v-model="deptExpand" @change="handleCheckedTreeExpand($event, 'dept')">展开/折叠</el-checkbox>
                <el-checkbox v-model="deptNodeAll" @change="handleCheckedTreeNodeAll($event, 'dept')">全选/全不选</el-checkbox>
                <el-checkbox v-model="form.deptCheckStrictly" @change="handleCheckedTreeConnect($event, 'dept')">父子联动</el-checkbox>
@@ -242,6 +243,11 @@
 </template>
 
 <script setup lang="ts" name="Role">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const roleRefInstance = useTemplateRef<FormInstance>('roleRef')
+import { checkPermi } from '@/utils/permission'
+import { useAppProxy } from '@/composables/useAppProxy'
 import { addRole, changeRoleStatus, dataScope, delRole, getRole, listRole, updateRole, deptTreeSelect } from "@/api/system/role"
 import { roleMenuTreeselect, treeselect as menuTreeselect } from "@/api/system/menu"
 import type { SysRole, RoleQueryParams } from '@/types/api/system/role'
@@ -250,7 +256,7 @@ import type { RoleDeptTreeResult } from '@/types/api/system/role'
 import type { RoleMenuTreeselectResult } from '@/types/api/system/menu'
 
 const router = useRouter()
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_normal_disable } = useDict("sys_normal_disable")
 
 const roleList = ref<SysRole[]>([])
@@ -382,7 +388,7 @@ function handleAuthUser(row: SysRole) {
 /** 查询菜单树结构 */
 function getMenuTreeselect() {
   menuTreeselect().then(response => {
-    menuOptions.value = response.data
+    menuOptions.value = response.data ?? []
   })
 }
 
@@ -468,22 +474,24 @@ function getDeptTree(roleId: number) { Promise<RoleDeptTreeResult>
 }
 
 /** 树权限（展开/折叠）*/
-function handleCheckedTreeExpand(value: boolean, type: string) {
+function handleCheckedTreeExpand(input: string|number|boolean, type: string) {
+  const value=input===true
   if (type == "menu") {
     let treeList = menuOptions.value
     for (let i = 0; i < treeList.length; i++) {
-      menuRef.value.store.nodesMap[treeList[i].id].expanded = value
+      const id=treeList[i].id;const node=id==null?null:menuRef.value?.getNode(id);if(node)node.expanded=value
     }
   } else if (type == "dept") {
     let treeList = deptOptions.value
     for (let i = 0; i < treeList.length; i++) {
-      deptRef.value.store.nodesMap[treeList[i].id].expanded = value
+      const id=treeList[i].id;const node=id==null?null:deptRef.value?.getNode(id);if(node)node.expanded=value
     }
   }
 }
 
 /** 树权限（全选/全不选） */
-function handleCheckedTreeNodeAll(value: boolean, type: string) {
+function handleCheckedTreeNodeAll(input: string|number|boolean, type: string) {
+  const value=input===true
   if (type == "menu") {
     menuRef.value.setCheckedNodes(value ? menuOptions.value : [])
   } else if (type == "dept") {
@@ -492,7 +500,8 @@ function handleCheckedTreeNodeAll(value: boolean, type: string) {
 }
 
 /** 树权限（父子联动） */
-function handleCheckedTreeConnect(value: boolean, type: string) {
+function handleCheckedTreeConnect(input: string|number|boolean, type: string) {
+  const value=input===true
   if (type == "menu") {
     form.value.menuCheckStrictly = value ? true : false
   } else if (type == "dept") {
@@ -512,7 +521,7 @@ function getMenuAllCheckedKeys(): number[] {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["roleRef"].validate((valid: boolean) => {
+  roleRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.roleId != undefined) {
         form.value.menuIds = getMenuAllCheckedKeys()

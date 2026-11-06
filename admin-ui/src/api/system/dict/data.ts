@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { DictDataQueryParams, SysDictData, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询字典数据列表
-export function listData(query: DictDataQueryParams): Promise<TableDataInfo<SysDictData[]>> {
+export function listData(query: DictDataQueryParams): Promise<TableDataInfo<SysDictData>> {
   return request({
     url: '/system/dict/data/list',
     method: 'get',

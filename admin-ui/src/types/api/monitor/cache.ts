@@ -9,3 +9,5 @@ export interface SysCache {
   /** 备注 */
   remark?: string;
 }
+
+export interface RedisCacheStats {info:Record<string,string>;dbSize:number;commandStats:{name:string;value:number}[]}

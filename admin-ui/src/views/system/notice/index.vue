@@ -41,7 +41,7 @@
                type="primary"
                plain
                icon="Plus"
-               @click="handleAdd"
+               @click="handleAdd()"
                v-hasPermi="['system:notice:add']"
             >新增</el-button>
          </el-col>
@@ -51,7 +51,7 @@
                plain
                icon="Edit"
                :disabled="single"
-               @click="handleUpdate"
+               @click="handleUpdate()"
                v-hasPermi="['system:notice:edit']"
             >修改</el-button>
          </el-col>
@@ -61,7 +61,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['system:notice:remove']"
             >删除</el-button>
          </el-col>
@@ -161,12 +161,18 @@
 </template>
 
 <script setup lang="ts" name="Notice">
+const noticeViewRefPublic=useTemplateRef<InstanceType<typeof NoticeDetailView>>('noticeViewRef')
+const readUsersRefPublic=useTemplateRef<InstanceType<typeof ReadUsersDialog>>('readUsersRef')
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const noticeRefInstance = useTemplateRef<FormInstance>('noticeRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import NoticeDetailView from "@/layout/components/HeaderNotice/DetailView.vue"
 import ReadUsersDialog from "./ReadUsers.vue"
 import { listNotice, getNotice, delNotice, addNotice, updateNotice } from "@/api/system/notice"
 import type { SysNotice, NoticeQueryParams } from '@/types/api/system/notice'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_notice_status, sys_notice_type } = useDict("sys_notice_status", "sys_notice_type")
 
 const noticeList = ref<SysNotice[]>([])
@@ -263,7 +269,7 @@ function handleUpdate(row?: SysNotice) {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["noticeRef"].validate((valid: boolean) => {
+  noticeRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.noticeId != undefined) {
         updateNotice(form.value).then(() => {
@@ -284,12 +290,12 @@ function submitForm() {
 
 /** 查看公告详情 */
 function handleViewData(row: SysNotice) {
-  proxy.$refs["noticeViewRef"].open(row)
+  noticeViewRefPublic.value?.open(row)
 }
 
 /** 查看已读用户 */
 function handleReadUsers(row: SysNotice) {
-   proxy.$refs["readUsersRef"].open(row)
+   readUsersRefPublic.value?.open(row)
 }
 
 /** 删除按钮操作 */

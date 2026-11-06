@@ -25,7 +25,7 @@ export interface SysJob extends BaseEntity {
   /** 下次执行时间 */
   nextValidTime?: Date;
   /** 计划策略 */
-  misfirePolicy?: '1' | '2' | '3';
+  misfirePolicy?: '0' | '1' | '2' | '3';
   /** 并发执行（0允许 1禁止） */
   concurrent?: '0' | '1';
   /** 状态（0正常 1暂停） */

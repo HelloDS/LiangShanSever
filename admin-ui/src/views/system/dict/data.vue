@@ -7,7 +7,7 @@
                   v-for="item in typeOptions"
                   :key="item.dictId"
                   :label="item.dictName"
-                  :value="item.dictType"
+                  :value="item.dictType!"
                />
             </el-select>
          </el-form-item>
@@ -42,7 +42,7 @@
                type="primary"
                plain
                icon="Plus"
-               @click="handleAdd"
+               @click="handleAdd()"
                v-hasPermi="['system:dict:add']"
             >新增</el-button>
          </el-col>
@@ -52,7 +52,7 @@
                plain
                icon="Edit"
                :disabled="single"
-               @click="handleUpdate"
+               @click="handleUpdate()"
                v-hasPermi="['system:dict:edit']"
             >修改</el-button>
          </el-col>
@@ -62,7 +62,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['system:dict:remove']"
             >删除</el-button>
          </el-col>
@@ -176,6 +176,10 @@
 </template>
 
 <script setup lang="ts" name="Data">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const dataRefInstance = useTemplateRef<FormInstance>('dataRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import useDictStore from '@/store/modules/dict'
 import { optionselect as getDictOptionselect, getType } from "@/api/system/dict/type"
 import { listData, getData, delData, addData, updateData } from "@/api/system/dict/data"
@@ -186,7 +190,7 @@ interface ListClassOption {
   label: string
 }
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_normal_disable } = useDict("sys_normal_disable")
 
 const dataList = ref<SysDictData[]>([])
@@ -241,7 +245,7 @@ function getTypes(dictId: number) {
 /** 查询字典类型列表 */
 function getTypeList() {
   getDictOptionselect().then(response => {
-    typeOptions.value = response.data
+    typeOptions.value = response.data ?? []
   })
 }
 
@@ -323,7 +327,7 @@ function handleUpdate(row?: SysDictData) {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["dataRef"].validate((valid: boolean) => {
+  dataRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.dictCode != undefined) {
         updateData(form.value).then(() => {

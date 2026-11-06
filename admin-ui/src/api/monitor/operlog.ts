@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { OperlogQueryParams, SysOperLog, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询操作日志列表
-export function list(query: OperlogQueryParams): Promise<TableDataInfo<SysOperLog[]>> {
+export function list(query: OperlogQueryParams): Promise<TableDataInfo<SysOperLog>> {
   return request({
     url: '/monitor/operlog/list',
     method: 'get',

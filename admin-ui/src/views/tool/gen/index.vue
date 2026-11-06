@@ -42,7 +42,7 @@
           plain
           icon="Download"
           :disabled="multiple"
-          @click="handleGenTable"
+          @click="handleGenTable()"
           v-hasPermi="['tool:gen:code']"
         >生成</el-button>
       </el-col>
@@ -70,7 +70,7 @@
           plain
           icon="Edit"
           :disabled="single"
-          @click="handleEditTable"
+          @click="handleEditTable()"
           v-hasPermi="['tool:gen:edit']"
         >修改</el-button>
       </el-col>
@@ -80,7 +80,7 @@
           plain
           icon="Delete"
           :disabled="multiple"
-          @click="handleDelete"
+          @click="handleDelete()"
           v-hasPermi="['tool:gen:remove']"
         >删除</el-button>
       </el-col>
@@ -91,7 +91,7 @@
       <el-table-column type="selection" align="center" width="55"></el-table-column>
       <el-table-column label="序号" type="index" width="50" align="center">
         <template #default="scope">
-          <span>{{(queryParams.pageNum - 1) * queryParams.pageSize + scope.$index + 1}}</span>
+          <span>{{((queryParams.pageNum ?? 1) - 1) * (queryParams.pageSize ?? 10) + scope.$index + 1}}</span>
         </template>
       </el-table-column>
       <el-table-column label="表名称" align="center" prop="tableName" :show-overflow-tooltip="true" />
@@ -146,13 +146,19 @@
 </template>
 
 <script setup lang="ts" name="Gen">
+import { useTemplateRef } from 'vue'
+import type { TableInstance, Sort } from 'element-plus'
+const genRefPublic=useTemplateRef<TableInstance>('genRef')
+const importRefPublic=useTemplateRef<InstanceType<typeof importTable>>('importRef')
+const createRefPublic=useTemplateRef<InstanceType<typeof createTable>>('createRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import { listTable, previewTable, delTable, genCode, synchDb } from "@/api/tool/gen"
 import importTable from "./importTable.vue"
 import createTable from "./createTable.vue"
 import type { GenTable, GenQueryParams } from '@/types/api/tool/gen'
 
 const route = useRoute()
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const tableList = ref<GenTable[]>([])
 const loading = ref<boolean>(true)
@@ -164,7 +170,7 @@ const total = ref<number>(0)
 const tableNames = ref<string[]>([])
 const dateRange = ref<string[]>([])
 const uniqueId = ref<string>("")
-const defaultSort = ref({ prop: "createTime", order: "descending" })
+const defaultSort = ref<Sort>({ prop: "createTime", order: "descending" })
 
 const data = reactive({
   queryParams: {
@@ -186,10 +192,11 @@ const data = reactive({
 const { queryParams, preview } = toRefs(data)
 
 onActivated(() => {
-  const time = route.query.t
+  const time = Array.isArray(route.query.t)?route.query.t[0]:route.query.t
   if (time != null && time != uniqueId.value) {
     uniqueId.value = time
-    queryParams.value.pageNum = Number(route.query.pageNum)
+    const page=Number(Array.isArray(route.query.pageNum)?route.query.pageNum[0]:route.query.pageNum)
+    queryParams.value.pageNum = Number.isSafeInteger(page)&&page>0?page:1
     dateRange.value = []
     proxy.resetForm("queryForm")
     getList()
@@ -213,15 +220,15 @@ function handleQuery() {
 }
 
 /** 生成代码操作 */
-function handleGenTable(row: GenTable) {
-  const tbNames = row.tableName || tableNames.value
+function handleGenTable(row?: GenTable) {
+  const tbNames = row?.tableName || tableNames.value
   if (tbNames == "") {
     proxy.$modal.msgError("请选择要生成的数据")
     return
   }
-  if (row.genType === "1") {
-    genCode(row.tableName!).then(() => {
-      proxy.$modal.msgSuccess("成功生成到自定义路径：" + row.genPath)
+  if (row?.genType === "1") {
+    genCode(row?.tableName!).then(() => {
+      proxy.$modal.msgSuccess("成功生成到自定义路径：" + row?.genPath)
     })
   } else {
     const zipName = Array.isArray(tbNames) ? "ruoyi.zip" : tbNames + ".zip"
@@ -241,12 +248,12 @@ function handleSynchDb(row: GenTable) {
 
 /** 打开导入表弹窗 */
 function openImportTable() {
-  proxy.$refs["importRef"].show()
+  importRefPublic.value?.show()
 }
 
 /** 打开创建表弹窗 */
 function openCreateTable() {
-  proxy.$refs["createRef"].show()
+  createRefPublic.value?.show()
 }
 
 /** 重置按钮操作 */
@@ -254,12 +261,12 @@ function resetQuery() {
   dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.pageNum = 1
-  proxy.$refs["genRef"].sort(defaultSort.value.prop, defaultSort.value.order)
+  genRefPublic.value?.sort(defaultSort.value.prop, defaultSort.value.order)
 }
 
 /** 预览按钮 */
-function handlePreview(row: GenTable) {
-  previewTable(row.tableId!).then(response => {
+function handlePreview(row?: GenTable) {
+  previewTable(row?.tableId!).then(response => {
     preview.value.data = response.data
     preview.value.open = true
     preview.value.activeName = "domain.java"
@@ -273,8 +280,8 @@ function copyTextSuccess() {
 
 // 多选框选中数据
 function handleSelectionChange(selection: GenTable[]) {
-  ids.value = selection.map(item => item.tableId)
-  tableNames.value = selection.map(item => item.tableName)
+  ids.value = selection.flatMap(item=>item.tableId==null?[]:[item.tableId])
+  tableNames.value = selection.flatMap(item=>item.tableName==null?[]:[item.tableName])
   single.value = selection.length != 1
   multiple.value = !selection.length
 }

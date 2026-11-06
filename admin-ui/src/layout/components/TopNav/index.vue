@@ -40,7 +40,7 @@ import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
 
 // 顶部栏初始数
-const visibleNumber = ref<number | null>(null)
+const visibleNumber = ref<number>(1)
 // 当前激活菜单的 index
 const currentIndex = ref<string | null>(null)
 // 隐藏侧边栏路由
@@ -126,7 +126,7 @@ function handleSelect(key: string, keyPath: string[]): void {
   } else if (!route || !route.children) {
     // 没有子路由路径内部打开
     const routeMenu = childrenMenus.value.find((item: any) => item.path === key)
-    if (routeMenu && routeMenu.query) {
+    if (routeMenu && 'query' in routeMenu && typeof routeMenu.query === 'string') {
       const query = JSON.parse(routeMenu.query)
       router.push({ path: key, query: query })
     } else {

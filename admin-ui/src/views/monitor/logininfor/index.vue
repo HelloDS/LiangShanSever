@@ -58,7 +58,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['monitor:logininfor:remove']"
             >删除</el-button>
          </el-col>
@@ -125,10 +125,14 @@
 </template>
 
 <script setup lang="ts" name="Logininfor">
+import { useTemplateRef } from 'vue'
+import type { TableInstance, Sort } from 'element-plus'
+const logininforRefPublic=useTemplateRef<TableInstance>('logininforRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import { list, delLogininfor, cleanLogininfor, unlockLogininfor } from "@/api/monitor/logininfor"
 import type { SysLogininfor, LogininforQueryParams } from '@/types/api/monitor/logininfor'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_common_status } = useDict("sys_common_status")
 
 const logininforList = ref<SysLogininfor[]>([])
@@ -140,7 +144,7 @@ const multiple = ref<boolean>(true)
 const selectName = ref<string[]>([])
 const total = ref<number>(0)
 const dateRange = ref<string[]>([])
-const defaultSort = ref({ prop: "loginTime", order: "descending" })
+const defaultSort = ref<Sort>({ prop: "loginTime", order: "descending" })
 
 // 查询参数
 const queryParams = ref<LogininforQueryParams>({
@@ -174,7 +178,7 @@ function resetQuery() {
   dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.pageNum = 1
-  proxy.$refs["logininforRef"].sort(defaultSort.value.prop, defaultSort.value.order)
+  logininforRefPublic.value?.sort(defaultSort.value.prop, defaultSort.value.order)
 }
 
 /** 多选框选中数据 */
@@ -215,7 +219,7 @@ function handleClean() {
 
 /** 解锁按钮操作 */
 function handleUnlock() {
-  const username = selectName.value
+  const username = selectName.value.join(",")
   proxy.$modal.confirm('是否确认解锁用户"' + username + '"数据项?').then(function () {
     return unlockLogininfor(username)
   }).then(() => {

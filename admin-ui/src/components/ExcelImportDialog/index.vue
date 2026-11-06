@@ -23,10 +23,11 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import type {  AjaxResult } from '@/types/api/common'
 import { getToken } from '@/utils/auth'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const props = defineProps({
   // 对话框标题

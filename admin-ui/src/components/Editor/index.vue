@@ -27,13 +27,16 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import axios from 'axios'
+import { useTemplateRef } from 'vue'
+const uploadButton=useTemplateRef<HTMLElement>('uploadRef')
 import { QuillEditor } from "@vueup/vue-quill"
 import "@vueup/vue-quill/dist/vue-quill.snow.css"
 import { getToken } from "@/utils/auth"
 import type { UploadFileResult } from '@/types/api/common'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const quillEditorRef = ref()
 const uploadUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload") // 上传的图片服务器地址
@@ -108,7 +111,7 @@ const styles = computed(() => {
 })
 
 const content = ref("")
-watch(() => props.modelValue, (v: string) => {
+watch(() => props.modelValue, (v: string | undefined) => {
   if (v !== content.value) {
     content.value = v == undefined ? "<p></p>" : v
   }
@@ -121,7 +124,7 @@ onMounted(() => {
     let toolbar = quill.getModule("toolbar")
     toolbar.addHandler("image", (value: boolean) => {
       if (value) {
-        proxy.$refs.uploadRef.click()
+        uploadButton.value?.click()
       } else {
         quill.format("image", false)
       }
@@ -151,7 +154,7 @@ function handleBeforeUpload(file: File) {
 }
 
 // 上传成功处理
-function handleUploadSuccess(res: UploadFileResult, file: File) {
+function handleUploadSuccess(res: UploadFileResult) {
   // 如果上传成功
   if (res.code == 200) {
     // 获取富文本实例
@@ -174,14 +177,14 @@ function handleUploadError() {
 
 // 复制粘贴图片处理
 function handlePasteCapture(e: ClipboardEvent) {
-  const clipboard = e.clipboardData || (window as any).clipboardData
+  const clipboard = e.clipboardData
   if (clipboard && clipboard.items) {
     for (let i = 0; i < clipboard.items.length; i++) {
       const item = clipboard.items[i]
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault()
         const file = item.getAsFile()
-        insertImage(file)
+        if (file) insertImage(file)
       }
     }
   }
@@ -191,7 +194,7 @@ function insertImage(file: File) {
   const formData = new FormData()
   formData.append("file", file)
   axios.post(uploadUrl.value, formData, { headers: { "Content-Type": "multipart/form-data", Authorization: headers.value.Authorization } }).then((res: { data: UploadFileResult }) => {
-    handleUploadSuccess(res.data as UploadFileResult, file)
+    handleUploadSuccess(res.data)
   })
 }
 </script>

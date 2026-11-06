@@ -15,12 +15,12 @@
             <el-dropdown-menu>
               <!-- 全选/反选 按钮 -->
               <el-dropdown-item>
-                <el-checkbox :indeterminate="isIndeterminate" v-model="isChecked" @change="toggleCheckAll"> 列展示 </el-checkbox>
+                <el-checkbox :indeterminate="isIndeterminate" :model-value="isChecked" @change="toggleCheckAll"> 列展示 </el-checkbox>
               </el-dropdown-item>
               <div class="check-line"></div>
-              <template v-for="(item, key) in columns" :key="item.key">
+              <template v-for="entry in columnEntries" :key="entry.key">
                 <el-dropdown-item>
-                  <el-checkbox v-model="item.visible" @change="checkboxChange($event, key)" :label="item.label" />
+                  <el-checkbox v-model="entry.column.visible" @change="checkboxChange($event, entry.key)" :label="entry.column.label" />
                 </el-dropdown-item>
               </template>
             </el-dropdown-menu>
@@ -40,77 +40,30 @@
 </template>
 
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import type { PropType } from 'vue'
+import type { CheckboxValueType, TransferKey } from 'element-plus'
+import { useAppProxy } from '@/composables/useAppProxy'
 import cache from '@/plugins/cache'
 import type { TableShowColumns } from '@/types/api/common'
-
-const props = defineProps({
-  /* 是否显示检索条件 */
-  showSearch: {
-    type: Boolean,
-    default: true
-  },
-  /* 显隐列信息（数组格式、对象格式） */
-  columns: {
-    type: [Array, Object],
-    default: () => ({})
-  },
-  /* 是否显示检索图标 */
-  search: {
-    type: Boolean,
-    default: true
-  },
-  /* 显隐列类型（transfer穿梭框、checkbox复选框） */
-  showColumnsType: {
-    type: String,
-    default: "checkbox"
-  },
-  /* 右外边距 */
-  gutter: {
-    type: Number,
-    default: 10
-  },
-  /* 列显隐状态记忆的 localStorage key（传入则启用记忆，不传则不记忆） */
-  storageKey: {
-    type: String,
-    default: ""
-  }
+const props=defineProps({
+  showSearch:{type:Boolean,default:true},
+  columns:{type:[Array,Object] as PropType<TableShowColumns[]|Record<string,TableShowColumns>>,default:()=>({})},
+  search:{type:Boolean,default:true},showColumnsType:{type:String,default:'checkbox'},gutter:{type:Number,default:10},storageKey:{type:String,default:''}
 })
-
-const emits = defineEmits(['update:showSearch', 'queryTable'])
-
-// 显隐数据
-const value = ref<number[]>([])
-// 弹出层标题
-const title = ref("显示/隐藏")
-// 是否显示弹出层
-const open = ref(false)
-
-const style = computed(() => {
-  const ret: Record<string, string> = {}
-  if (props.gutter) {
-    ret.marginRight = `${props.gutter / 2}px`
-  }
-  return ret
-})
-
-// 是否全选/半选 状态
-const isChecked = computed({
-  get: () => Array.isArray(props.columns) ? props.columns.every((col: TableShowColumns) => col.visible) : Object.values(props.columns).every((col) => (col as TableShowColumns).visible),
-  set: () => {}
-})
-const isIndeterminate = computed(() => Array.isArray(props.columns) ? props.columns.some((col: TableShowColumns) => col.visible) && !isChecked.value : Object.values(props.columns).some((col) => (col as TableShowColumns).visible) && !isChecked.value)
-const transferData = computed(() => Array.isArray(props.columns) ? props.columns.map((item: TableShowColumns, index: number) => ({ key: index, label: item.label })) : Object.keys(props.columns).map((key, index) => ({ key: index, label: props.columns[key].label })))
-
-// 搜索
-const { proxy } = getCurrentInstance()!
-function toggleSearch(): void {
-  let el: HTMLElement | null = proxy!.$el
-  let formEl: HTMLElement | null = null
-  while ((el = el!.parentElement) && el !== document.body) {
-    if ((formEl = el.querySelector('.el-form'))) break
-  }
-  if (!formEl) return emits('update:showSearch', !props.showSearch)
-  animateSearch(formEl, props.showSearch)
+const emits=defineEmits<{'update:showSearch':[value:boolean];queryTable:[]}>()
+const proxy=useAppProxy(),value=ref<string[]>([]),title=ref('显示/隐藏'),open=ref(false)
+const columnEntries=computed(()=>Object.entries(props.columns).map(([key,column])=>({key,column})))
+const isChecked=computed(()=>columnEntries.value.length>0&&columnEntries.value.every(entry=>entry.column.visible))
+const isIndeterminate=computed(()=>columnEntries.value.some(entry=>entry.column.visible)&&!isChecked.value)
+const transferData=computed(()=>columnEntries.value.map(entry=>({key:entry.key,label:entry.column.label})))
+const style=computed(()=>({marginRight:`${props.gutter/2}px`}))
+function toggleSearch(){
+  let element:HTMLElement|null=proxy.$el instanceof HTMLElement?proxy.$el:null
+  let form:HTMLElement|null=null
+  while((element=element?.parentElement??null)&&element!==document.body){form=element.querySelector('.el-form');if(form)break}
+  if(!form){emits('update:showSearch',!props.showSearch);return}
+  animateSearch(form,props.showSearch)
 }
 function animateSearch(el: HTMLElement, isHide: boolean): void {
   const DURATION = 260
@@ -133,102 +86,23 @@ function animateSearch(el: HTMLElement, isHide: boolean): void {
   }
 }
 
-// 刷新
-function refresh(): void {
-  emits("queryTable")
-}
 
-// 右侧列表元素变化
-function dataChange(data: number[]): void {
-  if (Array.isArray(props.columns)) {
-    for (let item in props.columns) {
-      const key = props.columns[item].key
-      props.columns[item].visible = !data.includes(parseInt(key))
-    }
-  } else {
-    Object.keys(props.columns).forEach((key, index) => {
-      props.columns[key].visible = !data.includes(index)
-    })
-  }
-  saveStorage()
+function refresh(){emits('queryTable')}
+function dataChange(keys:TransferKey[]){const hidden=new Set(keys.map(String));for(const entry of columnEntries.value)entry.column.visible=!hidden.has(entry.key);saveStorage()}
+function showColumn(){open.value=true}
+function checkboxChange(event:CheckboxValueType,key:string){const entry=columnEntries.value.find(entry=>entry.key===key);if(entry)entry.column.visible=event===true;saveStorage()}
+function toggleCheckAll(event:CheckboxValueType){for(const entry of columnEntries.value)entry.column.visible=event===true;saveStorage()}
+function saveStorage(){
+  if(!props.storageKey)return
+  try{cache.local.setJSON(props.storageKey,Object.fromEntries(columnEntries.value.map(entry=>[entry.key,entry.column.visible])))}catch{/* 浏览器不允许持久存储时保留本次页面内状态。 */}
 }
-
-// 打开显隐列dialog
-function showColumn(): void {
-  open.value = true
+if(props.storageKey){
+  try{
+    const saved:unknown=cache.local.getJSON(props.storageKey)
+    if(saved&&typeof saved==='object')for(const entry of columnEntries.value){const visible=(saved as Record<string,unknown>)[entry.key];if(typeof visible==='boolean')entry.column.visible=visible}
+  }catch{/* 不完整的旧偏好不阻止表格显示。 */}
 }
-
-// 如果传入了 storageKey，从 localStorage 恢复列显隐状态
-if (props.storageKey) {
-  try {
-    const saved = cache.local.getJSON(props.storageKey)
-    if (saved && typeof saved === 'object') {
-      if (Array.isArray(props.columns)) {
-        props.columns.forEach((col: TableShowColumns, index: number) => {
-          if (saved[index] !== undefined) col.visible = saved[index]
-        })
-      } else {
-        Object.keys(props.columns).forEach(key => {
-          if (saved[key] !== undefined) props.columns[key].visible = saved[key]
-        })
-      }
-    }
-  } catch (e) {}
-}
-if (props.showColumnsType == "transfer") {
-  // transfer穿梭显隐列初始默认隐藏列
-  if (Array.isArray(props.columns)) {
-    for (let item in props.columns) {
-      if (props.columns[item].visible === false) {
-        value.value.push(parseInt(item))
-      }
-    }
-  } else {
-    Object.keys(props.columns).forEach((key, index) => {
-      if (props.columns[key].visible === false) {
-        value.value.push(index)
-      }
-    })
-  }
-}
-
-// 单勾选
-function checkboxChange(event: boolean, key: string): void {
-  if (Array.isArray(props.columns)) {
-    const col = props.columns.filter((item: any) => item.key == key)[0]
-    if (col) {
-      col.visible = event
-    }
-  } else {
-    props.columns[key].visible = event
-  }
-  saveStorage()
-}
-
-// 切换全选/反选
-function toggleCheckAll(): void {
-  const newValue = !isChecked.value
-  if (Array.isArray(props.columns)) {
-    props.columns.forEach((col: TableShowColumns) => (col.visible = newValue))
-  } else {
-    Object.values(props.columns).forEach((col) => ((col as TableShowColumns).visible = newValue))
-  }
-  saveStorage()
-}
-
-// 将当前列显隐状态持久化到 localStorage
-function saveStorage(): void {
-  if (!props.storageKey) return
-  try {
-    let state: { [key: string]: boolean } = {}
-    if (Array.isArray(props.columns)) {
-      props.columns.forEach((col: TableShowColumns, index: number) => { state[index] = col.visible })
-    } else {
-      Object.keys(props.columns).forEach(key => { state[key] = props.columns[key].visible })
-    }
-    cache.local.setJSON(props.storageKey, state)
-  } catch (e) {}
-}
+watch(columnEntries,entries=>{const hidden=entries.filter(entry=>!entry.column.visible).map(entry=>entry.key);if(hidden.join()!==value.value.join())value.value=hidden},{deep:true,immediate:true})
 </script>
 
 <style lang='scss' scoped>

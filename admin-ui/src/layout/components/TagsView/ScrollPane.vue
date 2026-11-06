@@ -10,30 +10,37 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
+import { useTemplateRef } from 'vue'
+import type { ScrollbarInstance } from 'element-plus'
+const scrollbar=useTemplateRef<ScrollbarInstance>('scrollContainer')
 import useTagsViewStore from '@/store/modules/tagsView'
 
 const tagAndTagSpacing = ref<number>(4)
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
-const scrollWrapper = computed(() => proxy.$refs.scrollContainer.$refs.wrapRef)
+const scrollWrapper = computed(() => scrollbar.value?.wrapRef)
 
 onMounted(() => {
-  scrollWrapper.value.addEventListener('scroll', emitScroll, true)
+  scrollWrapper.value?.addEventListener('scroll', emitScroll, true)
 })
 
 onBeforeUnmount(() => {
-  scrollWrapper.value.removeEventListener('scroll', emitScroll)
+  scrollWrapper.value?.removeEventListener('scroll', emitScroll, true)
 })
 
 function handleScroll(e: WheelEvent): void {
   const eventDelta = -e.deltaY * 40
   const $scrollWrapper = scrollWrapper.value
+  if (!$scrollWrapper) return
   $scrollWrapper.scrollLeft = $scrollWrapper.scrollLeft + eventDelta / 4
   emits('updateArrows')
 }
 
 function smoothScrollTo(target: number): void {
-  const $scrollWrapper = scrollWrapper.value
+  const candidate = scrollWrapper.value
+  if (!candidate) return
+  const $scrollWrapper=candidate
   const start: number = $scrollWrapper.scrollLeft
   const distance: number = target - start
   const duration = 300
@@ -75,9 +82,11 @@ const tagsViewStore = useTagsViewStore()
 const visitedViews = computed(() => tagsViewStore.visitedViews)
 
 function moveToTarget(currentTag: any): void {
-  const $container = proxy.$refs.scrollContainer.$el
+  const $container = scrollbar.value?.$el
+  if (!($container instanceof HTMLElement)) return
   const $containerWidth = $container.offsetWidth
   const $scrollWrapper = scrollWrapper.value
+  if (!$scrollWrapper) return
 
   let firstTag: any = null
   let lastTag: any = null
@@ -126,11 +135,13 @@ function scrollToStart(): void {
 
 function scrollToEnd(): void {
   const $scrollWrapper = scrollWrapper.value
+  if (!$scrollWrapper) return
   smoothScrollTo($scrollWrapper.scrollWidth - $scrollWrapper.clientWidth)
 }
 
 function getScrollState(): { canLeft: boolean; canRight: boolean } {
   const $scrollWrapper = scrollWrapper.value
+  if (!$scrollWrapper) return {canLeft:false,canRight:false}
   return {
     canLeft: $scrollWrapper.scrollLeft > 0,
     canRight: $scrollWrapper.scrollLeft < $scrollWrapper.scrollWidth - $scrollWrapper.clientWidth - 1

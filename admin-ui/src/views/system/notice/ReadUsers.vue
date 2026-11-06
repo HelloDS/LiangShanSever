@@ -46,11 +46,12 @@
 </template>
 
 <script setup lang="ts" name="ReadUsers">
+import { useAppProxy } from '@/composables/useAppProxy'
 import { Search } from "@element-plus/icons-vue"
 import { listNoticeReadUsers } from "@/api/system/notice"
 import type { NoticeReadUser, NoticeReadUserQueryParams, SysNotice } from "@/types/api/system/notice"
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const visible = ref(false)
 const loading = ref(false)

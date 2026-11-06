@@ -59,9 +59,9 @@ export interface TreeSelect {
   /** 节点名称 */
   label?: string
   /** 节点禁用 */
-  disabled: boolean
+  disabled?: boolean
   /** 子节点 */
-  children: TreeSelect[]
+  children?: TreeSelect[]
 }
 
 /** 显隐列信息 */

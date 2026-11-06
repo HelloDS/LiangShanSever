@@ -143,12 +143,12 @@ const sexLabel = computed(() => selectDictLabel(sys_user_sex.value, info.sex) ||
 
 const postNames = computed<string>(() => {
   if (!postOptions.value.length || !info.postIds) return ''
-  return postOptions.value.filter((p: SysPost) => info.postIds?.includes(p.postId)).map((p: SysPost) => p.postName).join('、') || ''
+  return postOptions.value.filter((p: SysPost) => p.postId!=null && info.postIds?.includes(p.postId)).map((p: SysPost) => p.postName).join('、') || ''
 })
 
 const roleNames = computed<string>(() => {
   if (!roleOptions.value.length || !info.roleIds) return ''
-  return roleOptions.value.filter((r: SysRole) => info.roleIds?.includes(r.roleId)).map((r: SysRole) => r.roleName).join('、') || ''
+  return roleOptions.value.filter((r: SysRole) => r.roleId!=null && info.roleIds?.includes(r.roleId)).map((r: SysRole) => r.roleName).join('、') || ''
 })
 
 const open = async (userId: number): Promise<void> => {

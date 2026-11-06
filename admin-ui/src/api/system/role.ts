@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { RoleQueryParams, AuthUserQueryParams, SysRole, SysUser, SysUserRole, AuthUserSelectParams, AjaxResult, RoleDeptTreeResult, TableDataInfo } from '@/types'
 
 // 查询角色列表
-export function listRole(query: RoleQueryParams): Promise<TableDataInfo<SysRole[]>> {
+export function listRole(query: RoleQueryParams): Promise<TableDataInfo<SysRole>> {
   return request({
     url: '/system/role/list',
     method: 'get',
@@ -67,7 +67,7 @@ export function delRole(roleId: number | number[]): Promise<AjaxResult> {
 }
 
 // 查询角色已授权用户列表
-export function allocatedUserList(query: AuthUserQueryParams): Promise<TableDataInfo<SysUser[]>> {
+export function allocatedUserList(query: AuthUserQueryParams): Promise<TableDataInfo<SysUser>> {
   return request({
     url: '/system/role/authUser/allocatedList',
     method: 'get',
@@ -76,7 +76,7 @@ export function allocatedUserList(query: AuthUserQueryParams): Promise<TableData
 }
 
 // 查询角色未授权用户列表
-export function unallocatedUserList(query: AuthUserQueryParams): Promise<TableDataInfo<SysUser[]>> {
+export function unallocatedUserList(query: AuthUserQueryParams): Promise<TableDataInfo<SysUser>> {
   return request({
     url: '/system/role/authUser/unallocatedList',
     method: 'get',

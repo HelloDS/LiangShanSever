@@ -112,6 +112,7 @@ const initParticles = () => {
   const canvas = particleCanvas.value
   if (!canvas) return
   const ctx = canvas.getContext('2d')
+  if (!ctx) return
   const resize = () => {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
@@ -130,7 +131,7 @@ const initParticles = () => {
 
   const draw = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    particles.forEach(p => {
+    particles.forEach((p: {x:number;y:number;r:number;dx:number;dy:number;alpha:number}) => {
       ctx.beginPath()
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
       ctx.fillStyle = `rgba(255,255,255,${p.alpha})`

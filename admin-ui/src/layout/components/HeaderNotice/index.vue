@@ -1,6 +1,6 @@
 <template>
   <div>
-    <el-popover ref="noticePopover" placement="bottom-end" :width="320" trigger="manual" v-model:visible="noticeVisible" popper-class="notice-popover">
+    <el-popover ref="noticePopover" placement="bottom-end" :width="320" :trigger="[]" v-model:visible="noticeVisible" popper-class="notice-popover">
       <!-- 弹出内容 -->
       <div class="notice-header">
         <span class="notice-title">通知公告</span>
@@ -38,7 +38,10 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import NoticeDetailView from './DetailView.vue'
+import { useTemplateRef } from 'vue'
+const detailView=useTemplateRef<InstanceType<typeof NoticeDetailView>>('noticeViewRef')
 import { listNoticeTop, markNoticeRead, markNoticeReadAll } from '@/api/system/notice'
 import type { SysNotice } from '@/types/api/system/notice'
 
@@ -52,7 +55,7 @@ const unreadCount = ref<number>(0)
 const noticeLoading = ref<boolean>(false)
 const noticeVisible = ref<boolean>(false)
 const noticeLeaveTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-  const { proxy } = getCurrentInstance()
+  const proxy = useAppProxy()
 
 // 加载顶部公告列表
 function loadNoticeTop(): void {
@@ -90,13 +93,14 @@ function onNoticeLeave(): void {
 
 // 预览公告详情
 function previewNotice(item: SysNotice): void {
+  if (item.noticeId == null) return
   if (!item.isRead) {
     markNoticeRead(item.noticeId!).catch(() => {})
     const idx = noticeList.value.indexOf(item)
     if (idx !== -1) noticeList.value[idx] = { ...item, isRead: true }
     unreadCount.value = Math.max(0, unreadCount.value - 1)
   }
-  proxy.$refs["noticeViewRef"].open(item.noticeId)
+  detailView.value?.open(item.noticeId)
 }
 
 // 全部已读

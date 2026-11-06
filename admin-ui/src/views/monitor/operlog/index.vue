@@ -82,7 +82,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['monitor:operlog:remove']"
             >删除</el-button>
          </el-col>
@@ -135,7 +135,7 @@
          </el-table-column>
          <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
             <template #default="scope">
-               <el-button link type="primary" icon="View" @click="handleDetail(scope.row, scope.index)" v-hasPermi="['monitor:operlog:query']">详细</el-button>
+               <el-button link type="primary" icon="View" @click="handleDetail(scope.row)" v-hasPermi="['monitor:operlog:query']">详细</el-button>
             </template>
          </el-table-column>
       </el-table>
@@ -153,11 +153,15 @@
 </template>
 
 <script setup lang="ts" name="Operlog">
+import { useTemplateRef } from 'vue'
+import type { TableInstance, Sort } from 'element-plus'
+const operlogRefPublic=useTemplateRef<TableInstance>('operlogRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import OperlogDetail from './detail.vue'
 import { list, delOperlog, cleanOperlog } from "@/api/monitor/operlog"
 import type { SysOperLog, OperlogQueryParams } from '@/types/api/monitor/operlog'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_oper_type, sys_common_status } = useDict("sys_oper_type", "sys_common_status")
 
 const operlogList = ref<SysOperLog[]>([])
@@ -171,7 +175,7 @@ const multiple = ref<boolean>(true)
 const total = ref<number>(0)
 const title = ref<string>("")
 const dateRange = ref<string[]>([])
-const defaultSort = ref({ prop: "operTime", order: "descending" })
+const defaultSort = ref<Sort>({ prop: "operTime", order: "descending" })
 
 const data = reactive({
   form: {} as SysOperLog,
@@ -209,7 +213,7 @@ function resetQuery() {
   dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.pageNum = 1
-  proxy.$refs["operlogRef"].sort(defaultSort.value.prop, defaultSort.value.order)
+  operlogRefPublic.value?.sort(defaultSort.value.prop, defaultSort.value.order)
 }
 
 /** 多选框选中数据 */

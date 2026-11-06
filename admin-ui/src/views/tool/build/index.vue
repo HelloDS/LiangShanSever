@@ -96,6 +96,7 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import draggable from "vuedraggable/dist/vuedraggable.common"
 import ClipboardJS from 'clipboard'
 //@ts-ignore
@@ -116,7 +117,7 @@ import CodeTypeDialog from './CodeTypeDialog.vue'
 initDrawingDefaultValue()
 
 const drawingList = ref<any[]>(drawingDefaultValue)
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const dialogVisible = ref<boolean>(false)
 const showFileName = ref<boolean>(false)
 const operationType = ref<string>('')
@@ -144,7 +145,7 @@ function download(): void {
   operationType.value = 'download'
 }
 function empty(): void {
-  proxy.$modal.confirm('确定要清空所有组件吗？', '提示', { type: 'warning' }).then(() => {
+  proxy.$modal.confirm('确定要清空所有组件吗？').then(() => {
     idGlobal.value = 100
     drawingList.value = []
     cleanDrawingDefaultValue()

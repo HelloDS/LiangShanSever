@@ -50,7 +50,7 @@
           <div class="dict-cell">
             <div class="dict-cell-key">标签</div>
             <div class="dict-cell-val">
-              <el-tag v-if="item.listClass && item.listClass !== 'default'" :type="item.listClass === 'primary' ? undefined : item.listClass" size="small">{{ item.dictLabel }}</el-tag>
+              <el-tag v-if="item.listClass && item.listClass !== 'default'" :type="tagType(item.listClass)" size="small">{{ item.dictLabel }}</el-tag>
               <span v-else>{{ item.dictLabel }}</span>
             </div>
           </div>
@@ -107,6 +107,7 @@ function loadData() {
     loading.value = false
   })
 }
+function tagType(value?:string):'primary'|'success'|'warning'|'info'|'danger'|undefined {return value==='primary'||value==='success'||value==='warning'||value==='info'||value==='danger'?value:undefined}
 </script>
 
 <style scoped>

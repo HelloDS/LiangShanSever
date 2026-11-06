@@ -43,6 +43,7 @@ export function usePasswordRule() {
     if (!rule.pattern.test(value)) {
       return rule.message
     }
+    return true
   }
   // 个人中心密码校验
   const infoPwdValidator = computed(() => {

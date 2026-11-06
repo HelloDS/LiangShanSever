@@ -31,6 +31,9 @@
 </template>
 
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const formInstance=useTemplateRef<FormInstance>('basicInfoForm')
 defineProps({
   info: {
     type: Object,
@@ -45,4 +48,5 @@ const rules = ref({
   className: [{ required: true, message: "请输入实体类名称", trigger: "blur" }],
   functionAuthor: [{ required: true, message: "请输入作者", trigger: "blur" }]
 })
+defineExpose({validate:async()=>formInstance.value?formInstance.value.validate().then(()=>true).catch(()=>false):false})
 </script>

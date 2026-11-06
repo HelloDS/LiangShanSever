@@ -3,15 +3,15 @@
     <template v-if="hasOneShowingChild(item.children, item) && (!onlyOneChild.children || onlyOneChild.noShowingChildren) && !item.alwaysShow">
       <app-link v-if="onlyOneChild.meta" :to="resolvePath(onlyOneChild.path, onlyOneChild.query)">
         <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{ 'submenu-title-noDropdown': !isNest }">
-          <svg-icon :icon-class="onlyOneChild.meta.icon || (item.meta && item.meta.icon)"/>
-          <template #title><span class="menu-title" :title="hasTitle(onlyOneChild.meta.title)">{{ onlyOneChild.meta.title }}</span></template>
+          <svg-icon :icon-class="onlyOneChild.meta.icon || item.meta?.icon || ''"/>
+          <template #title><span class="menu-title" :title="hasTitle(onlyOneChild.meta.title)">{{ onlyOneChild.meta.title ?? '' }}</span></template>
         </el-menu-item>
       </app-link>
     </template>
 
     <el-sub-menu v-else ref="subMenu" :index="resolvePath(item.path)" teleported>
       <template v-if="item.meta" #title>
-        <svg-icon :icon-class="item.meta && item.meta.icon" />
+        <svg-icon :icon-class="item.meta?.icon || ''" />
         <span class="menu-title" :title="hasTitle(item.meta.title)">{{ item.meta.title }}</span>
       </template>
 
@@ -30,12 +30,16 @@
 <script setup lang="ts">
 import { isExternal } from '@/utils/validate'
 import AppLink from './Link.vue'
+import type { PropType } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
+import type { RouterVo } from '@/types/api/menu'
+interface MenuRoute extends Omit<RouterVo,'path'|'children'> {path:string;children?:MenuRoute[];noShowingChildren?:boolean}
 import { getNormalPath } from '@/utils/ruoyi'
 
 const props = defineProps({
   // route object
   item: {
-    type: Object,
+    type: Object as PropType<MenuRoute>,
     required: true
   },
   isNest: {
@@ -48,9 +52,9 @@ const props = defineProps({
   }
 })
 
-const onlyOneChild = ref({})
+const onlyOneChild = ref<MenuRoute>({path:''})
 
-function hasOneShowingChild(children: any[] = [], parent: any) {
+function hasOneShowingChild(children: MenuRoute[] = [], parent: MenuRoute) {
   if (!children) {
     children = []
   }
@@ -76,7 +80,9 @@ function hasOneShowingChild(children: any[] = [], parent: any) {
   return false
 }
 
-function resolvePath(routePath: string, routeQuery?: string): string | { path: string; query: Record<string, any> } {
+function resolvePath(routePath:string):string
+function resolvePath(routePath:string,routeQuery:string|undefined):RouteLocationRaw
+function resolvePath(routePath: string, routeQuery?: string): RouteLocationRaw {
   if (isExternal(routePath)) {
     return routePath
   }
@@ -90,7 +96,7 @@ function resolvePath(routePath: string, routeQuery?: string): string | { path: s
   return getNormalPath(props.basePath + '/' + routePath)
 }
 
-function hasTitle(title: string): string {
+function hasTitle(title: string = ""): string {
   if (title.length > 5) {
     return title
   } else {

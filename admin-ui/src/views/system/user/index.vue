@@ -26,13 +26,13 @@
 
         <el-row :gutter="10" class="mb8">
           <el-col :span="1.5">
-            <el-button type="primary" plain icon="Plus" @click="handleAdd" v-hasPermi="['system:user:add']">新增</el-button>
+            <el-button type="primary" plain icon="Plus" @click="handleAdd()" v-hasPermi="['system:user:add']">新增</el-button>
           </el-col>
           <el-col :span="1.5">
-            <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate" v-hasPermi="['system:user:edit']">修改</el-button>
+            <el-button type="success" plain icon="Edit" :disabled="single" @click="handleUpdate()" v-hasPermi="['system:user:edit']">修改</el-button>
           </el-col>
           <el-col :span="1.5">
-            <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete" v-hasPermi="['system:user:remove']">删除</el-button>
+            <el-button type="danger" plain icon="Delete" :disabled="multiple" @click="handleDelete()" v-hasPermi="['system:user:remove']">删除</el-button>
           </el-col>
           <el-col :span="1.5">
             <el-button type="info" plain icon="Upload" @click="handleImport" v-hasPermi="['system:user:import']">导入</el-button>
@@ -57,6 +57,7 @@
           <el-table-column label="状态" align="center" key="status" v-if="columns.status.visible">
             <template #default="scope">
               <el-switch
+                  :disabled="!checkPermi(['system:user:edit']) || scope.row.userId===1"
                 v-model="scope.row.status"
                 active-value="0"
                 inactive-value="1"
@@ -100,7 +101,7 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="归属部门" prop="deptId">
-              <el-tree-select v-model="form.deptId" :data="enabledDeptOptions" :props="{ value: 'id', label: 'label', children: 'children' }" value-key="id" placeholder="请选择归属部门" clearable check-strictly />
+              <el-tree-select v-model="form.deptId" :data="enabledDeptOptions" :props="{ label: 'label', children: 'children' }" value-key="id" placeholder="请选择归属部门" clearable check-strictly />
             </el-form-item>
           </el-col>
         </el-row>
@@ -148,14 +149,14 @@
           <el-col :span="12">
             <el-form-item label="岗位">
               <el-select v-model="form.postIds" multiple placeholder="请选择">
-                <el-option v-for="item in postOptions" :key="item.postId" :label="item.postName" :value="item.postId" :disabled="item.status == 1"></el-option>
+                <el-option v-for="item in postOptions" :key="item.postId" :label="item.postName" :value="item.postId!" :disabled="item.status === '1'"></el-option>
               </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="角色">
               <el-select v-model="form.roleIds" multiple placeholder="请选择">
-                <el-option v-for="item in roleOptions" :key="item.roleId" :label="item.roleName" :value="item.roleId" :disabled="item.status == 1"></el-option>
+                <el-option v-for="item in roleOptions" :key="item.roleId" :label="item.roleName" :value="item.roleId!" :disabled="item.status === '1'"></el-option>
               </el-select>
             </el-form-item>
           </el-col>
@@ -184,6 +185,15 @@
 </template>
 
 <script setup lang="ts" name="User">
+const deptTreeRefPublic=useTemplateRef<InstanceType<typeof TreePanel>>('deptTreeRef')
+const userViewRefPublic=useTemplateRef<InstanceType<typeof UserViewDrawer>>('userViewRef')
+const importUserRefPublic=useTemplateRef<InstanceType<typeof ExcelImportDialog>>('importUserRef')
+import type { FormRules } from 'element-plus'
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const userRefInstance = useTemplateRef<FormInstance>('userRef')
+import { checkPermi } from '@/utils/permission'
+import { useAppProxy } from '@/composables/useAppProxy'
 import TreePanel from "@/components/TreePanel/index.vue"
 import ExcelImportDialog from "@/components/ExcelImportDialog/index.vue"
 import UserViewDrawer from "./view.vue"
@@ -195,7 +205,7 @@ import type { SysPost } from '@/types/api/system/post'
 import type { TreeSelect, TableShowColumns, AjaxResult } from '@/types/api/common'
 
 const router = useRouter()
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { pwdValidator, pwdPromptValidator } = usePasswordRule()
 const { sys_normal_disable, sys_user_sex } = useDict("sys_normal_disable", "sys_user_sex")
 
@@ -240,7 +250,7 @@ const data = reactive({
     nickName: [{ required: true, message: "用户昵称不能为空", trigger: "blur" }],
     email: [{ type: "email", message: "请输入正确的邮箱地址", trigger: ["blur", "change"] }],
     phonenumber: [{ pattern: /^1[3|4|5|6|7|8|9][0-9]\d{8}$/, message: "请输入正确的手机号码", trigger: "blur" }]
-  }
+  } satisfies FormRules
 })
 
 const { queryParams, form, rules } = toRefs(data)
@@ -258,7 +268,7 @@ function getList() {
 /** 查询部门下拉树结构 */
 function getDeptTree() {
   deptTreeSelect().then(response => {
-    deptOptions.value = response.data
+    deptOptions.value = response.data ?? []
     enabledDeptOptions.value = filterDisabledDept(JSON.parse(JSON.stringify(response.data)))
   })
 }
@@ -293,7 +303,7 @@ function resetQuery() {
   dateRange.value = []
   proxy.resetForm("queryRef")
   queryParams.value.deptId = undefined
-  proxy.$refs.deptTreeRef.setCurrentKey(null)
+  deptTreeRefPublic.value?.setCurrentKey(undefined)
   handleQuery()
 }
 
@@ -370,12 +380,12 @@ function handleSelectionChange(selection: SysUser[]) {
 
 /** 详情按钮操作 */
 function handleViewData(row: SysUser) {
-  proxy.$refs["userViewRef"].open(row.userId)
+  if (row.userId != null) userViewRefPublic.value?.open(row.userId)
 }
 
 /** 导入按钮操作 */
 function handleImport() {
-  proxy.$refs["importUserRef"].open()
+  importUserRefPublic.value?.open()
 }
 
 /** 重置操作表单 */
@@ -433,7 +443,7 @@ function handleUpdate(row?: SysUser) {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["userRef"].validate((valid: boolean) => {
+  userRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.userId != undefined) {
         updateUser(form.value).then(() => {

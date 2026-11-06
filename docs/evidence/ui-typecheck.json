@@ -1,0 +1,18 @@
+{
+  "executedAt": "2026-11-06T17:45:57.469Z",
+  "command": "scripts/pnpm.sh --dir admin-ui typecheck",
+  "strict": true,
+  "diagnostics": 0,
+  "versions": {
+    "vue": "3.5.26",
+    "typescript": "5.6.3",
+    "vue-tsc": "2.1.10",
+    "element-plus": "2.13.1",
+    "axios": "1.13.2",
+    "vite": "6.4.1"
+  },
+  "productionBuild": "PASS",
+  "javaBuildAndTests": "35 项通过",
+  "result": "PASS",
+  "browserRegression": "PASS"
+}

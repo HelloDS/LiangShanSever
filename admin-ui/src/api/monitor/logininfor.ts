@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { LogininforQueryParams, SysLogininfor, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询登录日志列表
-export function list(query: LogininforQueryParams): Promise<TableDataInfo<SysLogininfor[]>> {
+export function list(query: LogininforQueryParams): Promise<TableDataInfo<SysLogininfor>> {
   return request({
     url: '/monitor/logininfor/list',
     method: 'get',

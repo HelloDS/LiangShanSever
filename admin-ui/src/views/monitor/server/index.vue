@@ -170,10 +170,11 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import { getServer } from '@/api/monitor/server'
 
 const server = ref<any>([])
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 function getList() {
   proxy.$modal.loading("正在加载服务监控数据，请稍候！")

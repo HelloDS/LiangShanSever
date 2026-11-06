@@ -122,15 +122,19 @@
 </template>
 
 <script setup lang="ts" name="GenEdit">
+import { useAppProxy } from '@/composables/useAppProxy'
 import { getGenTable, updateGenTable } from "@/api/tool/gen"
 import { optionselect as getDictOptionselect } from "@/api/system/dict/type"
 import type { GenTableInfoResult } from '@/types/api/tool/gen'
+import { useTemplateRef } from 'vue'
+const basicInfo=useTemplateRef<InstanceType<typeof BasicInfoForm>>('basicInfo')
+const genInfo=useTemplateRef<InstanceType<typeof GenInfoForm>>('genInfo')
 import BasicInfoForm from "./basicInfoForm.vue"
 import GenInfoForm from "./genInfoForm.vue"
 import Sortable from 'sortablejs'
 
 const route = useRoute()
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const activeName = ref<string>("columnInfo")
 const tableHeight = ref<string>(document.documentElement.scrollHeight - 245 + "px")
@@ -141,9 +145,9 @@ const info = ref<Record<string, any>>({})
 
 /** 提交按钮 */
 function submitForm(): void {
-  const basicForm = proxy.$refs.basicInfo.$refs.basicInfoForm
-  const genForm = proxy.$refs.genInfo.$refs.genInfoForm
-  Promise.all([basicForm, genForm].map(getFormPromise)).then(res => {
+  const basicForm = basicInfo.value
+  const genForm = genInfo.value
+  Promise.all([basicForm?.validate(),genForm?.validate()]).then(res => {
     const validateResult = res.every(item => !!item)
     if (validateResult) {
       const genTable = Object.assign({}, info.value)
@@ -167,13 +171,6 @@ function submitForm(): void {
   })
 }
 
-function getFormPromise(form: any): Promise<boolean> {
-  return new Promise(resolve => {
-    form.validate((res: boolean) => {
-      resolve(res)
-    })
-  })
-}
 
 function close(): void {
   const obj = { path: "/tool/gen", query: { t: Date.now(), pageNum: route.query.pageNum } }
@@ -192,7 +189,7 @@ function close(): void {
     })
     /** 查询字典下拉列表 */
     getDictOptionselect().then(response => {
-      dictOptions.value = response.data
+      dictOptions.value = response.data ?? []
     })
   }
 })()

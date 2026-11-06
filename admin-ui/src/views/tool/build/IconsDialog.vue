@@ -28,7 +28,7 @@ const originList: string[] = []
 const key = ref<string>('')
 const active = ref<string>('')
 const emit = defineEmits(['select'])
-const value = defineModel()
+const value = defineModel<boolean>({default:false})
 for (const [key] of Object.entries(ElementPlusIconsVue)) {
   iconList.value.push(key)
   originList.push(key)

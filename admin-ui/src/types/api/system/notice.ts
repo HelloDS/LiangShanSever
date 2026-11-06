@@ -23,7 +23,7 @@ export interface SysNotice extends BaseEntity {
   /** 状态（0正常 1停用） */
   status?: '0' | '1';
   /** 是否已读 */
-  isRead: boolean;
+  isRead?: boolean;
 }
 
 export interface SysNoticeTopResult extends AjaxResult<SysNotice[]> {

@@ -3,7 +3,7 @@ import { parseStrEmpty } from "@/utils/ruoyi"
 import type { UserQueryParams, UserFormDataResult, UserProfileResult, UserAuthRoleResult, UserProfileAvatarResult, SysUser, SysUserRole, SysUserRoles, AjaxResult, TableDataInfo, TreeSelect } from '@/types'
 
 // 查询用户列表
-export function listUser(query: UserQueryParams): Promise<TableDataInfo<SysUser[]>> {
+export function listUser(query: UserQueryParams): Promise<TableDataInfo<SysUser>> {
   return request({
     url: '/system/user/list',
     method: 'get',
@@ -129,7 +129,7 @@ export function updateAuthRole(data: SysUserRoles): Promise<AjaxResult> {
 }
 
 // 查询部门下拉树结构
-export function deptTreeSelect(): Promise<AjaxResult<TreeSelect>> {
+export function deptTreeSelect(): Promise<AjaxResult<TreeSelect[]>> {
   return request({
     url: '/system/user/deptTree',
     method: 'get'

@@ -125,6 +125,8 @@
 </template>
 
 <script setup lang="ts">
+import type { PropType } from 'vue'
+import { useAppProxy } from '@/composables/useAppProxy'
 // @ts-nocheck
 import CrontabSecond from "./second.vue"
 import CrontabMin from "./min.vue"
@@ -134,11 +136,11 @@ import CrontabMonth from "./month.vue"
 import CrontabWeek from "./week.vue"
 import CrontabYear from "./year.vue"
 import CrontabResult from "./result.vue"
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const emit = defineEmits(['hide', 'fill'])
 const props = defineProps({
     hideComponent: {
-        type: Array,
+        type: Array as PropType<string[]>,
         default: () => [],
     },
     expression: {

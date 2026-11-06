@@ -72,10 +72,12 @@
 </template>
 
 <script setup lang="ts">
+import type { PropType } from 'vue'
+import type { TreeInstance } from 'element-plus'
 const props = defineProps({
   // 树形数据
   treeData: {
-    type: Array,
+    type: Array as PropType<NonNullable<TreeInstance['$props']['data']>>,
     default: () => []
   },
   // 标题
@@ -138,7 +140,7 @@ const props = defineProps({
   },
   // 默认展开的节点的key数组
   defaultExpandedKeys: {
-    type: Array,
+    type: Array as PropType<Array<string|number>>,
     default: () => []
   },
   // 默认宽度
@@ -352,8 +354,8 @@ const handleRefresh = (): void => {
 }
 
 // 节点点击事件
-const onNodeClick = (data: any, node: any, e: Event): void => {
-  emit('node-click', data, node, e)
+const onNodeClick = (data: unknown, node: unknown, _component: unknown, event: MouseEvent): void => {
+  emit('node-click', data, node, event)
 }
 
 // 复选框选中事件
@@ -362,16 +364,16 @@ const onCheck = (data: any, checkedInfo: any): void => {
 }
 
 // 节点展开事件
-const onNodeExpand = (data: any, node: any, e: Event): void => {
+const onNodeExpand = (data: any, node: any, e: unknown): void => {
   emit('node-expand', data, node, e)
 }
 
 // 节点折叠事件
-const onNodeCollapse = (data: any, node: any, e: Event): void => {
+const onNodeCollapse = (data: any, node: any, e: unknown): void => {
   emit('node-collapse', data, node, e)
 }
 
-const setCurrentKey = (key: string | number): void => {
+const setCurrentKey = (key?: string | number): void => {
   if (treeRef.value) {
     treeRef.value.setCurrentKey(key)
   }

@@ -13,11 +13,12 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import { createTable } from "@/api/tool/gen"
 
 const visible = ref<boolean>(false)
 const content = ref<string>("")
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const emit = defineEmits(["ok"])
 
 /** 显示弹框 */

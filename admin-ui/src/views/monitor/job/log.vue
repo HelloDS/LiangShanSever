@@ -63,7 +63,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['monitor:job:remove']"
             >删除</el-button>
          </el-col>
@@ -138,13 +138,14 @@
 </template>
 
 <script setup lang="ts" name="JobLog">
+import { useAppProxy } from '@/composables/useAppProxy'
 import JobDetail from './detail.vue'
 import { getJob } from "@/api/monitor/job"
 import { listJobLog, delJobLog, cleanJobLog } from "@/api/monitor/jobLog"
 import type { SysJobLog, JobLogQueryParams } from '@/types/api/monitor/jobLog'
 import type { SysJob } from '@/types/api/monitor/job'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_common_status, sys_job_group } = useDict("sys_common_status", "sys_job_group")
 
 const jobLogList = ref<SysJobLog[]>([])

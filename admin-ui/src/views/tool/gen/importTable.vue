@@ -51,6 +51,10 @@
 </template>
 
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
+import type { TableInstance } from 'element-plus'
+const tablePublic=useTemplateRef<TableInstance>('table')
+import { useAppProxy } from '@/composables/useAppProxy'
 import { listDbTable, importTable } from "@/api/tool/gen"
 import type { GenQueryParams, GenTable } from '@/types/api/tool/gen'
 
@@ -58,7 +62,7 @@ const total = ref<number>(0)
 const visible = ref<boolean>(false)
 const tables = ref<string[]>([])
 const dbTableList = ref<GenTable[]>([])
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 
 const queryParams = reactive<GenQueryParams>({
   pageNum: 1,
@@ -77,12 +81,12 @@ function show(): void {
 
 /** 单击选择行 */
 function clickRow(row: GenTable) {
-  proxy.$refs.table.toggleRowSelection(row)
+  tablePublic.value?.toggleRowSelection(row)
 }
 
 /** 多选框选中数据 */
 function handleSelectionChange(selection: GenTable[]) {
-  tables.value = selection.map(item => item.tableName)
+  tables.value = selection.flatMap(item=>item.tableName==null?[]:[item.tableName])
 }
 
 /** 查询表数据 */

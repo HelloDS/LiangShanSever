@@ -17,10 +17,14 @@
 </template>
 
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const pwdRefInstance = useTemplateRef<FormInstance>('pwdRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import { usePasswordRule } from "@/utils/passwordRule"
 import { updateUserPwd } from "@/api/system/user"
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { infoPwdValidator } = usePasswordRule()
 
 interface UserProfilePwd {
@@ -53,7 +57,7 @@ const rules = {
 
 /** 提交按钮 */
 function submit() {
-  proxy.$refs.pwdRef.validate((valid: boolean) => {
+  pwdRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       updateUserPwd(user.oldPassword!, user.newPassword!).then(() => {
         proxy.$modal.msgSuccess("修改成功")

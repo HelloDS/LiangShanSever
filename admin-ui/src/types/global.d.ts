@@ -16,8 +16,6 @@ interface ImportMeta {
   readonly env: ImportMetaEnv
 }
 
-// element-plus
-declare module 'element-plus'
 
 
 // nprogress
@@ -66,8 +64,6 @@ declare module 'jsencrypt/bin/jsencrypt.min' {
   export default JSEncrypt
 }
 
-// axios
-declare module 'axios'
 
 // vue-quill
 declare module '@vueup/vue-quill'

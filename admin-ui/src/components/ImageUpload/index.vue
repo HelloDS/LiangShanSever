@@ -48,6 +48,11 @@
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
+import { useTemplateRef } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
+import type { UploadInstance, UploadFile } from 'element-plus'
+const uploadInstance=useTemplateRef<UploadInstance>('imageUpload')
 import { getToken } from "@/utils/auth"
 import { isExternal } from "@/utils/validate"
 import Sortable from 'sortablejs'
@@ -102,7 +107,7 @@ const props = defineProps({
   }
 })
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const emit = defineEmits()
 const number = ref(0)
 const uploadList = ref<UploadImageItem[]>([])
@@ -179,7 +184,7 @@ function handleExceed(): void {
 }
 
 // 上传成功回调
-function handleUploadSuccess(res: UploadFileResult, file: any): void {
+function handleUploadSuccess(res: UploadFileResult, file: UploadFile): void {
   if (res.code === 200) {
     uploadList.value.push({ name: res.fileName, url: res.fileName })
     uploadedSuccessfully()
@@ -187,7 +192,7 @@ function handleUploadSuccess(res: UploadFileResult, file: any): void {
     number.value--
     proxy.$modal.closeLoading()
     proxy.$modal.msgError(res.msg)
-    proxy.$refs.imageUpload.handleRemove(file)
+    uploadInstance.value?.handleRemove(file)
     uploadedSuccessfully()
   }
 }
@@ -242,7 +247,8 @@ function listToString(list: UploadImageItem[], separator?: string): string {
 onMounted(() => {
   if (props.drag && !props.disabled) {
     nextTick(() => {
-      const element = proxy.$refs.imageUpload?.$el?.querySelector('.el-upload-list') as HTMLElement
+      const root=uploadInstance.value?.$el
+      const element = root instanceof HTMLElement ? root.querySelector<HTMLElement>('.el-upload-list') : null
       if (element) {
         Sortable.create(element, {
           onEnd: (evt: any) => {

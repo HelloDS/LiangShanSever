@@ -72,12 +72,10 @@
               @input="onDefaultValueInput" />
           </el-form-item>
           <el-form-item v-if="activeData.tag === 'el-checkbox-group'" label="至少应选">
-            <el-input-number :value="activeData.min" :min="0" placeholder="至少应选"
-              @input="$set(activeData, 'min', $event ? $event : undefined)" />
+            <el-input-number :value="activeData.min" :min="0" placeholder="至少应选" />
           </el-form-item>
           <el-form-item v-if="activeData.tag === 'el-checkbox-group'" label="最多可选">
-            <el-input-number :value="activeData.max" :min="0" placeholder="最多可选"
-              @input="$set(activeData, 'max', $event ? $event : undefined)" />
+            <el-input-number :value="activeData.max" :min="0" placeholder="最多可选" />
           </el-form-item>
           <el-form-item v-if="activeData.prepend !== undefined" label="前缀">
             <el-input v-model="activeData.prepend" placeholder="请输入前缀" />
@@ -460,19 +458,20 @@
       </el-scrollbar>
     </div>
     <icons-dialog v-model="iconsVisible" :current="activeData[currentIconModel]" @select="setIcon" />
-    <treeNode-dialog v-model="dialogVisible" @commit="addNode" />
+    <treeNode-dialog v-model="dialogVisible" @confirm="addNode" />
 
   </div>
 </template>
 
 <script setup lang="ts">
+import { useAppProxy } from '@/composables/useAppProxy'
 import draggable from "vuedraggable/dist/vuedraggable.common"
 import { isNumberStr } from '@/utils/index'
 import IconsDialog from './IconsDialog.vue'
 import TreeNodeDialog from './TreeNodeDialog.vue'
 import { inputComponents, selectComponents } from '@/utils/generator/config'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const dateTimeFormat: Record<string, string> = {
   date: 'YYYY-MM-DD',
   week: 'YYYY 第 ww 周',
@@ -489,12 +488,13 @@ const props = defineProps<{
   formConf: any
 }>()
 
+interface TreeOption {id?:number;label?:string;value?:string|number;children?:TreeOption[]}
 const data = reactive({
   currentTab: 'field',
-  currentNode: null,
+  currentNode: null as TreeOption[]|null,
   dialogVisible: false,
   iconsVisible: false,
-  currentIconModel: null,
+  currentIconModel: '',
   dateTypeOptions: [
     {
       label: '日(date)',
@@ -629,7 +629,6 @@ function addSelectItem(): void {
 }
 
 function addTreeItem(): void {
-  ++proxy.idGlobal
   dialogVisible.value = true
   currentNode.value = props.activeData.options
 }
@@ -675,9 +674,9 @@ function remove(node: any, data: any): void {
   const index = children.findIndex((d: any) => d.id === data.id)
   children.splice(index, 1)
 }
-function addNode(data: any): void {
+function addNode(data: TreeOption): void {
   if (currentNode.value) {
-    currentNode.value.push(data)
+    currentNode.value.push({...data,id:nextOptionId(props.activeData.options??[])})
   }
 }
 
@@ -725,11 +724,13 @@ function setTimeValue(val: string, type?: string): void {
   props.activeData.format = val
 }
 
-function spanChange(val: number): void {
+function spanChange(val: number|number[]): void {
+  if(typeof val!=='number')return
   props.formConf.span = val
 }
 
-function multipleChange(val: boolean): void {
+function multipleChange(input: string|number|boolean): void {
+  const val=input===true
   props.activeData.defaultValue = val ? [] : ''
 }
 
@@ -737,15 +738,18 @@ function dateTypeChange(val: string): void {
   setTimeValue(dateTimeFormat[val], val)
 }
 
-function rangeChange(val: boolean): void {
+function rangeChange(input: string|number|boolean): void {
+  const val=input===true
   props.activeData.defaultValue = val ? [props.activeData.min, props.activeData.max] : props.activeData.min
 }
 
-function rateTextChange(val: boolean): void {
+function rateTextChange(input: string|number|boolean): void {
+  const val=input===true
   if (val) props.activeData['show-score'] = false
 }
 
-function rateScoreChange(val: boolean): void {
+function rateScoreChange(input: string|number|boolean): void {
+  const val=input===true
   if (val) props.activeData['show-text'] = false
 }
 
@@ -776,6 +780,7 @@ function tagChange(tagIcon: string): void {
     emit('tag-change', target)
   }
 }
+function nextOptionId(options:TreeOption[]):number {let maximum=0;for(const node of options){if(typeof node.id==='number')maximum=Math.max(maximum,node.id);if(node.children)maximum=Math.max(maximum,nextOptionId(node.children)-1)}return maximum+1}
 </script>
 
 <style lang="scss" scoped>

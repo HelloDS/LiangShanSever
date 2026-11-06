@@ -18,7 +18,7 @@ export interface RoleQueryParams extends PageDomain {
 /** 批量授权用户参数 */
 export interface AuthUserSelectParams {
   roleId: number;
-  userIds: number[];
+  userIds: string;
 }
 
 /** 用户和角色关联信息 */
@@ -34,12 +34,13 @@ export interface SysUserRoles {
   /** 用户编号 */
   userId?: number;
   /** 角色编号组 */
-  roleIds?: number[];
+  roleIds?: string;
 }
 
 
 /** 角色信息 */
 export interface SysRole extends BaseEntity {
+  flag?:boolean;
   /** 角色编号 */
   roleId?: number;
   /** 角色名称 */

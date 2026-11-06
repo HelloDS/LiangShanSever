@@ -32,7 +32,7 @@ export interface SysOperLog extends BaseEntity {
   /** 请求方式 */
   requestMethod?: string;
   /** 操作类别 */
-  operatorType?: string;
+  operatorType?: number;
   /** 操作人员 */
   operName?: string;
   /** 部门名称 */
@@ -50,9 +50,9 @@ export interface SysOperLog extends BaseEntity {
   /** 错误消息 */
   errorMsg?: string;
   /** 操作时间 */
-  operTime?: Date;
+  operTime?: string;
   /** 消耗时间 */
   costTime?: number;
   /** 状态（0正常 1异常） */
-  status?: '0' | '1';
+  status?: 0 | 1;
 }

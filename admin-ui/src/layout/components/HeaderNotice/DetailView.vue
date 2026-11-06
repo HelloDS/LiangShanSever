@@ -62,7 +62,7 @@ const detail: Ref<SysNotice | null> = ref<SysNotice | null>(null)
 
 const isStatusNormal = computed<boolean>(() => {
   const status = detail.value && detail.value.status
-  return status === '0' || status === 0
+  return String(status) === '0'
 })
 
 const hasContent = computed<boolean>(() => {
@@ -93,7 +93,7 @@ function open(payload: any) {
   loading.value = true
   detail.value = null
   getNotice(id).then(res => {
-    detail.value = res.data
+    detail.value = res.data ?? null
   }).catch(() => {
     detail.value = null
   }).finally(() => {

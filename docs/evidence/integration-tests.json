@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T17:10:00.188451+00:00",
+  "executedAt": "2026-11-06T17:39:08.740885+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest",
@@ -7,7 +7,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.748,
+      "seconds": 0.714,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -26,7 +26,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.177,
+      "seconds": 1.148,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -45,7 +45,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.639,
+      "seconds": 1.655,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
@@ -63,7 +63,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.057,
+      "seconds": 0.051,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
@@ -75,7 +75,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.142,
+      "seconds": 0.125,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -90,7 +90,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.015,
+      "seconds": 0.013,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "slowWritesHaveBoundedPendingPushesAndReleaseOnFailure"

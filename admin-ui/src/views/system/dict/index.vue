@@ -56,7 +56,7 @@
                type="primary"
                plain
                icon="Plus"
-               @click="handleAdd"
+               @click="handleAdd()"
                v-hasPermi="['system:dict:add']"
             >新增</el-button>
          </el-col>
@@ -66,7 +66,7 @@
                plain
                icon="Edit"
                :disabled="single"
-               @click="handleUpdate"
+               @click="handleUpdate()"
                v-hasPermi="['system:dict:edit']"
             >修改</el-button>
          </el-col>
@@ -76,7 +76,7 @@
                plain
                icon="Delete"
                :disabled="multiple"
-               @click="handleDelete"
+               @click="handleDelete()"
                v-hasPermi="['system:dict:remove']"
             >删除</el-button>
          </el-col>
@@ -181,12 +181,16 @@
 </template>
 
 <script setup lang="ts" name="Dict">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const dictRefInstance = useTemplateRef<FormInstance>('dictRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import DictDataDrawer from './detail.vue'
 import useDictStore from '@/store/modules/dict'
 import { listType, getType, delType, addType, updateType, refreshCache } from "@/api/system/dict/type"
 import type { SysDictType, DictTypeQueryParams } from '@/types/api/system/dict'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_normal_disable } = useDict("sys_normal_disable")
 
 const typeList = ref<SysDictType[]>([])
@@ -200,7 +204,7 @@ const total = ref<number>(0)
 const title = ref<string>("")
 const dateRange = ref<string[]>([])
 const drawerVisible = ref<boolean>(false)
-const drawerRow = ref<SysDictType[]>([])
+const drawerRow = ref<SysDictType>({})
 
 const data = reactive({
   form: {} as SysDictType,
@@ -298,7 +302,7 @@ function handleUpdate(row?: SysDictType) {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["dictRef"].validate((valid: boolean) => {
+  dictRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.dictId != undefined) {
         updateType(form.value).then(() => {

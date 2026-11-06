@@ -32,7 +32,7 @@
                type="primary"
                plain
                icon="Plus"
-               @click="handleAdd"
+               @click="handleAdd()"
                v-hasPermi="['system:menu:add']"
             >新增</el-button>
          </el-col>
@@ -109,7 +109,7 @@
                      <el-tree-select
                         v-model="form.parentId"
                         :data="menuOptions"
-                        :props="{ value: 'menuId', label: 'menuName', children: 'children' }"
+                        :props="{ label: 'menuName', children: 'children' }"
                         value-key="menuId"
                         placeholder="选择上级菜单"
                         check-strictly
@@ -306,12 +306,16 @@
 </template>
 
 <script setup lang="ts" name="Menu">
+import { useTemplateRef } from 'vue'
+import type { FormInstance } from 'element-plus'
+const menuRefInstance = useTemplateRef<FormInstance>('menuRef')
+import { useAppProxy } from '@/composables/useAppProxy'
 import { addMenu, delMenu, getMenu, listMenu, updateMenu, updateMenuSort, } from "@/api/system/menu"
 import SvgIcon from "@/components/SvgIcon/index.vue"
 import IconSelect from "@/components/IconSelect/index.vue"
 import type { SysMenu, MenuQueryParams } from '@/types/api/system/menu'
 
-const { proxy } = getCurrentInstance()
+const proxy = useAppProxy()
 const { sys_show_hide, sys_normal_disable } = useDict("sys_show_hide", "sys_normal_disable")
 
 const menuList = ref<any[]>([])
@@ -344,7 +348,7 @@ const { queryParams, form, rules } = toRefs(data)
 function getList() {
   loading.value = true
   listMenu(queryParams.value).then(response => {
-    menuList.value = proxy.handleTree(response.data, "menuId")
+    menuList.value = proxy.handleTree(response.data ?? [], "menuId")
     recordOriginalOrders(menuList.value)
     loading.value = false
   })
@@ -354,8 +358,8 @@ function getList() {
 function getTreeselect() {
   menuOptions.value = []
   listMenu().then(response => {
-    const menu = { menuId: 0, menuName: "主类目", children: [] }
-    menu.children = proxy.handleTree(response.data, "menuId")
+    const menu: SysMenu = { menuId: 0, menuName: "主类目", children: [] }
+    menu.children = proxy.handleTree(response.data ?? [], "menuId")
     menuOptions.value.push(menu)
   })
 }
@@ -427,10 +431,10 @@ function toggleExpandAll() {
 }
 
 /** 修改按钮操作 */
-async function handleUpdate(row: SysMenu) {
+async function handleUpdate(row?: SysMenu) {
   reset()
   await getTreeselect()
-  getMenu(row.menuId!).then(response => {
+  getMenu(row?.menuId!).then(response => {
     form.value = response.data!
     open.value = true
     title.value = "修改菜单"
@@ -439,7 +443,7 @@ async function handleUpdate(row: SysMenu) {
 
 /** 提交按钮 */
 function submitForm() {
-  proxy.$refs["menuRef"].validate((valid: boolean) => {
+  menuRefInstance.value?.validate((valid: boolean) => {
     if (valid) {
       if (form.value.menuId != undefined) {
         updateMenu(form.value).then(() => {
@@ -461,7 +465,7 @@ function submitForm() {
 /** 递归记录原始排序 */
 function recordOriginalOrders(list: SysMenu[]) {
   list.forEach(item => {
-    originalOrders.value[item.menuId] = item.orderNum
+    if(item.menuId!=null) originalOrders.value[item.menuId] = item.orderNum ?? 0
     if (item.children && item.children.length) {
       recordOriginalOrders(item.children)
     }
@@ -495,9 +499,9 @@ function handleSaveSort() {
 }
 
 /** 删除按钮操作 */
-function handleDelete(row: SysMenu) {
-  proxy.$modal.confirm('是否确认删除名称为"' + row.menuName + '"的数据项?').then(function() {
-    return delMenu(row.menuId!)
+function handleDelete(row?: SysMenu) {
+  proxy.$modal.confirm('是否确认删除名称为"' + row?.menuName + '"的数据项?').then(function() {
+    return delMenu(row?.menuId!)
   }).then(() => {
     getList()
     proxy.$modal.msgSuccess("删除成功")

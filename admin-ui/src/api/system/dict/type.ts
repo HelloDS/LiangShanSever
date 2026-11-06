@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { DictTypeQueryParams, SysDictType, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询字典类型列表
-export function listType(query: DictTypeQueryParams): Promise<TableDataInfo<SysDictType[]>> {
+export function listType(query: DictTypeQueryParams): Promise<TableDataInfo<SysDictType>> {
   return request({
     url: '/system/dict/type/list',
     method: 'get',

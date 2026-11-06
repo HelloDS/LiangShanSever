@@ -32,11 +32,11 @@
   </div>
 </template>
 <script setup lang="ts">
-const open = defineModel()
+const open = defineModel<boolean>({default:false})
 const emit = defineEmits(['confirm'])
-const formData = ref({
-  label: undefined,
-  value: undefined
+const formData = ref<{label:string;value:string|number}>({
+  label: '',
+  value: ''
 })
 const rules = {
   label: [
@@ -65,13 +65,12 @@ const dataTypeOptions = ref<any[]>([
     value: 'number'
   }
 ])
-const id = ref<number>(100)
 const treeNodeForm = ref<any>()
 
 function onOpen(): void {
   formData.value = {
-    label: undefined,
-    value: undefined
+    label: '',
+    value: ''
   }
 }
 
@@ -87,8 +86,7 @@ function handelConfirm(): void {
     if (dataType.value === 'number') {
       formData.value.value = parseFloat(String(formData.value.value))
     }
-    formData.value.id = id.value++
-    emit('commit', formData.value)
+    emit('confirm', {...formData.value})
     onClose()
   })
 }

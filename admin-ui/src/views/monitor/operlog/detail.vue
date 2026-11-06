@@ -112,7 +112,10 @@
 </template>
 
 <script setup lang="ts">
-const { proxy } = getCurrentInstance()
+import { CopyDocument } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { useAppProxy } from '@/composables/useAppProxy'
+const proxy = useAppProxy()
 import type { SysOperLog } from '@/types/api/monitor/operlog'
 
 const props = defineProps<{
@@ -140,7 +143,7 @@ function formatJson(str?: string): string {
 function copyText(str?: string): void {
   const text = formatJson(str)
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => proxy.$modal.msgSuccess({ message: '已复制', type: 'success', duration: 1500 }))
+    navigator.clipboard.writeText(text).then(() => ElMessage({ message: '已复制', type: 'success', duration: 1500 }))
   } else {
     const ta = document.createElement('textarea')
     ta.value = text
@@ -148,7 +151,7 @@ function copyText(str?: string): void {
     ta.select()
     document.execCommand('copy')
     document.body.removeChild(ta)
-    proxy.$modal.msgSuccess({ message: '已复制', type: 'success', duration: 1500 })
+    ElMessage({ message: '已复制', type: 'success', duration: 1500 })
   }
 }
 </script>

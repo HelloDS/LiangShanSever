@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import type { ConfigQueryParams, SysConfig, AjaxResult, TableDataInfo } from '@/types'
 
 // 查询参数列表
-export function listConfig(query: ConfigQueryParams): Promise<TableDataInfo<SysConfig[]>> {
+export function listConfig(query: ConfigQueryParams): Promise<TableDataInfo<SysConfig>> {
   return request({
     url: '/system/config/list',
     method: 'get',
