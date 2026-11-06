@@ -37,6 +37,7 @@ public final class RoomStorageLoad {
     private static final class Stats {
         final AtomicInteger completed=new AtomicInteger();final AtomicLong sent=new AtomicLong(),failed=new AtomicLong(),busy=new AtomicLong(),missed=new AtomicLong(),plays=new AtomicLong(),passes=new AtomicLong(),redeals=new AtomicLong();
         final ConcurrentMap<String,AtomicLong> failures=new ConcurrentHashMap<>();final long[] latency;
+        final AtomicInteger slowCount=new AtomicInteger();final Queue<Map<String,Object>> slow=new ConcurrentLinkedQueue<>();
         long elapsedNanos;
         Stats(int capacity){latency=new long[capacity];}
         void failure(Throwable error){failed.incrementAndGet();Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();failures.computeIfAbsent(cause.getClass().getSimpleName(),ignored->new AtomicLong()).incrementAndGet();}
@@ -127,7 +128,7 @@ public final class RoomStorageLoad {
             report.put("measurementStartedAt",Instant.now().toString());
             try{window(boxes,actors,seconds,rate,stats);await(actors,30);}
             finally{sampler.shutdown();sampler.awaitTermination(5,TimeUnit.SECONDS);}
-            report.put("measurementEndedAt",Instant.now().toString());report.put("measurementMs",stats.elapsedNanos/1e6);report.put("actual",stats.report());report.put("samples",List.copyOf(samples));report.put("sampleFailures",sampleFailures.get());
+            report.put("measurementEndedAt",Instant.now().toString());report.put("measurementMs",stats.elapsedNanos/1e6);report.put("actual",stats.report());report.put("slowCommitCount",stats.slowCount.get());report.put("slowCommitSamples",List.copyOf(stats.slow));report.put("samples",List.copyOf(samples));report.put("sampleFailures",sampleFailures.get());
             long drainStart=System.nanoTime();OutboxStore.Backlog backlog;
             do{backlog=outbox.backlog();if(backlog.ready()==0&&backlog.claimed()==0)break;Thread.sleep(250);}while(System.nanoTime()-drainStart<30_000_000_000L);
             report.put("outboxAfterDrain",Map.of("ready",backlog.ready(),"claimed",backlog.claimed(),"dead",backlog.dead(),"oldestSeconds",backlog.oldestSeconds()));
@@ -174,9 +175,12 @@ public final class RoomStorageLoad {
                     LandlordAction action=card.<LandlordAction>map(value->new LandlordAction.Play(List.of(value),LandlordPatterns.classify(List.of(value)).orElseThrow())).orElseGet(LandlordAction.Pass::new);
                     command=new Command(actor.identities.get(uid),action,null);if(card.isPresent())stats.plays.incrementAndGet();else stats.passes.incrementAndGet();
                 }
-                stats.sent.incrementAndGet();long sentAt=System.nanoTime();
+                stats.sent.incrementAndGet();long sentAt=System.nanoTime(),sentWallMillis=System.currentTimeMillis();
                 boxes.submit(actor.handle,command).whenComplete((snapshot,error)->{
-                    try{if(error!=null)stats.failure(error);else{actor.state=snapshot;int index=stats.completed.getAndIncrement();if(index<stats.latency.length)stats.latency[index]=System.nanoTime()-sentAt;}}
+                    try{if(error!=null)stats.failure(error);else{
+                        actor.state=snapshot;long latency=System.nanoTime()-sentAt;int index=stats.completed.getAndIncrement();if(index<stats.latency.length)stats.latency[index]=latency;
+                        if(latency>300_000_000L&&stats.slowCount.getAndIncrement()<100)stats.slow.add(Map.of("sentAt",Instant.ofEpochMilli(sentWallMillis).toString(),"completedAt",Instant.now().toString(),"milliseconds",latency/1e6,"kind",command.deal()!=null?"TEST_REDEAL":command.action() instanceof LandlordAction.Play?"PLAY":"PASS","round",snapshot.round(),"ioPending",boxes.pendingIo(),"commandsPending",boxes.pendingCommands()));
+                    }}
                     finally{actor.pending.set(false);}
                 });
             }

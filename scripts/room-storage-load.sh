@@ -10,4 +10,9 @@ load_snapshot="$(python3 scripts/prepare-room-load.py)"
 export ROOM_LOAD_GIT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sourceCommit"])' "$load_snapshot/manifest.json")"
 export ROOM_LOAD_SNAPSHOT_SHA256="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sha256"])' "$load_snapshot/manifest.json")"
 load_classpath="$(cat "$load_snapshot/classpath.txt")"
-exec java -Xms256m -Xmx1024m -cp "$load_classpath" com.ruoyi.RoomStorageLoad
+load_java_options=(-Xms256m -Xmx1024m)
+if [[ "${ROOM_LOAD_JFR:-}" == '1' ]]; then
+  umask 077
+  load_java_options+=("-XX:StartFlightRecording=filename=$load_snapshot/profile.jfr,settings=profile,maxsize=256m,dumponexit=true")
+fi
+exec java "${load_java_options[@]}" -cp "$load_classpath" com.ruoyi.RoomStorageLoad
