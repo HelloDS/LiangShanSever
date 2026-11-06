@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T21:13:47.066621+00:00",
+  "executedAt": "2026-11-06T22:27:03.330612+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.AdminExecutorTest",
@@ -13,12 +13,23 @@
       ]
     },
     {
+      "suite": "com.ruoyi.AdminOperationTimeTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.645,
+      "cases": [
+        "completionAndAuditUseObservedTimeAfterTheBusinessEffect"
+      ]
+    },
+    {
       "suite": "com.ruoyi.GameFoundationIntegrationTest",
       "tests": 10,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.771,
+      "seconds": 0.788,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -33,12 +44,29 @@
       ]
     },
     {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$BusinessAudit",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.204,
+      "cases": [
+        "beijingDateBoundsAndStableOrderingDoNotLeakNeighbouringDay",
+        "commandLinksExactAuditAndReadQueriesDoNotRepeatItsEffect",
+        "opaqueRequestKeysRemainCaseSensitiveAndExactRetriesStillReuseTheirAudit",
+        "platformScopeIsRequiredOnEveryQueryAndStorageFailureIsUnknown",
+        "unconfirmedAuditInsertRollsBackEffectCommandAndOutbox",
+        "unconfirmedCompletionRollsBackAlreadyInsertedAudit",
+        "unlinkedSummariesDoNotExposeNestedSecretsOrGuessOperation"
+      ]
+    },
+    {
       "suite": "com.ruoyi.GameFoundationIntegrationTest$ClubOrganization",
       "tests": 9,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.852,
+      "seconds": 0.864,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -57,7 +85,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.921,
+      "seconds": 0.956,
       "cases": [
         "accountSnapshotStaysConsistentWhileAnotherThreadPostsMoney",
         "adminRunCommandIsIdempotentAndQueriesRemainScopedAndBounded",
@@ -78,7 +106,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 6.687,
+      "seconds": 6.866,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "backlogQueryUsesCoveringStatusRangesDespiteLargeCompletedHistory",
@@ -92,12 +120,26 @@
       ]
     },
     {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$OnlineMinuteHistory",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.081,
+      "cases": [
+        "currentPlatformScopeAndStorageAvailabilityAreCheckedForEveryRead",
+        "realMinutePersistsExactFirstObservationAcrossRepeatedRecord",
+        "unknownStateRemainsExplicitNullAndCannotBecomeZero",
+        "utcStorageUsesBeijingDayAndDoesNotFillMissingMinutes"
+      ]
+    },
+    {
       "suite": "com.ruoyi.GameFoundationIntegrationTest$RoomStorage",
       "tests": 22,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.663,
+      "seconds": 2.693,
       "cases": [
         "afterCommitExceptionCannotBeMistakenForKnownPrecommitRejection",
         "committedButLostBoundaryResultResolvesWithoutRepeatingEffects",
@@ -129,7 +171,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.602,
+      "seconds": 2.729,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts",
@@ -146,14 +188,16 @@
     },
     {
       "suite": "com.ruoyi.WalletReconciliationWorkerTest",
-      "tests": 4,
+      "tests": 6,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.271,
+      "seconds": 6.281,
       "cases": [
         "afterScheduleItCreatesOneDailyRunAndCountsOnlyCommittedChecks",
         "beforeAutomaticScheduleItStillProcessesAnExistingManualJob",
+        "lateStoppedGenerationCannotScheduleAnExtraPollInRestartedWorker",
+        "persistedDifferencesRemainObservableWithoutBeingCountedAsTechnicalFailure",
         "unavailableBacklogIsUnknownInsteadOfZero",
         "unknownCheckResultIsRetriedThroughPersistentLeaseWithoutClaimingSuccess"
       ]
@@ -182,7 +226,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.112,
+      "seconds": 0.109,
       "cases": [
         "exactEventFieldsRejectUnknownKeysWrongTypesAndUnknownVersions",
         "persistedEventsCanRebuildACompleteNaturallyPlayedRound",
@@ -198,7 +242,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.612,
+      "seconds": 0.638,
       "cases": [
         "actorTurnOwnershipAndPhaseAreValidatedBeforeAnyStateChange",
         "autoFlagMayChangeOutOfTurnButDoesNotPlayCardsOrChangeTurn",
@@ -217,7 +261,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.018,
+      "seconds": 0.015,
       "cases": [
         "originalPanelReceivesOneBasedObjectSeatsAndNullLeadingTarget",
         "publishedTargetIsTheActualPlayedCardsAndClearsAfterTwoPasses",
@@ -230,7 +274,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.009,
+      "seconds": 0.006,
       "cases": [
         "biddingViewContainsOnlyOwnHandAndNoBottom",
         "completedViewRequiresWinnerAndStillRejectsSpectator",
@@ -259,7 +303,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.067,
+      "seconds": 0.071,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "internalCanonicalDigestKeepsPrecisionAndIgnoresObjectKeyOrder",
@@ -272,7 +316,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.078,
+      "seconds": 0.073,
       "cases": [
         "acceptedCommandsHaveOneSerialEngineAndMonotonicPersistedVersions",
         "completionUsesReservedCapacityWhenOrdinaryAdmissionIsExhausted",
@@ -295,7 +339,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.161,
+      "seconds": 0.176,
       "cases": [
         "aTimerQueuedDuringCommitCannotActOnTheNextVersion",
         "capacityCancellationAndShutdownReleaseAllRegistrations",
@@ -311,7 +355,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.113,
+      "seconds": 0.152,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -321,12 +365,31 @@
       ]
     },
     {
+      "suite": "com.ruoyi.game.transport.AsyncSocketTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.117,
+      "cases": [
+        "admittedResultHasReservedReplyCapacityEvenWhenBusinessPoolIsFull",
+        "bothDeferredAndActionPushesFollowTheSingleOrdinaryAck",
+        "cancellationTimeoutAndUnclassifiedStorageFailureDoNotClaimRollback",
+        "delayedResultReleasesBusinessWorkerAndPreservesConnectionFifo",
+        "disconnectDoesNotReleaseUnknownRequestTicketAndGlobalCapacityRecoversOnResult",
+        "exceptionalStageUnwrapsKnownBusinessFailureExactlyOnce",
+        "responseEncodingFailureAfterConfirmedActionDoesNotProduceFalseFailureAck",
+        "stoppedReplyExecutorClosesInsteadOfReportingCommittedActionAsFailed",
+        "unknownCommitClosesWithoutFalseFailureAckOrDispatchingNextRequest"
+      ]
+    },
+    {
       "suite": "com.ruoyi.game.transport.BusinessExecutorTest",
       "tests": 1,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.004,
+      "seconds": 0.005,
       "cases": [
         "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
@@ -337,7 +400,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.015,
+      "seconds": 0.018,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "delayedRevocationCannotDisconnectFreshSessionVersion",
@@ -352,12 +415,25 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.611,
+      "seconds": 0.746,
       "cases": [
         "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
       ]
+    },
+    {
+      "suite": "com.ruoyi.web.game.OnlineHistoryWorkerTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.132,
+      "cases": [
+        "failedWriteDoesNotIncrementConfirmedObservationCounter",
+        "persistsOnlyActualSampleTimeAndDefaultNonTestPopulation",
+        "unavailablePopulationIsNullRatherThanZero"
+      ]
     }
   ],
-  "total": 146,
+  "total": 172,
   "result": "PASS"
 }

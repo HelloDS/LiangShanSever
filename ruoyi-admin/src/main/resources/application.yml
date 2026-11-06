@@ -93,6 +93,8 @@ management:
     health:
       show-details: never
 game:
+  online-history:
+    enabled: ${GAME_ONLINE_HISTORY_ENABLED:true}
   pii-key: ${GAME_PII_KEY}
   outbox:
     worker-enabled: ${GAME_OUTBOX_ENABLED:true}

@@ -1,18 +1,10 @@
 {
-  "executedAt": "2026-11-06T17:45:57.469Z",
-  "command": "scripts/pnpm.sh --dir admin-ui typecheck",
-  "strict": true,
+  "executedAt": "2026-11-06T22:32:12.583364+00:00",
+  "commands": [
+    "pnpm typecheck (vue-tsc --noEmit)",
+    "pnpm build:prod (Vite production)"
+  ],
   "diagnostics": 0,
-  "versions": {
-    "vue": "3.5.26",
-    "typescript": "5.6.3",
-    "vue-tsc": "2.1.10",
-    "element-plus": "2.13.1",
-    "axios": "1.13.2",
-    "vite": "6.4.1"
-  },
-  "productionBuild": "PASS",
-  "javaBuildAndTests": "35 项通过",
-  "result": "PASS",
-  "browserRegression": "PASS"
+  "scope": "全部后台源代码；V13 审计及 V14 在线分钟历史；查询失败的未知数量提示已重建并浏览器复核",
+  "result": "PASS"
 }

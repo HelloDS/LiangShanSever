@@ -56,4 +56,7 @@ public interface GameAdminMapper {
 
     @Insert("INSERT INTO admin_audit(operator_id,action,target,reason,before_json,after_json,created_at) VALUES(#{actor},#{action},#{target},#{reason},#{before},#{after},#{now})")
     int audit(@Param("actor") long actor,@Param("action") String action,@Param("target") String target,@Param("reason") String reason,@Param("before") String before,@Param("after") String after,@Param("now") LocalDateTime now);
+
+    @Insert("INSERT INTO admin_audit(operation_id,operator_id,action,target,reason,before_json,after_json,created_at) VALUES(#{operationId},#{actor},#{action},#{target},#{reason},#{before},#{after},#{now})")
+    int auditCommand(@Param("operationId") String operationId,@Param("actor") long actor,@Param("action") String action,@Param("target") String target,@Param("reason") String reason,@Param("before") String before,@Param("after") String after,@Param("now") LocalDateTime now);
 }

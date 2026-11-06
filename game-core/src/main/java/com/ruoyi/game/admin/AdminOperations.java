@@ -35,8 +35,11 @@ public class AdminOperations {
         }
         Change change=effect.get();
         Map<String,Object> result=Map.of("operationId",proposedId,"status","COMPLETED","result",change.result());
-        mapper.audit(actor,action,target,reason,codec.write(change.before()),codec.write(change.after()),now);
-        mapper.complete(proposedId,codec.write(result),now);
+        LocalDateTime auditedAt=LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC);
+        if(mapper.auditCommand(proposedId,actor,action,target,reason,codec.write(change.before()),codec.write(change.after()),auditedAt)!=1)
+            throw new IllegalStateException("管理命令审计未确认写入");
+        if(mapper.complete(proposedId,codec.write(result),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC))!=1)
+            throw new IllegalStateException("管理命令完成状态未确认写入");
         return result;
     }
     private Object canonical(Object value) {

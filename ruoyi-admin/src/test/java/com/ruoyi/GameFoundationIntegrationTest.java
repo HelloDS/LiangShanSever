@@ -36,7 +36,7 @@ import com.ruoyi.game.games.landlord.*;
 import com.ruoyi.game.room.*;
 
 @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false"})
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false","game.online-history.enabled=false"})
 class GameFoundationIntegrationTest {
     private static final String DB_PASSWORD=SecureTokens.create();
     private static final String REDIS_PASSWORD=SecureTokens.create();
@@ -87,6 +87,10 @@ class GameFoundationIntegrationTest {
     @Autowired com.ruoyi.game.economy.WalletReconciliationAdmin reconciliationAdmin;
     @MockitoSpyBean WalletReconciliationMapper reconciliationMapper;
     @Autowired org.apache.ibatis.session.SqlSessionFactory sqlSessions;
+    @Autowired com.ruoyi.game.admin.AuditService businessAudit;
+    @MockitoSpyBean GameAdminMapper adminMapper;
+    @Autowired com.ruoyi.game.admin.OnlineHistoryService onlineHistory;
+    @MockitoSpyBean OnlineHistoryMapper onlineHistoryMapper;
 
     @Autowired com.ruoyi.game.transport.ConnectionRegistry connections;
     @Autowired com.ruoyi.game.transport.OnlinePresence presence;
@@ -157,6 +161,7 @@ class GameFoundationIntegrationTest {
         assertEquals(1,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+identity.uid()+":1"));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE target=? AND action='kick'",Integer.class,Long.toString(identity.uid())));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit a JOIN admin_operation o ON o.operation_id=a.operation_id AND o.actor_id=a.operator_id AND o.action=a.action AND o.target=a.target WHERE a.target=? AND a.action='kick' AND o.status='COMPLETED'",Integer.class,Long.toString(identity.uid())));
     }
 
     @Test void authenticationStorageFailureUsesHttp503AndPreservesCredential() throws Exception {
@@ -195,6 +200,112 @@ class GameFoundationIntegrationTest {
         assertEquals("13800000000",reports.contacts(1,(String)row.get("id"),"本地权限验收").get("telephone"));
         String audit=jdbc.queryForObject("SELECT after_json FROM admin_audit WHERE target=? AND action='report:contact'",String.class,row.get("id"));
         assertFalse(audit.contains("13800000000"));assertFalse(audit.contains("test_contact"));
+    }
+
+    @Nested class OnlineMinuteHistory {
+        private final java.time.LocalDate day=java.time.LocalDate.of(2026,11,6);
+        private final String node=UUID.randomUUID().toString();
+        @BeforeEach void clearHistory(){jdbc.update("DELETE FROM online_minute_history");}
+        @SuppressWarnings("unchecked") private List<Map<String,Object>> rows(){return (List<Map<String,Object>>)onlineHistory.day(1,day).get("rows");}
+        @Test void realMinutePersistsExactFirstObservationAcrossRepeatedRecord(){
+            var observed=java.time.Instant.parse("2026-11-06T01:02:03.123456789Z");onlineHistory.record(observed,"AVAILABLE",0,node);
+            onlineHistory.record(observed.plusSeconds(5),"AVAILABLE",7,UUID.randomUUID().toString());
+            var rows=rows();assertEquals(1,rows.size());assertEquals(0,rows.getFirst().get("onlineCount"));assertEquals("2026-11-06T01:02:00Z",rows.getFirst().get("sampleMinute"));assertEquals("2026-11-06T01:02:03.123456Z",rows.getFirst().get("observedAt"));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM online_minute_history",Integer.class));
+        }
+        @Test void unknownStateRemainsExplicitNullAndCannotBecomeZero(){
+            var observed=java.time.Instant.parse("2026-11-06T01:03:00Z");onlineHistory.record(observed,"UNAVAILABLE",null,node);onlineHistory.record(observed.plusSeconds(2),"AVAILABLE",0,node);
+            var row=rows().getFirst();assertEquals("UNAVAILABLE",row.get("dataStatus"));assertTrue(row.containsKey("onlineCount"));assertNull(row.get("onlineCount"));
+            assertThrows(IllegalArgumentException.class,()->onlineHistory.record(observed,"REBUILDING",0,node));assertThrows(IllegalArgumentException.class,()->onlineHistory.record(observed,"AVAILABLE",null,node));
+            var rejected=assertThrows(org.springframework.dao.DataAccessException.class,()->jdbc.update("INSERT INTO online_minute_history VALUES('2026-11-06 02:00:00','2026-11-06 02:00:00','UNAVAILABLE',0,?)",node));
+            assertInstanceOf(java.sql.SQLException.class,rejected.getMostSpecificCause());assertEquals(3819,((java.sql.SQLException)rejected.getMostSpecificCause()).getErrorCode());
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM online_minute_history",Integer.class));
+        }
+        @Test void utcStorageUsesBeijingDayAndDoesNotFillMissingMinutes(){
+            for(String at:List.of("2026-11-05T15:59:00Z","2026-11-05T16:00:00Z","2026-11-06T15:59:00Z","2026-11-06T16:00:00Z"))onlineHistory.record(java.time.Instant.parse(at),"AVAILABLE",2,node);
+            var points=rows();assertEquals(2,points.size());assertEquals("2026-11-05T16:00:00Z",points.getFirst().get("sampleMinute"));assertEquals("2026-11-06T15:59:00Z",points.getLast().get("sampleMinute"));
+            assertEquals(false,onlineHistory.day(1,day).get("samplingEnabled"));
+        }
+        @Test void currentPlatformScopeAndStorageAvailabilityAreCheckedForEveryRead(){
+            long actor=900041;assertThrows(SecurityException.class,()->onlineHistory.day(actor,day));jdbc.update("INSERT INTO admin_data_scope VALUES(?,'PLATFORM','*')",actor);
+            assertDoesNotThrow(()->onlineHistory.day(actor,day));jdbc.update("DELETE FROM admin_data_scope WHERE principal_id=?",actor);assertThrows(SecurityException.class,()->onlineHistory.day(actor,day));
+            doThrow(new DataAccessResourceFailureException("history unavailable")).when(onlineHistoryMapper).day(any(),any());assertThrows(com.ruoyi.game.admin.GameDataUnavailable.class,()->onlineHistory.day(1,day));
+            assertThrows(IllegalArgumentException.class,()->onlineHistory.day(1,java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).plusDays(1)));
+        }
+    }
+
+    @Nested class BusinessAudit {
+        private final java.time.LocalDate today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+        @SuppressWarnings("unchecked") private Map<String,Object> record(long id){return (Map<String,Object>)businessAudit.detail(1,id).get("record");}
+        private long id(String target){return jdbc.queryForObject("SELECT id FROM admin_audit WHERE target=?",Long.class,target);}
+        @Test void commandLinksExactAuditAndReadQueriesDoNotRepeatItsEffect(){
+            var identity=auth.verify(auth.createGuest());String key=UUID.randomUUID().toString();
+            var first=admin.command(1,identity.uid(),"kick","审计关联验收",key);String operation=(String)first.get("operationId");
+            var result=businessAudit.list(1,1L,"kick",Long.toString(identity.uid()),operation,today,today,1,50);
+            assertEquals(1L,result.get("total"));assertEquals(1,((List<?>)result.get("rows")).size());
+            var row=record(id(Long.toString(identity.uid())));assertEquals(operation,row.get("operationId"));assertEquals("COMPLETED",row.get("operationStatus"));
+            assertEquals(Map.of("status","ACTIVE","sessionVersion","1"),row.get("after"));
+            assertTrue(row.get("createdAt").toString().endsWith("Z"));assertFalse(codec.write(row).contains(key));assertFalse(row.containsKey("beforeJson"));assertFalse(row.containsKey("requestHash"));
+            assertEquals(first.get("operationId"),admin.command(1,identity.uid(),"kick","审计关联验收",key).get("operationId"));
+            assertEquals(1,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
+        }
+        @Test void opaqueRequestKeysRemainCaseSensitiveAndExactRetriesStillReuseTheirAudit(){
+            var identity=auth.verify(auth.createGuest());String suffix=UUID.randomUUID().toString(),upper="A"+suffix,lower="a"+suffix;
+            var first=admin.command(1,identity.uid(),"kick","不透明请求键大小写",upper);
+            var second=admin.command(1,identity.uid(),"kick","不透明请求键大小写",lower);
+            assertNotEquals(first.get("operationId"),second.get("operationId"));
+            assertEquals(first.get("operationId"),admin.command(1,identity.uid(),"kick","不透明请求键大小写",upper).get("operationId"));
+            assertEquals(2,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
+            assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE target=?",Integer.class,Long.toString(identity.uid())));
+        }
+        @Test void unconfirmedAuditInsertRollsBackEffectCommandAndOutbox(){
+            var identity=auth.verify(auth.createGuest());String key=UUID.randomUUID().toString();
+            doReturn(0).when(adminMapper).auditCommand(anyString(),anyLong(),anyString(),anyString(),anyString(),anyString(),anyString(),any());
+            assertThrows(IllegalStateException.class,()->admin.command(1,identity.uid(),"ban","审计写入失败回滚",key));
+            assertEquals("ACTIVE",jdbc.queryForObject("SELECT status FROM user_account WHERE id=?",String.class,identity.accountId()));
+            assertEquals(0,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_operation WHERE request_key=?",Integer.class,key));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+identity.uid()+":1"));
+        }
+        @Test void unconfirmedCompletionRollsBackAlreadyInsertedAudit(){
+            var identity=auth.verify(auth.createGuest());String key=UUID.randomUUID().toString();
+            doReturn(0).when(adminMapper).complete(anyString(),anyString(),any());
+            assertThrows(IllegalStateException.class,()->admin.command(1,identity.uid(),"ban","完成状态失败回滚",key));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE target=?",Integer.class,Long.toString(identity.uid())));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_operation WHERE request_key=?",Integer.class,key));
+            assertEquals("ACTIVE",jdbc.queryForObject("SELECT status FROM user_account WHERE id=?",String.class,identity.accountId()));
+        }
+        @Test void unlinkedSummariesDoNotExposeNestedSecretsOrGuessOperation(){
+            String target=UUID.randomUUID().toString();
+            jdbc.update("INSERT INTO admin_audit(operator_id,action,target,reason,before_json,after_json,created_at) VALUES(1,'kick',?,'旧记录精确摘要',?,?,UTC_TIMESTAMP(6))",target,
+                    "{\"sessionVersion\":9007199254740993,\"sessionToken\":\"private-audit-sentinel\",\"status\":{\"token\":\"nested-audit-sentinel\"}}","{\"status\":\"ACTIVE\",\"password\":\"secret-audit-sentinel\"}");
+            var row=record(id(target));assertNull(row.get("operationId"));assertNull(row.get("operationStatus"));
+            assertEquals(Map.of("sessionVersion","9007199254740993"),row.get("before"));assertEquals(Map.of("status","ACTIVE"),row.get("after"));
+            String visible=codec.write(row);assertFalse(visible.contains("sentinel"));assertFalse(visible.contains("beforeJson"));
+            jdbc.update("UPDATE admin_audit SET action='future:private' WHERE target=?",target);row=record(id(target));assertEquals(false,row.get("summaryAvailable"));assertEquals(Map.of(),row.get("before"));
+        }
+        @Test void platformScopeIsRequiredOnEveryQueryAndStorageFailureIsUnknown(){
+            long actor=900031;assertThrows(SecurityException.class,()->businessAudit.list(actor,null,null,null,null,today,today,1,50));
+            jdbc.update("INSERT INTO admin_data_scope VALUES(?,'CLUB','100001')",actor);
+            assertThrows(SecurityException.class,()->businessAudit.detail(actor,1));
+            jdbc.update("INSERT INTO admin_data_scope VALUES(?,'PLATFORM','*')",actor);
+            assertDoesNotThrow(()->businessAudit.list(actor,null,null,null,null,today,today,1,50));
+            jdbc.update("DELETE FROM admin_data_scope WHERE principal_id=? AND scope_type='PLATFORM'",actor);
+            assertThrows(SecurityException.class,()->businessAudit.list(actor,null,null,null,null,today,today,1,50));
+            doThrow(new DataAccessResourceFailureException("unavailable")).when(adminMapper).platformScope(1);
+            assertThrows(com.ruoyi.game.admin.GameDataUnavailable.class,()->businessAudit.list(1,null,null,null,null,today,today,1,50));
+        }
+        @Test void beijingDateBoundsAndStableOrderingDoNotLeakNeighbouringDay(){
+            String target=UUID.randomUUID().toString();var day=java.time.LocalDate.of(2026,11,6);
+            for(String stamp:List.of("2026-11-05 15:59:59.999999","2026-11-05 16:00:00.000000","2026-11-06 15:59:59.999999","2026-11-06 16:00:00.000000"))
+                jdbc.update("INSERT INTO admin_audit(operator_id,action,target,reason,created_at) VALUES(1,'report:contact',?,'北京日期边界',?)",target,stamp);
+            var result=businessAudit.list(1,null,null,target,null,day,day,1,1);assertEquals(2L,result.get("total"));
+            @SuppressWarnings("unchecked") var rows=(List<Map<String,Object>>)result.get("rows");assertEquals(1,rows.size());assertEquals("2026-11-06T15:59:59.999999Z",rows.getFirst().get("createdAt"));
+            assertThrows(IllegalArgumentException.class,()->businessAudit.list(1,null,null,null,null,day,day.plusDays(31),1,50));
+            assertThrows(IllegalArgumentException.class,()->businessAudit.list(1,null,"bad%'",null,null,day,day,1,50));
+            assertThrows(IllegalArgumentException.class,()->businessAudit.list(1,null,null,null,"not-a-uuid",day,day,1,50));
+            assertThrows(IllegalArgumentException.class,()->businessAudit.list(1,null,null,null,null,day,day,1,201));
+        }
     }
 
     @Nested class DurableOutbox {

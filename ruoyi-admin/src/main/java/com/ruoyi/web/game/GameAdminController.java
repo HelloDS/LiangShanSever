@@ -15,14 +15,17 @@ public class GameAdminController {
     private final GameAdminService service;
     private final OnlinePresence presence;
     private final ConnectionRegistry registry;
-    public GameAdminController(GameAdminService service,OnlinePresence presence,ConnectionRegistry registry) {
-        this.service=service;this.presence=presence;this.registry=registry;
+    private final com.ruoyi.game.admin.OnlineHistoryService history;
+    public GameAdminController(GameAdminService service,OnlinePresence presence,ConnectionRegistry registry,com.ruoyi.game.admin.OnlineHistoryService history) {
+        this.service=service;this.presence=presence;this.registry=registry;this.history=history;
     }
     @GetMapping("/dashboard") @PreAuthorize("@ss.hasPermi('game:dashboard:query')")
     public AjaxResult dashboard() {
         Map<String,Object> data=new LinkedHashMap<>(service.dashboard(SecurityUtils.getUserId()));
         data.put("online",presence.snapshot());return AjaxResult.success(data);
     }
+    @GetMapping("/online/history") @PreAuthorize("@ss.hasPermi('game:dashboard:query')")
+    public AjaxResult history(@RequestParam java.time.LocalDate date){return AjaxResult.success(history.day(SecurityUtils.getUserId(),date));}
     @GetMapping("/players") @PreAuthorize("@ss.hasPermi('game:player:list')")
     public Map<String,Object> players(@RequestParam(required=false) Long uid,@RequestParam(required=false) String name,
             @RequestParam(required=false) String status,@RequestParam(defaultValue="1") int pageNum,@RequestParam(defaultValue="50") int pageSize) {

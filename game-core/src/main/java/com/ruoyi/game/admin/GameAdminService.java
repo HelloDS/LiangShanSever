@@ -50,11 +50,11 @@ public class GameAdminService {
             Map<String,Object> before=mapper.lockPlayer(uid);
             if(before==null)throw new IllegalArgumentException("玩家不存在");
             String status=switch(action){case "ban"->"BANNED";case "unban"->"ACTIVE";default->(String)before.get("status");};
-            mapper.changePlayer(((Number)before.get("accountId")).longValue(),status);
+            if(mapper.changePlayer(((Number)before.get("accountId")).longValue(),status)!=1)throw new IllegalStateException("玩家管理状态未确认写入");
             long version=((Number)before.get("sessionVersion")).longValue()+1;
             outbox.playerRevoked(uid,version);
             events.publishEvent(new PlayerRevoked(uid,version));
-            return new AdminOperations.Change(before,Map.of("status",status),Map.of("uid",Long.toString(uid)));
+            return new AdminOperations.Change(before,Map.of("status",status,"sessionVersion",version),Map.of("uid",Long.toString(uid)));
         });
     }
 }

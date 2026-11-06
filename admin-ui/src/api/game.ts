@@ -1,6 +1,8 @@
 import request from '@/utils/request'
 
 export const dashboard = () => request({ url: '/game-admin/dashboard', method: 'get' })
+export interface OnlineHistoryPoint {sampleMinute:string;observedAt:string;dataStatus:'AVAILABLE'|'REBUILDING'|'UNAVAILABLE';onlineCount:number|null}
+export const onlineHistory = (date:string) => request<unknown,{code:number;data:{rows:OnlineHistoryPoint[];date:string;zone:string;samplingEnabled:boolean;asOf:string}}>({url:'/game-admin/online/history',method:'get',params:{date}})
 export const players = (params: Record<string, unknown>) => request({ url: '/game-admin/players', method: 'get', params })
 export const player = (uid: string) => request({ url: `/game-admin/players/${uid}`, method: 'get' })
 export const online = (params: Record<string, unknown>) => request({ url: '/game-admin/online', method: 'get', params })

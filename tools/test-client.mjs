@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { execFileSync } from 'node:child_process';
+import {createHash} from 'node:crypto';
 import WebSocket from 'ws';
 
 export const base=process.env.GAME_BASE_URL||'http://localhost:8080';
@@ -19,8 +20,14 @@ export async function socket(){
   ws.on('close',()=>{for(const waiter of waiters.splice(0)){clearTimeout(waiter.timer);waiter.reject(new Error('连接已关闭'));}});
   return {ws,send(path,data){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('WS 响应超时')),8000);waiters.push({resolve,reject,timer});ws.send(JSON.stringify({path,reqData:data}));});},close(){ws.close();}};
 }
-export async function guest(){
+export async function guest({test=false}={}){
   const identity=await api('/api/auth/guest',{});assert.equal(identity.state,0);
+  if(test){
+    // 登录连接和分钟在线采样之前标记，不能等登录后再追认成测试身份。
+    const hash=createHash('sha256').update(identity.token).digest('hex');
+    const uid=Number(sql(`SELECT r.uid FROM guest_credential g JOIN player_role r ON r.account_id=g.account_id WHERE g.token_hash='${hash}'`));
+    assert.ok(Number.isSafeInteger(uid)&&uid>0);markTest(uid);
+  }
   const client=await socket();const reg=await client.send('login',{api:'user',c:'reg',account:'tk_'+identity.token,plat_id:'2'});assert.equal(reg.state,0);
   return {token:identity.token,session:reg.sessionToken,uid:reg.loginData.role.uid,client,reg,send(api,c,fields={}){return client.send('logic',{api,c,...fields,sessionToken:reg.sessionToken});}};
 }

@@ -1,0 +1,15 @@
+{
+  "executedAt": "2026-11-06T22:27:56.139865+00:00",
+  "base": "http://localhost:8080/admin/game/audit",
+  "checks": [
+    "只读账号仅获业务审计菜单，未显示写入或删除入口",
+    "真实命令筛选一条，operationId 与 HTTP/数据库一致",
+    "详情显示 sessionVersion 从 0 到 1，记录实际完成时刻",
+    "V13 前记录显示未关联，无推断的命令完成时间",
+    "数据范围撤回后下一刷新拒绝，清空旧结果并隐藏分页",
+    "临时审计用户/角色已停用，范围移除并恢复原菜单"
+  ],
+  "screenshot": "audit-browser.png",
+  "result": "PASS",
+  "cleanupConfirmedAt": "2026-11-06T22:31:35.631610+00:00"
+}

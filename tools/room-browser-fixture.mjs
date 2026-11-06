@@ -7,8 +7,8 @@ const fixture=JSON.parse(await readFile(new URL('../.local/report-browser-test.j
 assert.match(String(fixture.userId),/^[1-9][0-9]{2,8}$/);assert.match(String(fixture.roleId),/^[1-9][0-9]{2,8}$/);
 assert.match(fixture.userName,/^qa_support_[a-z0-9_]+$/);
 const userId=Number(fixture.userId),roleId=Number(fixture.roleId),statePath=new URL('../.local/room-browser-state.json',import.meta.url),mode=process.argv[2];
-const kind=process.argv[3]||'rooms';if(!['rooms','reconciliation'].includes(kind))throw Error('仅支持房间或账本核对只读夹具');
-const menu=kind==='rooms'?3008:3009;
+const kind=process.argv[3]||'rooms';if(!['rooms','reconciliation','audit','dashboard'].includes(kind))throw Error('仅支持房间、账本核对、业务审计或看板只读夹具');
+const menu={rooms:3008,reconciliation:3009,audit:3031,dashboard:3013}[kind];
 assert.equal(sql(`SELECT user_name FROM sys_user WHERE user_id=${userId}`),fixture.userName);
 if(mode==='prepare'){
  assert.equal(sql(`SELECT status FROM sys_user WHERE user_id=${userId}`),'1');
@@ -20,8 +20,8 @@ if(mode==='prepare'){
  const login=await api('/login',{username:fixture.userName,password:fixture.password});assert.equal(login.code,200);
  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
  assert.equal((await api(`/game-admin/${kind}?start=${today}&end=${today}`,undefined,login.token)).code,200);
- assert.equal((await api('/game-admin/dashboard',undefined,login.token)).code,403);
- console.log('仅'+(kind==='rooms'?'房间':'账本核对')+'查询的临时 QA 已启用：'+fixture.userName);
+ assert.equal((await api(kind==='dashboard'?'/game-admin/players':'/game-admin/dashboard',undefined,login.token)).code,403);
+ console.log('仅'+({rooms:'房间',reconciliation:'账本核对',audit:'业务审计',dashboard:'运营看板'}[kind])+'查询的临时 QA 已启用：'+fixture.userName);
 }else if(mode==='revoke'){
  const state=JSON.parse(await readFile(statePath,'utf8'));assert.equal(state.userId,userId);assert.equal(state.roleId,roleId);
  sql(`DELETE FROM admin_data_scope WHERE principal_id=${userId}`);console.log('临时 QA 数据范围已撤回，保留菜单用于下一请求拒绝验收');
