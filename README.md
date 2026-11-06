@@ -2,7 +2,7 @@
 
 按 `Java高性能棋牌游戏服务器方案.md` 分阶段实现。游戏 HTTP/WS 与若依后台同进程运行，Creator 现有协议是兼容依据。
 
-当前已实现持久游客登录与恢复、大厅资料/公告/匿名举报、玩家与统计后台，以及亲友圈成员申请/审批/退出/权限与组织后台。圈创建、兑换和资金操作仍受未确认规则约束，房间与斗地主尚未接通。实际验收范围见 `docs/开发进度.md`，不将页面可用等同于三个版本全部完成。
+当前可运行持久游客登录与恢复、大厅资料/公告/匿名举报、既有亲友圈组织、玩家/圈/钱包/审计后台及真实在线分钟历史。房间日志、恢复、邮箱、定时基础与 6003 内部出牌已有实现和测试；公开房间生命周期、原客户端完整联机及收费/积分结算尚未完成。圈创建、兑换与费用仍受待确认规则约束。详细范围与证据见 `docs/开发进度.md`，不将内部底座或页面可用当成三版全部交付。
 
 ## 本地启动
 
@@ -44,6 +44,9 @@ node tools/report-smoke.mjs
 node tools/wallet-smoke.mjs
 node tools/transport-smoke.mjs
 node tools/outbox-smoke.mjs
+node tools/reconciliation-smoke.mjs
+node tools/audit-smoke.mjs
+node tools/online-history-smoke.mjs
 python3 scripts/collect-test-evidence.py
 ```
 
@@ -82,3 +85,10 @@ RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobb
 本机 Colima 千连接测试使用 `colima start --port-forwarder grpc`。本次 SSH 转发主进程退出导致宿主端口及 Docker socket 丢失，而 VM 内服务仍正常，故切换后重新验收；没有把环境中断算作服务容量通过。转发方式见 [Lima 官方说明](https://lima-vm.io/docs/config/port/)。重启 Colima 后用 Compose 恢复原命名卷，并核验持久游客身份。
 
 持久任务正常重启验收使用两步脚本：以 `scripts/run.sh --game.outbox.worker-enabled=false` 启动后，在另一个终端运行 `RUN_RECOVERY_FIXTURES=1 node tools/outbox-recovery.mjs prepare`；正常停止并默认重启 Java 后执行同样变量的 `verify`。该测试创建标记为测试的真实游客与管理命令，公共记录不含认证材料。
+
+
+每日只读账户核对、真实在线分钟历史与业务审计已部署。核对按北京时间每日 04:15 后登记本日任务；GAME_RECONCILIATION_ENABLED=false 或 GAME_ONLINE_HISTORY_ENABLED=false 可分别暂停工作，既有记录保留。参数及恢复/权限边界见 `docs/每日账本核对.md`、`docs/在线分钟历史.md`、`docs/业务审计查询.md`。查询故障显示未知或未完成，不以零替代。
+
+后台生成资源通过 scripts/sync-admin-assets.py 替换，旧资源保留在忽略的 .local 备份目录。脚本拒绝替换符号链接或包含已跟踪文件的目录，防止旧哈希资源混入新 JAR。
+
+内部房间持久写入的一小时实际复核见 `docs/房间持久写入验收.md`。测试使用独立 Testcontainers MySQL/Redis、200 房间/600 身份，仅推进单张/过牌及测试换局；没有网络房间动作或费用/计分，不能外推为完整斗地主容量。显式复现时为 ROOM_LOAD_REPORT 指定新的 room-storage-load-*.json 文件名，已存在报告不会覆盖。十后台会话读取模式及其范围见 `docs/内部后台混合读取.md`。
