@@ -25,6 +25,11 @@ assert.ok(/^[0-9]+$/.test(serverPid));
 const buildCommit=(await run('git',['rev-parse','HEAD'])).stdout.trim();
 const javaVersion=(await run('jcmd',[serverPid,'VM.version'])).stdout.trim();
 const artifactSha256=createHash('sha256').update(await readFile(new URL('../ruoyi-admin/target/ruoyi-admin.jar',import.meta.url))).digest('hex');
+const proxy={image:(await run('docker',['inspect','--format','{{.Image}}','liangshan-nginx-1'])).stdout.trim(),
+ ulimits:JSON.parse((await run('docker',['inspect','--format','{{json .HostConfig.Ulimits}}','liangshan-nginx-1'])).stdout),
+ configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
+const engine=(await run('docker',['info','--format','{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}'])).stdout.trim();
+const mysqlDurability=sql('SELECT @@innodb_flush_log_at_trx_commit,@@sync_binlog,@@log_bin').split('\t').map(Number);
 const clients=[],latencies=[],errors={},samples=[];
 let phase='connecting',sent=0,completed=0,pushes=0,closed=0,busy=0,missed=0,pings=0,pongs=0;
 let stopped=false;process.once('SIGINT',()=>{stopped=true;});process.once('SIGTERM',()=>{stopped=true;});
@@ -108,7 +113,7 @@ const percentile=p=>latencies.length?Number(latencies[Math.min(latencies.length-
 const totalErrors=Object.values(errors).reduce((a,b)=>a+b,0);
 const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论',base,
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
- java:javaVersion,git:buildCommit,artifactSha256},
+ java:javaVersion,git:buildCommit,artifactSha256,proxy,dockerCpuMemoryVersion:engine,mysqlDurability:{innodbFlushLogAtTrxCommit:mysqlDurability[0],syncBinlog:mysqlDurability[1],logBin:mysqlDurability[2]}},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
  actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,

@@ -1,0 +1,69 @@
+{
+  "executedAt": "2026-11-06T18:10:58.587Z",
+  "scope": "本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论",
+  "base": "http://localhost:8080",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "cpu": "Apple M1 Pro",
+    "totalMemoryBytes": 17179869184,
+    "node": "v24.19.0",
+    "java": "88116:\nOpenJDK 64-Bit Server VM version 21.0.11+10-b1163.116\nJDK 21.0.11",
+    "git": "db434918ace15ac9b7570697d933bfc770eeeeec",
+    "artifactSha256": "d3c0ec7b45d0eb97eb679c6d2d39b2e7c437de22f310cefce656c62611265cf2"
+  },
+  "requested": {
+    "connections": 1000,
+    "active": 200,
+    "idle": 800,
+    "seconds": 3600,
+    "queriesPerSecond": 200,
+    "routes": [
+      {
+        "api": "role",
+        "c": "syncCard"
+      },
+      {
+        "api": "club",
+        "c": "getClubs"
+      },
+      {
+        "api": "manager",
+        "c": "getNotices"
+      },
+      {
+        "api": "cfg",
+        "c": "getGame",
+        "game_id": "6003"
+      }
+    ]
+  },
+  "measurementMs": 0,
+  "actual": {
+    "authenticated": 507,
+    "sent": 0,
+    "completed": 0,
+    "closed": 1,
+    "pushes": 0,
+    "busy": 0,
+    "missed": 0,
+    "heartbeats": {
+      "receivedPings": 115,
+      "sentPongs": 115
+    },
+    "errors": {
+      "socket_error": 1,
+      "setup_or_metrics_failed": 1
+    },
+    "throughputPerSecond": 0,
+    "latencyMs": {
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "max": null
+    }
+  },
+  "samples": [],
+  "result": "FAIL"
+}
