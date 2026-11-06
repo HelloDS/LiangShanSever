@@ -9,7 +9,7 @@
     <div class="backlog"><span>待处理 <b>{{ summary?.READY ?? '未知' }}</b></span><span>处理中 <b>{{ summary?.CLAIMED ?? '未知' }}</b></span><span>待人工处理 <b>{{ summary?.DEAD ?? '未知' }}</b></span><small v-if="asOf">截至 {{ gameTime(asOf) }}</small></div>
     <el-table v-loading="loading" :data="rows" empty-text="所选范围暂无持久任务">
       <el-table-column label="发生时间" min-width="175"><template #default="{row}">{{ gameTime(row.occurredAt) }}</template></el-table-column>
-      <el-table-column label="类型" width="145"><template #default="{row}">{{ row.eventType==='PLAYER_REVOKED'?'玩家会话撤销':row.eventType }}</template></el-table-column>
+      <el-table-column label="类型" width="145"><template #default="{row}">{{ eventText(row.eventType) }}</template></el-table-column>
       <el-table-column label="状态" width="130"><template #default="{row}"><el-tag :type="row.status==='DEAD'?'danger':row.status==='DONE'?'success':'info'">{{ labels[row.status as TaskStatus] }}</el-tag></template></el-table-column>
       <el-table-column prop="businessKey" label="业务编号" min-width="210" show-overflow-tooltip />
       <el-table-column prop="totalAttempts" label="累计领取" width="100" /><el-table-column prop="manualRetries" label="人工重试" width="100" />
@@ -33,6 +33,7 @@ import { ref } from 'vue'
 import { outboxTasks, outboxBacklog, outboxRetry, type TaskStatus, type OutboxTask } from '@/api/outbox'
 import { gameTime } from '@/utils/game-time'
 const labels: Record<TaskStatus,string>={READY:'待处理',CLAIMED:'处理中',DONE:'已完成',DEAD:'待人工处理'}
+function eventText(type:string){return ({PLAYER_REVOKED:'玩家会话撤销',ROOM_EVENT_COMMITTED:'房间事件投影'} as Record<string,string>)[type]||type}
 const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date())
 const dates=ref<[string,string]>([today,today]),status=ref<TaskStatus|''>(''),page=ref(1),total=ref(0)
 const rows=ref<OutboxTask[]>([]),loading=ref(false),error=ref(''),asOf=ref(''),summary=ref<Record<TaskStatus,number>|null>(null)

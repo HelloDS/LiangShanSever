@@ -26,13 +26,18 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
     }
     private final Config config;
     private final RoomPersistence<S,C,E> persistence;
+    private final java.time.Clock clock;
     private final List<Shard> shards=new ArrayList<>();
     private final ThreadPoolExecutor io,notifications;
     private final ScheduledThreadPoolExecutor retries;
     private final AtomicBoolean accepting=new AtomicBoolean(true);
 
     public RoomMailboxes(Config config,RoomPersistence<S,C,E> persistence){
+        this(config,persistence,java.time.Clock.systemUTC());
+    }
+    public RoomMailboxes(Config config,RoomPersistence<S,C,E> persistence,java.time.Clock clock){
         this.config=Objects.requireNonNull(config);this.persistence=Objects.requireNonNull(persistence);
+        this.clock=Objects.requireNonNull(clock);
         io=pool(config.ioThreads(),config.ioQueue(),"room-io-");
         notifications=pool(2,Math.multiplyExact(config.shards(),config.commandsPerShard()),"room-result-");
         retries=new ScheduledThreadPoolExecutor(1,Thread.ofPlatform().name("room-reconcile").daemon().factory(),new ThreadPoolExecutor.AbortPolicy());
@@ -102,7 +107,7 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
             }catch(RoomRejected failure){finish(request,null,failure.code());continue;}
             catch(RuntimeException failure){finish(request,null,"ENGINE_ERROR");continue;}
             if(!actor.shard.completionSlots.tryAcquire()){finish(request,null,"COMPLETION_CAPACITY");continue;}
-            Commit commit=new Commit(request,new Write<>(before,candidate,request.command,transition.event()));
+            Commit commit=new Commit(request,new Write<>(before,candidate,request.command,transition.event(),clock.instant()));
             actor.commit=commit;attempt(actor,commit,false);
         }
     }

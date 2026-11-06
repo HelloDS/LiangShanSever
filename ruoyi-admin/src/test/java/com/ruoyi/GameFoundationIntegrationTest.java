@@ -57,6 +57,14 @@ class GameFoundationIntegrationTest {
     @Autowired com.ruoyi.game.outbox.OutboxAdminService outboxAdmin;
     @MockitoSpyBean OutboxMapper outboxMapper;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+    @Autowired com.ruoyi.game.room.RoomAdminService roomAdmin;
+    @Autowired com.ruoyi.game.room.RoomJournal journal;
+    @Autowired com.ruoyi.game.room.RoomEventConsumer roomEvents;
+    @MockitoSpyBean com.ruoyi.web.game.RoomTransactionBoundary roomTransactions;
+    @MockitoSpyBean RoomJournalMapper roomJournalMapper;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("masterDataSource") javax.sql.DataSource generalPool;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("roomDataSource") javax.sql.DataSource roomPool;
+    private static final java.util.concurrent.atomic.AtomicInteger ROOM_CODES=new java.util.concurrent.atomic.AtomicInteger(700000);
     @Autowired GuestAuthService auth;
     @MockitoSpyBean GameSessionService sessions;
     @Autowired GameLoginService login;
@@ -195,7 +203,7 @@ class GameFoundationIntegrationTest {
         @Test void outboxInsertFailureRollsBackPlayerCommandAndAudit(){
             GuestIdentity identity=auth.verify(auth.createGuest());
             doThrow(new IllegalStateException("injected outbox failure")).when(outboxMapper)
-                    .append(anyString(),anyString(),anyString(),anyString(),anyString(),anyString(),any());
+                    .append(anyString(),anyString(),anyString(),anyString(),anyString(),anyString(),any(),any());
             assertThrows(IllegalStateException.class,()->admin.command(1,identity.uid(),"ban","事务末尾故障验收",UUID.randomUUID().toString()));
             assertEquals("ACTIVE",jdbc.queryForObject("SELECT status FROM user_account WHERE id=?",String.class,identity.accountId()));
             assertEquals(0,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
@@ -253,6 +261,259 @@ class GameFoundationIntegrationTest {
             assertThrows(IllegalArgumentException.class,()->outboxAdmin.list(1,null,today.minusDays(31),today,1,50));
             assertTrue(((Number)outboxAdmin.list(1,"DEAD",today,today,1,50).get("total")).longValue()>=1);
             assertTrue(outbox.backlog().dead()>=1);
+        }
+    }
+
+    @Nested class RoomStorage {
+        private record Fixture(GuestIdentity owner,String room,com.ruoyi.game.room.RoomSnapshot<String> state){ }
+        private Fixture room(){return room(auth.verify(auth.createGuest()),Integer.toString(ROOM_CODES.incrementAndGet()));}
+        private Fixture room(GuestIdentity owner,String code){
+            String id=UUID.randomUUID().toString(),json="{\"value\":0}",hash=journal.stateHash(json);
+            jdbc.update("INSERT INTO room_record(room_id,room_code,game_id,owner_uid,creator_uid,payer_uid,options_json,rule_version,is_test,created_at) VALUES(?,?,'6003',?,?,?,'{}','fixture-v1',TRUE,UTC_TIMESTAMP(6))",id,code,owner.uid(),owner.uid(),owner.uid());
+            jdbc.update("INSERT INTO active_room_code(room_code,room_id) VALUES(?,?)",code,id);
+            jdbc.update("INSERT INTO room_runtime(room_id,state_hash,snapshot_json,snapshot_hash,schema_version,engine_version,updated_at) VALUES(?,?,?,?,1,'counter-v1',UTC_TIMESTAMP(6))",id,hash,json,hash);
+            var recovery=journal.claim(id,UUID.randomUUID().toString(),1,"counter-v1");
+            return new Fixture(owner,id,new com.ruoyi.game.room.RoomSnapshot<>(id,recovery.ownerEpoch(),0,0,"WAITING",json));
+        }
+        private com.ruoyi.game.room.RoomJournalCommand change(Fixture fixture,com.ruoyi.game.room.RoomSnapshot<String> previous,int value,boolean checkpoint,List<WalletPosting> postings,com.ruoyi.game.room.RoomJournalCommand.SeatChange seat,String phase){
+            int before=codec.read(previous.state()).get("value").asInt();
+            var candidate=new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),previous.ownerEpoch(),previous.version()+1,previous.round(),phase,"{\"value\":"+value+"}");
+            return new com.ruoyi.game.room.RoomJournalCommand(previous,candidate,"CLOSED".equals(phase)?"ROOM_CLOSE":"TEST_INCREMENT","{\"delta\":"+(value-before)+"}","fixture-v1",1,"counter-v1",fixture.owner(),postings,seat,checkpoint,java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+        }
+        private com.ruoyi.game.room.RoomJournalCommand change(Fixture fixture,com.ruoyi.game.room.RoomSnapshot<String> previous,int value,boolean checkpoint){return change(fixture,previous,value,checkpoint,List.of(),null,"WAITING");}
+        private long number(String sql,Object... args){return jdbc.queryForObject(sql,Long.class,args);}
+        private long balance(Fixture fixture){return number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",fixture.owner().uid());}
+        private void fund(Fixture fixture,long amount){
+            wallets.post(new WalletPosting(Kind.REWARD,"fixture:"+UUID.randomUUID(),"fixture-v1",fixture.room(),List.of(
+                    new Entry(new Account(OwnerType.PERSONAL,fixture.owner().uid(),Currency.CARD),amount,0),new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-amount,0))));
+        }
+        private WalletPosting charge(Fixture fixture,long amount){return new WalletPosting(Kind.CONSUMPTION,"room:"+fixture.room()+":fixture:charge","fixture-v1",fixture.room(),List.of(
+                new Entry(new Account(OwnerType.PERSONAL,fixture.owner().uid(),Currency.CARD),-amount,0),new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),amount,0)));}
+        private long events(Fixture fixture){return number("SELECT COUNT(*) FROM room_event WHERE room_id=?",fixture.room());}
+        private long outboxes(Fixture fixture){return number("SELECT COUNT(*) FROM outbox_event WHERE biz_key LIKE ?","room-event:"+fixture.room()+":%");}
+        private com.ruoyi.game.outbox.OutboxEvent outbox(Fixture fixture,long version){return outboxMapper.event(jdbc.queryForObject("SELECT id FROM outbox_event WHERE biz_key=?",String.class,"room-event:"+fixture.room()+":"+version));}
+        private com.ruoyi.game.room.RoomReplay.Codec<Integer,Integer> replayCodec(){return new com.ruoyi.game.room.RoomReplay.Codec<>(){
+            public boolean supports(String game,int schema,String engine){return game.equals("6003")&&schema==1&&engine.equals("counter-v1");}
+            public Integer state(String json){return codec.read(json).get("value").asInt();}
+            public Integer event(String kind,String json){return codec.read(json).get("delta").asInt();}
+            public String json(Integer value){return "{\"value\":"+value+"}";}
+        };}
+
+        @Test void persistedSnapshotAndEventKeepExactNumbersAcrossDatabaseRoundTrip(){
+            var fixture=room();String json="{\"decimal\":0.123456789012345678901,\"integer\":9007199254740993}";
+            var candidate=new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),fixture.state().ownerEpoch(),1,0,"WAITING",json);
+            var command=new com.ruoyi.game.room.RoomJournalCommand(fixture.state(),candidate,"TEST_PRECISION",json,"fixture-v1",1,"counter-v1",fixture.owner(),List.of(),null,true,java.time.Instant.now());
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(command));
+            assertEquals(codec.canonicalObject(json),jdbc.queryForObject("SELECT payload_json FROM room_event WHERE room_id=?",String.class,fixture.room()));
+            var recovery=journal.claim(fixture.room(),UUID.randomUUID().toString(),1,"counter-v1");
+            assertEquals(codec.canonicalObject(json),codec.canonicalObject(recovery.snapshotJson()));
+            assertEquals(journal.stateHash(json),recovery.stateHash());
+        }
+
+        @Test void committedRetryIsOneEventAndCheckpointAdvancesOnlyWhenRequested(){
+            var fixture=room();var first=change(fixture,fixture.state(),1,false);
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(first));
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(first));
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.resolve(first));
+            assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+            assertEquals(0,number("SELECT snapshot_seq FROM room_runtime WHERE room_id=?",fixture.room()));
+            var second=change(fixture,first.candidate(),2,true);assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(second));
+            assertEquals(2,number("SELECT snapshot_seq FROM room_runtime WHERE room_id=?",fixture.room()));assertEquals(2,events(fixture));
+            var recovery=journal.claim(fixture.room(),UUID.randomUUID().toString(),1,"counter-v1");
+            assertTrue(recovery.events().isEmpty());
+            assertEquals(2,com.ruoyi.game.room.RoomReplay.recover(recovery,replayCodec(),Integer::sum,journal::stateHash).state());
+        }
+        @Test void lateOutboxFailureRollsBackSeatWalletEventVersionAndCheckpoint(){
+            var fixture=room();fund(fixture,100);
+            var seat=new com.ruoyi.game.room.RoomJournalCommand.SeatChange(com.ruoyi.game.room.RoomJournalCommand.SeatAction.JOIN,fixture.owner().uid(),0);
+            var command=change(fixture,fixture.state(),1,true,List.of(charge(fixture,10)),seat,"WAITING");
+            doThrow(new IllegalStateException("injected final outbox failure")).when(outboxMapper).append(anyString(),anyString(),anyString(),anyString(),anyString(),anyString(),any(),any());
+            assertThrows(IllegalStateException.class,()->journal.commit(command));
+            assertEquals(100,balance(fixture));assertEquals(0,events(fixture));assertEquals(0,outboxes(fixture));
+            assertEquals(0,number("SELECT version FROM room_runtime WHERE room_id=?",fixture.room()));
+            assertEquals(0,number("SELECT snapshot_seq FROM room_runtime WHERE room_id=?",fixture.room()));
+            assertEquals(0,number("SELECT COUNT(*) FROM player_room_binding WHERE uid=?",fixture.owner().uid()));
+            assertEquals(0,number("SELECT COUNT(*) FROM room_player WHERE room_id=?",fixture.room()));
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key LIKE ?","room:"+fixture.room()+":%"));
+        }
+        @Test void parallelRetriesDebitOnceAndUseOnePersistentRoomVersion() throws Exception {
+            var fixture=room();fund(fixture,100);var command=change(fixture,fixture.state(),1,false,List.of(charge(fixture,3)),null,"WAITING");
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Future<com.ruoyi.game.room.RoomPersistence.Decision>> results=new ArrayList<>();
+                for(int i=0;i<16;i++)results.add(workers.submit(()->journal.commit(command)));
+                for(var result:results)assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,result.get(10,TimeUnit.SECONDS));
+            }
+            assertEquals(97,balance(fixture));assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+            assertEquals(1,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key LIKE ?","room:"+fixture.room()+":%"));
+        }
+        @Test void samePlayerCannotJoinTwoRoomsConcurrently() throws Exception {
+            GuestIdentity owner=auth.verify(auth.createGuest());var a=room(owner,Integer.toString(ROOM_CODES.incrementAndGet()));var b=room(owner,Integer.toString(ROOM_CODES.incrementAndGet()));
+            var seat=new com.ruoyi.game.room.RoomJournalCommand.SeatChange(com.ruoyi.game.room.RoomJournalCommand.SeatAction.JOIN,owner.uid(),0);
+            var first=change(a,a.state(),1,false,List.of(),seat,"WAITING");var second=change(b,b.state(),1,false,List.of(),seat,"WAITING");
+            List<com.ruoyi.game.room.RoomPersistence.Decision> outcomes=new ArrayList<>();
+            try(ExecutorService workers=Executors.newFixedThreadPool(2)){
+                var one=workers.submit(()->journal.commit(first));var two=workers.submit(()->journal.commit(second));
+                outcomes.add(one.get(10,TimeUnit.SECONDS));outcomes.add(two.get(10,TimeUnit.SECONDS));
+            }
+            assertEquals(1,outcomes.stream().filter(value->value==com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED).count());
+            assertEquals(1,number("SELECT COUNT(*) FROM player_room_binding WHERE uid=?",owner.uid()));
+            assertEquals(1,number("SELECT COUNT(*) FROM room_player WHERE uid=?",owner.uid()));assertEquals(1,events(a)+events(b));
+        }
+        @Test void reusedRoomCodeCannotMixPermanentEventsOrBeReleasedByOldRetry(){
+            var old=room(auth.verify(auth.createGuest()),"810001");var close=change(old,old.state(),1,true,List.of(),null,"CLOSED");
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(close));
+            var fresh=room(old.owner(),"810001");assertNotEquals(old.room(),fresh.room());
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(close));
+            assertEquals(fresh.room(),jdbc.queryForObject("SELECT room_id FROM active_room_code WHERE room_code='810001'",String.class));
+            assertEquals(1,events(old));assertEquals(0,events(fresh));
+            assertEquals("ROOM_CLOSED",assertThrows(com.ruoyi.game.room.RoomRejected.class,()->journal.claim(old.room(),UUID.randomUUID().toString(),1,"counter-v1")).code());
+        }
+        @Test void replayUsesSavedEventsWithoutRepeatingMoneyOrPublishingOutbox(){
+            var fixture=room();fund(fixture,100);var first=change(fixture,fixture.state(),1,false,List.of(charge(fixture,2)),null,"WAITING");
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(first));
+            var second=change(fixture,first.candidate(),2,false);assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(second));
+            long ledger=number("SELECT COUNT(*) FROM wallet_ledger"),outbox=outboxes(fixture);
+            var recovery=journal.claim(fixture.room(),UUID.randomUUID().toString(),1,"counter-v1");
+            for(int i=0;i<2;i++)assertEquals(2,com.ruoyi.game.room.RoomReplay.recover(recovery,replayCodec(),Integer::sum,journal::stateHash).state());
+            assertEquals(98,balance(fixture));assertEquals(ledger,number("SELECT COUNT(*) FROM wallet_ledger"));assertEquals(outbox,outboxes(fixture));assertEquals(2,events(fixture));
+        }
+        @Test void newOwnerEpochFencesOldWriterAndUnknownEngineDoesNotAcquireOwner(){
+            var fixture=room();var old=change(fixture,fixture.state(),1,false);
+            long epoch=number("SELECT owner_epoch FROM room_runtime WHERE room_id=?",fixture.room());
+            assertEquals("UNSUPPORTED_ENGINE",assertThrows(com.ruoyi.game.room.RoomRejected.class,()->journal.claim(fixture.room(),UUID.randomUUID().toString(),2,"unknown")).code());
+            assertEquals(epoch,number("SELECT owner_epoch FROM room_runtime WHERE room_id=?",fixture.room()));
+            var fresh=journal.claim(fixture.room(),UUID.randomUUID().toString(),1,"counter-v1");assertEquals(epoch+1,fresh.ownerEpoch());
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.OWNER_CHANGED,journal.commit(old));assertEquals(0,events(fixture));
+        }
+        @Test void missingEventOrCorruptReplayPayloadFailsRecovery(){
+            var missing=room();assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(change(missing,missing.state(),1,false)));
+            jdbc.update("DELETE FROM room_event WHERE room_id=?",missing.room());
+            assertEquals("EVENT_GAP",assertThrows(com.ruoyi.game.room.RoomRejected.class,()->journal.claim(missing.room(),UUID.randomUUID().toString(),1,"counter-v1")).code());
+            var corrupt=room();assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(change(corrupt,corrupt.state(),1,false)));
+            jdbc.update("UPDATE room_event SET payload_json='{\"delta\":999}' WHERE room_id=?",corrupt.room());
+            var recovery=journal.claim(corrupt.room(),UUID.randomUUID().toString(),1,"counter-v1");
+            assertEquals("STATE_HASH_MISMATCH",assertThrows(com.ruoyi.game.room.RoomRejected.class,()->com.ruoyi.game.room.RoomReplay.recover(recovery,replayCodec(),Integer::sum,journal::stateHash)).code());
+        }
+        @Test void recoveryBudgetsRejectBeforeChangingPersistentOwnerEpoch(){
+            var tooMany=room();
+            jdbc.update("UPDATE room_runtime SET version=2049 WHERE room_id=?",tooMany.room());
+            assertThrows(com.ruoyi.game.room.RoomRejected.class,()->journal.claim(tooMany.room(),UUID.randomUUID().toString(),1,"counter-v1"));
+            assertEquals(1,number("SELECT owner_epoch FROM room_runtime WHERE room_id=?",tooMany.room()));
+            var tooLarge=room();
+            for(int sequence=1;sequence<=9;sequence++)jdbc.update("INSERT INTO room_event(room_id,event_seq,owner_epoch,round_no,phase,event_kind,payload_json,request_hash,before_hash,after_hash,schema_version,engine_version,occurred_at,committed_at) VALUES(?,?,1,0,'WAITING','TEST_INCREMENT',JSON_OBJECT('opaque',REPEAT('x',1048576)),REPEAT('a',64),REPEAT('a',64),REPEAT('a',64),1,'counter-v1',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",tooLarge.room(),sequence);
+            jdbc.update("UPDATE room_runtime SET version=9 WHERE room_id=?",tooLarge.room());
+            assertThrows(com.ruoyi.game.room.RoomRejected.class,()->journal.claim(tooLarge.room(),UUID.randomUUID().toString(),1,"counter-v1"));
+            assertEquals(1,number("SELECT owner_epoch FROM room_runtime WHERE room_id=?",tooLarge.room()));
+        }
+
+        @Test void duplicateAndOutOfOrderConsumerDeliveryCountsEachSourceEventOnce() throws Exception {
+            var fixture=room();var one=change(fixture,fixture.state(),1,false);journal.commit(one);journal.commit(change(fixture,one.candidate(),2,false));
+            var first=outbox(fixture,1);var second=outbox(fixture,2);roomEvents.consume(second);
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Future<?>> results=new ArrayList<>();for(int i=0;i<16;i++)results.add(workers.submit(()->roomEvents.consume(first)));
+                for(var result:results)result.get(10,TimeUnit.SECONDS);
+            }
+            assertEquals(2,number("SELECT event_count FROM room_event_projection WHERE room_id=?",fixture.room()));
+            assertEquals(2,number("SELECT last_version FROM room_event_projection WHERE room_id=?",fixture.room()));
+            assertEquals(2,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id IN (?,?)",first.id(),second.id()));
+        }
+        @Test void consumerFailureRollsBackReceiptAndProjection(){
+            var fixture=room();journal.commit(change(fixture,fixture.state(),1,false));var event=outbox(fixture,1);
+            doThrow(new IllegalStateException("injected projection failure")).when(roomJournalMapper).project(anyString(),anyLong(),any(),any());
+            assertThrows(IllegalStateException.class,()->roomEvents.consume(event));
+            assertEquals(0,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",event.id()));
+            assertEquals(0,number("SELECT COUNT(*) FROM room_event_projection WHERE room_id=?",fixture.room()));
+        }
+        @Test void roomPoolCanCommitSharedWalletAndOutboxWhenGeneralPoolIsExhausted() throws Exception {
+            var fixture=room();fund(fixture,100);var command=change(fixture,fixture.state(),1,false,List.of(charge(fixture,1)),null,"WAITING");
+            var general=assertInstanceOf(com.alibaba.druid.pool.DruidDataSource.class,generalPool);var dedicated=assertInstanceOf(com.alibaba.druid.pool.DruidDataSource.class,roomPool);
+            assertEquals(16,general.getMaxActive());assertEquals(8,dedicated.getMaxActive());
+            List<java.sql.Connection> held=new ArrayList<>();
+            try{
+                for(int i=0;i<general.getMaxActive();i++)held.add(general.getConnection());
+                assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(command));
+            }finally{for(var connection:held)connection.close();}
+            assertEquals(99,balance(fixture));assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+            assertNull(com.ruoyi.framework.datasource.DynamicDataSourceContextHolder.getDataSourceType());
+        }
+        @Test void committedButLostBoundaryResultResolvesWithoutRepeatingEffects(){
+            var fixture=room();fund(fixture,100);var command=change(fixture,fixture.state(),1,false,List.of(charge(fixture,3)),null,"WAITING");
+            var lost=new java.util.concurrent.atomic.AtomicBoolean(true);
+            doAnswer(call->{Object result=call.callRealMethod();if(lost.getAndSet(false))throw new org.springframework.dao.DataAccessResourceFailureException("injected result loss after commit");return result;}).when(roomTransactions).execute(any());
+            assertThrows(org.springframework.dao.DataAccessResourceFailureException.class,()->journal.commit(command));
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.resolve(command));
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.commit(command));
+            assertEquals(97,balance(fixture));assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+        }
+        @Test void afterCommitExceptionCannotBeMistakenForKnownPrecommitRejection(){
+            var fixture=room();var command=change(fixture,fixture.state(),1,false);var lost=new java.util.concurrent.atomic.AtomicBoolean(true);
+            doAnswer(call->{Object result=call.callRealMethod();if(lost.getAndSet(false))throw new org.springframework.dao.DataIntegrityViolationException("injected exception after completed commit");return result;}).when(roomTransactions).execute(any());
+            assertThrows(org.springframework.dao.DataIntegrityViolationException.class,()->journal.commit(command));
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.COMMITTED,journal.resolve(command));assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+        }
+        private com.ruoyi.game.room.JournalRoomPersistence<Integer,Integer,Integer> bridge(Fixture fixture,List<WalletPosting> postings){
+            return new com.ruoyi.game.room.JournalRoomPersistence<>(journal,write->{
+                var before=new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),write.previous().ownerEpoch(),write.previous().version(),write.previous().round(),write.previous().phase(),"{\"value\":"+write.previous().state()+"}");
+                var candidate=new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),write.candidate().ownerEpoch(),write.candidate().version(),write.candidate().round(),write.candidate().phase(),"{\"value\":"+write.candidate().state()+"}");
+                return new com.ruoyi.game.room.RoomJournalCommand(before,candidate,"TEST_INCREMENT","{\"delta\":"+write.event()+"}","fixture-v1",1,"counter-v1",fixture.owner(),postings,null,false,write.occurredAt());
+            });
+        }
+        @Test void realMailboxAndRoomTransactionInstallOnlyCommittedState() throws Exception {
+            var fixture=room();
+            try(var boxes=new com.ruoyi.game.room.RoomMailboxes<Integer,Integer,Integer>(new com.ruoyi.game.room.RoomMailboxes.Config(1,16,8,8,2,8,5),bridge(fixture,List.of()))){
+                var handle=boxes.register(new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),fixture.state().ownerEpoch(),0,0,"WAITING",0),(before,value)->new com.ruoyi.game.room.RoomTransition<>(0,"WAITING",before.state()+value,value));
+                var first=boxes.submit(handle,1);var second=boxes.submit(handle,1);
+                assertEquals(1,first.toCompletableFuture().get(3,TimeUnit.SECONDS).state());assertEquals(2,second.toCompletableFuture().get(3,TimeUnit.SECONDS).state());
+                assertEquals(2,events(fixture));assertEquals(2,outboxes(fixture));assertEquals(2,number("SELECT version FROM room_runtime WHERE room_id=?",fixture.room()));
+            }
+        }
+        @Test void lostCommitResultKeepsMailboxOldStateUntilDatabaseConfirmation() throws Exception {
+            var fixture=room();fund(fixture,100);
+            var lost=new CountDownLatch(1);var allowResolve=new CountDownLatch(1);var calls=new java.util.concurrent.atomic.AtomicInteger();var applied=new java.util.concurrent.atomic.AtomicInteger();
+            doAnswer(call->{int attempt=calls.incrementAndGet();if(attempt==2&&!allowResolve.await(3,TimeUnit.SECONDS))throw new IllegalStateException("fixture timeout");Object result=call.callRealMethod();if(attempt==1){lost.countDown();throw new org.springframework.dao.DataAccessResourceFailureException("injected committed result loss");}return result;}).when(roomTransactions).execute(any());
+            try(var boxes=new com.ruoyi.game.room.RoomMailboxes<Integer,Integer,Integer>(new com.ruoyi.game.room.RoomMailboxes.Config(1,16,8,8,2,8,5),bridge(fixture,List.of(charge(fixture,3))))){
+                var handle=boxes.register(new com.ruoyi.game.room.RoomSnapshot<>(fixture.room(),fixture.state().ownerEpoch(),0,0,"WAITING",0),(before,value)->{applied.incrementAndGet();return new com.ruoyi.game.room.RoomTransition<>(0,"WAITING",before.state()+value,value);});
+                var first=boxes.submit(handle,1);assertTrue(lost.await(3,TimeUnit.SECONDS));assertEquals(0,boxes.snapshot(handle).state());assertFalse(first.toCompletableFuture().isDone());
+                allowResolve.countDown();assertEquals(1,first.toCompletableFuture().get(3,TimeUnit.SECONDS).state());assertEquals(1,applied.get());
+                assertEquals(97,balance(fixture));assertEquals(1,events(fixture));assertEquals(1,outboxes(fixture));
+            }finally{allowResolve.countDown();}
+        }
+
+        @Test void outerTransactionCannotSilentlyRouteRoomCommitToGeneralPool(){
+            var fixture=room();var command=change(fixture,fixture.state(),1,false);
+            assertThrows(IllegalStateException.class,()->new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status->journal.commit(command)));
+            assertEquals(0,events(fixture));assertNull(com.ruoyi.framework.datasource.DynamicDataSourceContextHolder.getDataSourceType());
+        }
+        @Test void roomMetadataQueryHonorsClubScopeAndNeverReturnsPrivateState(){
+            var fixture=room();var foreign=room();long actor=900099;
+            jdbc.update("INSERT INTO club(name,owner_uid,max_members,max_managers,is_test,created_at,updated_at) VALUES('房间范围验收圈',?,5,1,TRUE,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",fixture.owner().uid());
+            long club=number("SELECT id FROM club WHERE owner_uid=?",fixture.owner().uid());
+            jdbc.update("INSERT INTO club_member(club_id,uid,member_role,joined_at) VALUES(?,?,'OWNER',UTC_TIMESTAMP(6))",club,fixture.owner().uid());
+            jdbc.update("UPDATE room_record SET club_id=? WHERE room_id=?",club,fixture.room());
+            jdbc.update("INSERT INTO admin_data_scope(principal_id,scope_type,scope_id) VALUES(?,'CLUB',?)",actor,Long.toString(club));
+            var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            assertEquals(1,((Number)roomAdmin.list(actor,null,null,null,null,today,today,1,50).get("total")).longValue());
+            var detail=roomAdmin.detail(actor,fixture.room());String visible=codec.write(detail);
+            assertTrue(visible.contains(fixture.room()));assertFalse(visible.contains("snapshotJson"));assertFalse(visible.contains("stateHash"));assertFalse(visible.contains("payloadJson"));
+            assertThrows(SecurityException.class,()->roomAdmin.detail(actor,foreign.room()));
+            jdbc.update("DELETE FROM admin_data_scope WHERE principal_id=?",actor);
+            assertThrows(SecurityException.class,()->roomAdmin.detail(actor,fixture.room()));
+        }
+        @Test void roomMetadataFiltersValidateDatesCodesAndState(){
+            var fixture=room();var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            assertEquals(1,((Number)roomAdmin.list(1,null,fixture.owner().uid(),null,"WAITING",today,today,1,50).get("total")).longValue());
+            assertThrows(IllegalArgumentException.class,()->roomAdmin.list(1,"1 OR 1=1",null,null,null,today,today,1,50));
+            assertThrows(IllegalArgumentException.class,()->roomAdmin.list(1,null,null,null,"UNKNOWN",today,today,1,50));
+            assertThrows(IllegalArgumentException.class,()->roomAdmin.list(1,null,null,null,null,today.minusDays(31),today,1,50));
+        }
+        @Test void revokedIdentityAndForeignWalletIntentCannotChangeRoom(){
+            var fixture=room();fund(fixture,100);jdbc.update("UPDATE user_account SET status='BANNED' WHERE id=?",fixture.owner().accountId());
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.NOT_COMMITTED,journal.commit(change(fixture,fixture.state(),1,false)));
+            assertEquals(0,events(fixture));assertEquals(100,balance(fixture));
+            jdbc.update("UPDATE user_account SET status='ACTIVE' WHERE id=?",fixture.owner().accountId());
+            var foreign=new WalletPosting(Kind.CONSUMPTION,"room:"+UUID.randomUUID()+":fixture:charge","fixture-v1",fixture.room(),charge(fixture,1).entries());
+            assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.NOT_COMMITTED,journal.commit(change(fixture,fixture.state(),1,false,List.of(foreign),null,"WAITING")));
+            assertEquals(0,events(fixture));assertEquals(100,balance(fixture));
         }
     }
 
@@ -372,6 +633,44 @@ class GameFoundationIntegrationTest {
 
     }
     @Nested class WalletTransactions {
+        private WalletPosting batchTransfer(long from,long to,String key){return new WalletPosting(Kind.TRANSFER,key,"fixture-v1","batch-validation",List.of(new Entry(new Account(OwnerType.PERSONAL,from,Currency.CARD),-1,0),new Entry(new Account(OwnerType.PERSONAL,to,Currency.CARD),1,0)));}
+        @Test void batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts(){
+            long uid=player();fund(uid,10);var account=personal(uid,Currency.CARD);
+            var freeze=new WalletPosting(Kind.FREEZE,"freeze:"+UUID.randomUUID(),"fixture-v1","batch-validation",List.of(new Entry(account,-6,6)));
+            var release=new WalletPosting(Kind.RELEASE,"release:"+UUID.randomUUID(),"fixture-v1","batch-validation",List.of(new Entry(account,2,-2)));
+            var first=wallets.postAll(List.of(freeze,release));
+            assertEquals(4,first.get(0).balances().getFirst().available());assertEquals(6,first.get(0).balances().getFirst().frozen());
+            assertEquals(6,first.get(1).balances().getFirst().available());assertEquals(4,first.get(1).balances().getFirst().frozen());
+            fund(uid,5);var replay=wallets.postAll(List.of(freeze,release));
+            assertTrue(replay.stream().allMatch(WalletPostingService.Receipt::replayed));
+            assertEquals(first.stream().map(WalletPostingService.Receipt::balances).toList(),replay.stream().map(WalletPostingService.Receipt::balances).toList());
+            assertEquals(11,balance(uid));assertEquals(4,jdbc.queryForObject("SELECT frozen FROM wallet_account WHERE uid=? AND currency='card'",Long.class,uid));
+        }
+        @Test void opposingBatchInputOrdersUseOneGlobalAccountLockOrder() throws Exception {
+            long a=player(),b=player(),c=player(),d=player();fund(a,100);fund(c,100);
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Future<?>> results=new ArrayList<>();
+                for(int i=0;i<50;i++){
+                    var first=batchTransfer(a,b,"batch:"+UUID.randomUUID());var second=batchTransfer(c,d,"batch:"+UUID.randomUUID());
+                    List<WalletPosting> ordered=i%2==0?List.of(first,second):List.of(second,first);
+                    results.add(workers.submit(()->wallets.postAll(ordered)));
+                }
+                for(var result:results)result.get(10,TimeUnit.SECONDS);
+            }
+            for(long uid:List.of(a,b,c,d))assertEquals(50,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,uid));
+        }
+        @Test void lateSecondPostingFailureRollsBackTheEntireBatch(){
+            long a=player(),b=player(),c=player(),d=player();fund(a,100);fund(c,100);
+            String firstKey="batch:"+UUID.randomUUID(),secondKey="batch:"+UUID.randomUUID();
+            doThrow(new IllegalStateException("injected second posting failure")).when(walletMapper).posted(anyString(),argThat(json->json!=null&&json.contains("\"owner\":"+d)),any());
+            assertThrows(IllegalStateException.class,()->wallets.postAll(List.of(batchTransfer(a,b,firstKey),batchTransfer(c,d,secondKey))));
+            assertEquals(100,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,a));
+            assertEquals(0,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,b));
+            assertEquals(100,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,c));
+            assertEquals(0,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,d));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key IN (?,?)",Long.class,firstKey,secondKey));
+        }
+
         private long player(){return auth.verify(auth.createGuest()).uid();}
         private Account personal(long uid,Currency currency){return new Account(OwnerType.PERSONAL,uid,currency);}
         private Account system(Currency currency){return new Account(OwnerType.SYSTEM,0,currency);}

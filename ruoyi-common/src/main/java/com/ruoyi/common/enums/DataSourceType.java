@@ -15,5 +15,8 @@ public enum DataSourceType
     /**
      * 从库
      */
-    SLAVE
+    SLAVE,
+
+    /** 房间提交专用连接池，仍连接同一 MySQL 数据库。 */
+    ROOM
 }

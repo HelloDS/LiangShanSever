@@ -49,12 +49,21 @@ public class DruidConfig
         return druidProperties.dataSource(dataSource);
     }
 
+    @Bean
+    @ConfigurationProperties("spring.datasource.druid.room")
+    public DataSource roomDataSource(DruidProperties druidProperties)
+    {
+        DruidDataSource dataSource = DruidDataSourceBuilder.create().build();
+        return druidProperties.dataSource(dataSource);
+    }
+
     @Bean(name = "dynamicDataSource")
     @Primary
-    public DynamicDataSource dataSource(DataSource masterDataSource)
+    public DynamicDataSource dataSource(@org.springframework.beans.factory.annotation.Qualifier("masterDataSource") DataSource masterDataSource, @org.springframework.beans.factory.annotation.Qualifier("roomDataSource") DataSource roomDataSource)
     {
         Map<Object, Object> targetDataSources = new HashMap<>();
         targetDataSources.put(DataSourceType.MASTER.name(), masterDataSource);
+        targetDataSources.put(DataSourceType.ROOM.name(), roomDataSource);
         setDataSource(targetDataSources, DataSourceType.SLAVE.name(), "slaveDataSource");
         return new DynamicDataSource(masterDataSource, targetDataSources);
     }

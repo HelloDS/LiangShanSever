@@ -37,6 +37,7 @@ public class DataSourceAspect
     @Around("dsPointCut()")
     public Object around(ProceedingJoinPoint point) throws Throwable
     {
+        String previous = DynamicDataSourceContextHolder.getDataSourceType();
         DataSource dataSource = getDataSource(point);
 
         if (StringUtils.isNotNull(dataSource))
@@ -51,7 +52,8 @@ public class DataSourceAspect
         finally
         {
             // 销毁数据源 在执行方法之后
-            DynamicDataSourceContextHolder.clearDataSourceType();
+            if (previous == null) DynamicDataSourceContextHolder.clearDataSourceType();
+            else DynamicDataSourceContextHolder.setDataSourceType(previous);
         }
     }
 

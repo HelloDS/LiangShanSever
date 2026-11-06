@@ -29,6 +29,23 @@ public final class GameJsonCodec {
 
     public String write(Object value) { return mapper.writeValueAsString(value); }
 
+    /** 内部摘要专用；不改变线上协议序列化。保留大整数和十进制精度，递归排序对象键。 */
+    public String canonicalObject(String json) {
+        read(json);
+        try {
+            Object value=mapper.readerFor(Object.class).with(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS).readValue(json);
+            return mapper.writeValueAsString(canonical(value));
+        } catch (tools.jackson.core.JacksonException failure) { throw new IllegalArgumentException("JSON 格式无效"); }
+    }
+    private Object canonical(Object value) {
+        if(value instanceof java.util.Map<?,?> map){
+            java.util.Map<String,Object> sorted=new java.util.TreeMap<>();map.forEach((key,item)->sorted.put((String)key,canonical(item)));return sorted;
+        }
+        if(value instanceof java.util.List<?> list)return list.stream().map(this::canonical).toList();
+        if(value instanceof java.math.BigDecimal decimal)return decimal.stripTrailingZeros();
+        return value;
+    }
+
     public WireRequest request(String json) {
         JsonNode root = read(json);
         String path = text(root, "path", 16);

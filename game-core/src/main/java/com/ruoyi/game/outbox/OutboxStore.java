@@ -21,10 +21,18 @@ public class OutboxStore {
     @Transactional(propagation=Propagation.MANDATORY)
     public String playerRevoked(long uid,long sessionVersion){
         if(uid<=0||sessionVersion<=0)throw new IllegalArgumentException("撤销事件身份无效");
-        String key="player-revoked:"+uid+":"+sessionVersion,type="PLAYER_REVOKED",rule="session-version-v1";
-        String payload=codec.write(new TreeMap<>(Map.of("uid",uid,"sessionVersion",sessionVersion)));
+        return append("player-revoked:"+uid+":"+sessionVersion,"PLAYER_REVOKED","session-version-v1",
+                codec.write(new TreeMap<>(Map.of("uid",uid,"sessionVersion",sessionVersion))),clock.instant());
+    }
+    @Transactional(propagation=Propagation.MANDATORY)
+    public String roomCommitted(String room,long version,String rule,Instant occurredAt){
+        if(room==null||!room.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||version<1||rule==null||!rule.matches("[A-Za-z0-9_.:-]{1,64}"))throw new IllegalArgumentException("房间事件标识无效");
+        return append("room-event:"+room+":"+version,"ROOM_EVENT_COMMITTED",rule,
+                codec.write(new TreeMap<>(Map.of("roomId",room,"eventSeq",version))),Objects.requireNonNull(occurredAt));
+    }
+    private String append(String key,String type,String rule,String payload,Instant occurredAt){
         String hash=digest(type+"\n1\n"+rule+"\n"+payload);
-        mapper.append(UUID.randomUUID().toString(),key,type,rule,payload,hash,now());
+        mapper.append(UUID.randomUUID().toString(),key,type,rule,payload,hash,now(),LocalDateTime.ofInstant(occurredAt,ZoneOffset.UTC));
         var existing=mapper.business(key,type);
         if(!hash.equals(existing.get("requestHash")))throw new IllegalStateException("持久事件业务键内容冲突");
         return (String)existing.get("id");

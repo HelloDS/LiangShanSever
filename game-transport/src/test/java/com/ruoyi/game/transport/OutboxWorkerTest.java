@@ -13,7 +13,7 @@ import static org.mockito.Mockito.*;
 class OutboxWorkerTest {
     @Test void replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion(){
         ConnectionRegistry connections=new ConnectionRegistry(Clock.systemUTC());
-        var worker=new OutboxWorker(mock(OutboxStore.class),connections,new GameJsonCodec(),new SimpleMeterRegistry());
+        var worker=new OutboxWorker(mock(OutboxStore.class),connections,new GameJsonCodec(),new SimpleMeterRegistry(),mock(com.ruoyi.game.room.RoomEventConsumer.class));
         var event=new OutboxEvent("fixture","player-revoked:100001:1","PLAYER_REVOKED",1,"session-version-v1",
                 "{\"uid\":100001,\"sessionVersion\":1}",1,"lease",LocalDateTime.now(Clock.systemUTC()));
         EmbeddedChannel old=new EmbeddedChannel(),fresh=new EmbeddedChannel();

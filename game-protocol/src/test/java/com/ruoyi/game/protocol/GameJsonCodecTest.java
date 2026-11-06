@@ -28,6 +28,16 @@ class GameJsonCodecTest {
         assertFalse(actual.has("data"));
     }
 
+    @Test void internalCanonicalDigestKeepsPrecisionAndIgnoresObjectKeyOrder() {
+        String first="{\"z\":[{\"b\":2,\"a\":1}],\"n\":0.123456789012345678901,\"i\":9007199254740993}";
+        String second="{\"i\":9007199254740993,\"n\":0.1234567890123456789010,\"z\":[{\"a\":1,\"b\":2}]}";
+        assertEquals(codec.canonicalObject(first),codec.canonicalObject(second));
+        assertTrue(codec.canonicalObject(first).contains("9007199254740993"));
+        assertTrue(codec.canonicalObject(first).contains("0.123456789012345678901"));
+        assertNotEquals(codec.canonicalObject(first),codec.canonicalObject(first.replace("0993","0992")));
+        assertThrows(IllegalArgumentException.class,()->codec.canonicalObject("[]"));
+    }
+
     @Test void acceptsBothChannelsAndRejectsMalformedAndOversizedRequests() {
         assertEquals("resetfd", codec.request("{\"path\":\"login\",\"reqData\":{\"api\":\"user\",\"c\":\"resetfd\"}}").command());
         assertEquals("logic", codec.request("{\"path\":\"logic\",\"reqData\":{\"api\":\"role\",\"c\":\"syncCard\"}}").path());

@@ -18,6 +18,7 @@ public class OutboxWorker implements SmartLifecycle {
     private final OutboxStore store;
     private final ConnectionRegistry connections;
     private final GameJsonCodec codec;
+    private final com.ruoyi.game.room.RoomEventConsumer roomEvents;
     private final Semaphore slots=new Semaphore(18);
     private final Counter completed,failed,lostLease,pollFailure;
     private final AtomicLong nextWarning=new AtomicLong();
@@ -26,8 +27,8 @@ public class OutboxWorker implements SmartLifecycle {
     private volatile boolean running;
     private ScheduledExecutorService scheduler;
     private ThreadPoolExecutor workers;
-    public OutboxWorker(OutboxStore store,ConnectionRegistry connections,GameJsonCodec codec,MeterRegistry metrics){
-        this.store=store;this.connections=connections;this.codec=codec;
+    public OutboxWorker(OutboxStore store,ConnectionRegistry connections,GameJsonCodec codec,MeterRegistry metrics,com.ruoyi.game.room.RoomEventConsumer roomEvents){
+        this.store=store;this.connections=connections;this.codec=codec;this.roomEvents=roomEvents;
         completed=metrics.counter("game.outbox.completed");failed=metrics.counter("game.outbox.failed");
         lostLease=metrics.counter("game.outbox.lease.lost");pollFailure=metrics.counter("game.outbox.poll.failed");
         Gauge.builder("game.outbox.inflight",slots,value->18-value.availablePermits()).register(metrics);
@@ -79,6 +80,7 @@ public class OutboxWorker implements SmartLifecycle {
     }
     /** 重复投递只按提交的会话版本撤销；不生成新管理命令或资产动作。 */
     public void handle(OutboxEvent event){
+        if("ROOM_EVENT_COMMITTED".equals(event.eventType())){roomEvents.consume(event);return;}
         if(!"PLAYER_REVOKED".equals(event.eventType())||event.schemaVersion()!=1||!"session-version-v1".equals(event.ruleVersion()))
             throw new IllegalArgumentException("不支持的事件版本");
         var payload=codec.read(event.payload());

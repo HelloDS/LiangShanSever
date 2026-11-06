@@ -7,6 +7,14 @@ spring:
         url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:liangshan}?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
         username: ${MYSQL_USER:liangshan}
         password: ${MYSQL_PASSWORD}
+      room:
+        url: ${spring.datasource.druid.master.url}
+        username: ${spring.datasource.druid.master.username}
+        password: ${spring.datasource.druid.master.password}
+        initialSize: 1
+        minIdle: 1
+        maxActive: 8
+        maxWait: 1000
       slave:
         enabled: false
       initialSize: 2

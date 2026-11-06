@@ -23,22 +23,42 @@ public class WalletPostingService {
     public record Balance(Account account,long available,long frozen,long version){ }
     public record Receipt(String transactionId,boolean replayed,List<Balance> balances){public Receipt{balances=List.copyOf(balances);}}
 
-    @Transactional
-    public Receipt post(WalletPosting command){
-        String hash=hash(codec.write(canonical(payload(command))));
-        String proposed=UUID.randomUUID().toString();LocalDateTime now=now();
-        mapper.begin(Map.of("id",proposed,"key",command.businessKey(),"kind",command.kind().name(),"hash",hash,"rule",command.ruleVersion(),"reference",command.reference(),"now",now));
-        var transaction=mapper.transaction(command.businessKey());
-        if(!hash.equals(transaction.get("requestHash")))throw new IllegalArgumentException("业务键已用于不同的资金命令");
-        if(!proposed.equals(transaction.get("id"))){
-            if(!"POSTED".equals(transaction.get("status")))throw new IllegalStateException("资金命令状态不完整");
-            return receipt((String)transaction.get("receipt"));
+    @Transactional(timeout=5)
+    public Receipt post(WalletPosting command){return postAllInternal(List.of(command)).getFirst();}
+
+    /** 同一业务事务的多笔资金命令一次传入，避免逐笔锁账户形成跨命令反序。 */
+    @Transactional(timeout=5)
+    public List<Receipt> postAll(List<WalletPosting> commands){return postAllInternal(commands);}
+
+    private record Prepared(String id,Receipt replay){ }
+    private List<Receipt> postAllInternal(List<WalletPosting> commands){
+        if(commands==null||commands.isEmpty()||commands.size()>16)throw new IllegalArgumentException("资金批次命令数无效");
+        List<WalletPosting> intent=List.copyOf(commands);TreeMap<String,WalletPosting> sorted=new TreeMap<>();
+        for(var command:intent)if(sorted.putIfAbsent(command.businessKey(),command)!=null)throw new IllegalArgumentException("资金批次含重复业务键");
+        LocalDateTime now=now();Map<String,Prepared> prepared=new HashMap<>();
+        // 先统一锁业务键，再锁账户；不能先持有账户再等待其他命令的业务键。
+        for(var command:sorted.values()){
+            String digest=hash(codec.write(canonical(payload(command)))),proposed=UUID.randomUUID().toString();
+            mapper.begin(Map.of("id",proposed,"key",command.businessKey(),"kind",command.kind().name(),"hash",digest,"rule",command.ruleVersion(),"reference",command.reference(),"now",now));
+            var transaction=mapper.transaction(command.businessKey());
+            if(!digest.equals(transaction.get("requestHash")))throw new IllegalArgumentException("业务键已用于不同的资金命令");
+            Receipt replay=null;
+            if(!proposed.equals(transaction.get("id"))){
+                if(!"POSTED".equals(transaction.get("status")))throw new IllegalStateException("资金命令状态不完整");
+                replay=receipt((String)transaction.get("receipt"));
+            }
+            prepared.put(command.businessKey(),new Prepared(proposed,replay));
         }
-        // 命令已归并并按主体类型、主体 ID、币种排序；所有业务复用同一加锁次序。
-        Map<Account,Map<String,Object>> accounts=new LinkedHashMap<>();
-        for(Entry entry:command.entries()){
-            var row=lock(entry.account());if(row==null)throw new IllegalArgumentException("资金账户不存在");accounts.put(entry.account(),row);
-        }
+        SortedSet<Account> keys=new TreeSet<>();
+        for(var command:intent)if(prepared.get(command.businessKey()).replay()==null)for(var entry:command.entries())keys.add(entry.account());
+        Map<Account,Map<String,Object>> accounts=new TreeMap<>();
+        for(Account key:keys){var row=lock(key);if(row==null)throw new IllegalArgumentException("资金账户不存在");accounts.put(key,row);}
+        List<Receipt> results=new ArrayList<>();
+        // 只改变锁的顺序，不改变先冻结/后释放等业务效果的输入顺序。
+        for(var command:intent){var item=prepared.get(command.businessKey());results.add(item.replay()!=null?item.replay():apply(command,item.id(),now,accounts));}
+        return List.copyOf(results);
+    }
+    private Receipt apply(WalletPosting command,String proposed,LocalDateTime now,Map<Account,Map<String,Object>> accounts){
         List<Balance> balances=new ArrayList<>();
         for(Entry entry:command.entries()){
             Account account=entry.account();var before=accounts.get(account);
@@ -53,6 +73,7 @@ public class WalletPostingService {
             int changed=switch(account.type()){case PERSONAL->mapper.personalBalance(row);case CLUB->mapper.clubBalance(row);case SYSTEM->mapper.systemBalance(row);};
             if(changed!=1)throw new IllegalStateException("资金账户版本发生变化");
             row.put("transaction",proposed);row.put("type",account.type().name());row.put("availableDelta",entry.availableDelta());row.put("frozenDelta",entry.frozenDelta());row.put("accountVersion",Math.addExact(version,1));row.put("now",now);mapper.entry(row);
+            before.put("balance",available);before.put("frozen",frozen);before.put("version",Math.addExact(version,1));
             balances.add(new Balance(account,available,frozen,version+1));
         }
         Receipt result=new Receipt(proposed,false,balances);

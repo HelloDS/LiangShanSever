@@ -98,6 +98,16 @@ class RoomMailboxesTest {
             assertEquals(1,result(first).state());assertEquals(2,result(second).state());assertEquals(2,applied.get());assertEquals(2,store.commits.get());
         }
     }
+    @Test void retriesKeepOriginalServerOccurrenceTime() throws Exception {
+        Store store=new Store();var instant=java.time.Instant.parse("2026-11-06T15:59:59.123456Z");
+        List<java.time.Instant> observed=new CopyOnWriteArrayList<>();
+        store.commit=write->{observed.add(write.occurredAt());return Decision.UNKNOWN;};
+        store.resolve=write->{observed.add(write.occurredAt());return Decision.COMMITTED;};
+        try(var rooms=new RoomMailboxes<Integer,Integer,Integer>(config(8,4),store,java.time.Clock.fixed(instant,java.time.ZoneOffset.UTC))){
+            var handle=rooms.register(state(UUID.randomUUID().toString()),ADD);assertEquals(1,result(rooms.submit(handle,1)).state());
+            assertEquals(List.of(instant,instant),observed);
+        }
+    }
     @Test void knownRollbackDiscardsCandidateAndNextCommandUsesCommittedState() throws Exception {
         Store store=new Store();store.commit=write->store.commits.get()==1?Decision.NOT_COMMITTED:Decision.COMMITTED;
         try(var rooms=new RoomMailboxes<Integer,Integer,Integer>(config(8,4),store)){

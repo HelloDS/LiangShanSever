@@ -6,8 +6,8 @@ import org.apache.ibatis.annotations.*;
 import com.ruoyi.game.outbox.OutboxEvent;
 
 public interface OutboxMapper {
-    @Insert("INSERT INTO outbox_event(id,biz_key,event_type,schema_version,rule_version,payload,request_hash,retry_at,occurred_at) VALUES(#{id},#{key},#{type},1,#{rule},#{payload},#{hash},#{now},#{now}) ON DUPLICATE KEY UPDATE id=id")
-    int append(@Param("id") String id,@Param("key") String key,@Param("type") String type,@Param("rule") String rule,@Param("payload") String payload,@Param("hash") String hash,@Param("now") LocalDateTime now);
+    @Insert("INSERT INTO outbox_event(id,biz_key,event_type,schema_version,rule_version,payload,request_hash,retry_at,occurred_at) VALUES(#{id},#{key},#{type},1,#{rule},#{payload},#{hash},#{now},#{occurred}) ON DUPLICATE KEY UPDATE id=id")
+    int append(@Param("id") String id,@Param("key") String key,@Param("type") String type,@Param("rule") String rule,@Param("payload") String payload,@Param("hash") String hash,@Param("now") LocalDateTime now,@Param("occurred") LocalDateTime occurred);
 
     @Select("SELECT id,request_hash AS requestHash FROM outbox_event WHERE biz_key=#{key} AND event_type=#{type} FOR UPDATE")
     Map<String,Object> business(@Param("key") String key,@Param("type") String type);
