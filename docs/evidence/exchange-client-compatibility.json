@@ -1,0 +1,46 @@
+{
+  "executedAt": "2026-11-06T23:52:39.028Z",
+  "source": "creator/assets/source-data/files/f8c877d2a7955b105dc3ccb2cc3bf2b7e17fc088d1ed81b680d8f1a9ee4c12c9.txt",
+  "sha256": "f8c877d2a7955b105dc3ccb2cc3bf2b7e17fc088d1ed81b680d8f1a9ee4c12c9",
+  "sourceChanged": false,
+  "confirmedRule": "1 diamond = 10 cards",
+  "legacyRatioMeaning": "diamonds per card",
+  "requiredLegacyRatio": 0.1,
+  "sourceExpressions": [
+    ".prototype.getShang=function(t,n){return(t-this.getYu(t,n))/n}",
+    ".prototype.getYu=function(t,n){return t%n}"
+  ],
+  "samples": [
+    {
+      "diamonds": 1,
+      "expectedCards": 10,
+      "clientRemainder": 0.09999999999999995,
+      "clientCards": 9
+    },
+    {
+      "diamonds": 2,
+      "expectedCards": 20,
+      "clientRemainder": 0.0999999999999999,
+      "clientCards": 19
+    },
+    {
+      "diamonds": 3,
+      "expectedCards": 30,
+      "clientRemainder": 0.09999999999999984,
+      "clientCards": 29.000000000000004
+    },
+    {
+      "diamonds": 10,
+      "expectedCards": 100,
+      "clientRemainder": 0.09999999999999945,
+      "clientCards": 99
+    },
+    {
+      "diamonds": 100,
+      "expectedCards": 1000,
+      "clientRemainder": 0.09999999999999445,
+      "clientCards": 999
+    }
+  ],
+  "result": "INCOMPATIBLE"
+}
