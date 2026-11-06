@@ -1,0 +1,34 @@
+{
+  "observedAt": "2026-11-06T20:45:49.270324+00:00",
+  "scope": "只读诊断；未在测量中修改索引、参数或运行代码",
+  "notes": [
+    "EXPLAIN 行数是估计值",
+    "单次聚合探测与初次告警接近，不能仅凭时间先后推断唯一原因"
+  ],
+  "plans": {
+    "existing": {
+      "exitCode": 0,
+      "rows": [
+        "1\tSIMPLE\toutbox_event\tNULL\tindex\tidx_outbox_ready,idx_outbox_lease\tidx_outbox_ready\t218\tNULL\t475700\t25.30\tUsing where"
+      ]
+    },
+    "candidate": {
+      "exitCode": 0,
+      "rows": [
+        "1\tPRIMARY\toutbox_event\tNULL\tref\tidx_outbox_ready,idx_outbox_lease\tidx_outbox_ready\t66\tconst\t120354\t100.00\tNULL",
+        "2\tUNION\toutbox_event\tNULL\tref\tidx_outbox_ready,idx_outbox_lease\tidx_outbox_ready\t66\tconst\t14\t100.00\tNULL",
+        "3\tUNION\toutbox_event\tNULL\tref\tidx_outbox_ready,idx_outbox_lease\tidx_outbox_ready\t66\tconst\t1\t100.00\tNULL"
+      ]
+    },
+    "counts": {
+      "exitCode": 0,
+      "rows": [
+        "READY\t62043",
+        "CLAIMED\t14",
+        "DEAD\t0"
+      ]
+    }
+  },
+  "bufferPoolBytes": 134217728,
+  "bufferPoolObservation": "同轮较早只读 SHOW VARIABLES 实际返回值"
+}

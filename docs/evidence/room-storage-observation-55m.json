@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-11-06T21:03:40.846410+00:00",
+  "scope": "约55分钟只读故障观测；额外探测会参与数据库负载，不作为无干扰性能通过证据",
+  "queries": "SET SESSION max_execution_time=1500; START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY; SELECT 'RUNTIME',COUNT(*),COALESCE(SUM(version),0) FROM room_runtime; SELECT 'PROJECTION',COUNT(*),COALESCE(SUM(event_count),0) FROM room_event_projection; SELECT 'READY',COUNT(*) FROM outbox_event WHERE status='READY' UNION ALL SELECT 'CLAIMED',COUNT(*) FROM outbox_event WHERE status='CLAIMED' UNION ALL SELECT 'DEAD',COUNT(*) FROM outbox_event WHERE status='DEAD' UNION ALL SELECT 'DONE',COUNT(*) FROM outbox_event WHERE status='DONE'; COMMIT;",
+  "sqlExitCode": 0,
+  "rows": [
+    "RUNTIME\t200\t670178",
+    "PROJECTION\t200\t544182",
+    "READY\t125984",
+    "CLAIMED\t13",
+    "DEAD\t0",
+    "DONE\t544181"
+  ],
+  "directoryExitCode": 0,
+  "mysqlDirectoryBytes": 5020599625
+}
