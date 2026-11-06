@@ -21,6 +21,8 @@ public class OutboxWorker implements SmartLifecycle {
     private final com.ruoyi.game.room.RoomEventConsumer roomEvents;
     private final Semaphore slots=new Semaphore(18);
     private final Counter completed,failed,lostLease,pollFailure;
+    private final Timer claimTime,handleTime;
+    private final DistributionSummary batchSizes;
     private final AtomicLong nextWarning=new AtomicLong();
     private volatile OutboxStore.Backlog backlog;
     private long nextSample;
@@ -31,6 +33,7 @@ public class OutboxWorker implements SmartLifecycle {
         this.store=store;this.connections=connections;this.codec=codec;this.roomEvents=roomEvents;
         completed=metrics.counter("game.outbox.completed");failed=metrics.counter("game.outbox.failed");
         lostLease=metrics.counter("game.outbox.lease.lost");pollFailure=metrics.counter("game.outbox.poll.failed");
+        claimTime=metrics.timer("game.outbox.claim.duration");handleTime=metrics.timer("game.outbox.handle.duration");batchSizes=metrics.summary("game.outbox.batch.size");
         Gauge.builder("game.outbox.inflight",slots,value->18-value.availablePermits()).register(metrics);
         Gauge.builder("game.outbox.backlog.available",this,value->value.backlog==null?0:1).register(metrics);
         Gauge.builder("game.outbox.ready",this,value->value.backlog==null?Double.NaN:value.backlog.ready()).register(metrics);
@@ -58,7 +61,9 @@ public class OutboxWorker implements SmartLifecycle {
             if(capacity==0){delay=50;return;}
             if(!slots.tryAcquire(capacity))return;
             java.util.List<OutboxEvent> events;
-            try{events=store.claim(capacity);}catch(RuntimeException failure){slots.release(capacity);throw failure;}
+            long claimBegan=System.nanoTime();
+            try{events=store.claim(capacity);batchSizes.record(events.size());}catch(RuntimeException failure){slots.release(capacity);throw failure;}
+            finally{claimTime.record(System.nanoTime()-claimBegan,TimeUnit.NANOSECONDS);}
             slots.release(capacity-events.size());
             if(!events.isEmpty())delay=25;
             for(var event:events){
@@ -71,12 +76,13 @@ public class OutboxWorker implements SmartLifecycle {
         }
     }
     private void consume(OutboxEvent event){
+        long began=System.nanoTime();
         try{
             handle(event);
             if(store.complete(event))completed.increment();else lostLease.increment();
         }catch(IllegalArgumentException failure){safeFail(event,"INVALID_EVENT");}
         catch(RuntimeException failure){safeFail(event,"HANDLER_FAILED");}
-        finally{slots.release();}
+        finally{handleTime.record(System.nanoTime()-began,TimeUnit.NANOSECONDS);slots.release();}
     }
     /** 重复投递只按提交的会话版本撤销；不生成新管理命令或资产动作。 */
     public void handle(OutboxEvent event){

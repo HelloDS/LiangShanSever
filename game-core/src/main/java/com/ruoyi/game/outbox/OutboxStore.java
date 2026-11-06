@@ -44,11 +44,12 @@ public class OutboxStore {
         LocalDateTime now=now();
         for(var row:mapper.expired(now,limit))mapper.recover((String)row.get("id"),
                 ((Number)row.get("attempts")).intValue()>=MAX_ATTEMPTS?"DEAD":"READY",now);
-        List<OutboxEvent> events=new ArrayList<>();
-        for(String id:mapper.ready(now,limit)){
-            if(mapper.claim(id,UUID.randomUUID().toString(),now.plusSeconds(20))!=1)throw new IllegalStateException("持久任务领取冲突");
-            events.add(mapper.event(id));
-        }
+        List<String> ids=mapper.ready(now,limit);if(ids.isEmpty())return List.of();
+        // 仍逐事件用 id+token 围栏；同一领取批次共享 token，减少 2N 次 SQL 往返。
+        String token=UUID.randomUUID().toString();
+        if(mapper.claimBatch(ids,token,now.plusSeconds(20))!=ids.size())throw new IllegalStateException("持久任务批量领取冲突");
+        var events=mapper.claimedBatch(ids,token);
+        if(events.size()!=ids.size()||!new HashSet<>(ids).equals(new HashSet<>(events.stream().map(OutboxEvent::id).toList())))throw new IllegalStateException("持久任务批量读取不完整");
         return List.copyOf(events);
     }
     @Transactional

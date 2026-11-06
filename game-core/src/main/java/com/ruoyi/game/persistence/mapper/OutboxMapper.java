@@ -21,11 +21,15 @@ public interface OutboxMapper {
     @Select("SELECT id FROM outbox_event WHERE status='READY' AND retry_at<=#{now} ORDER BY retry_at,id LIMIT #{limit} FOR UPDATE SKIP LOCKED")
     List<String> ready(@Param("now") LocalDateTime now,@Param("limit") int limit);
 
-    @Update("UPDATE outbox_event SET status='CLAIMED',attempt_count=attempt_count+1,total_attempts=total_attempts+1,lease_token=#{token},lease_until=#{until} WHERE id=#{id} AND status='READY'")
-    int claim(@Param("id") String id,@Param("token") String token,@Param("until") LocalDateTime until);
+    @Update("<script>UPDATE outbox_event SET status='CLAIMED',attempt_count=attempt_count+1,total_attempts=total_attempts+1,lease_token=#{token},lease_until=#{until} WHERE status='READY' AND id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    int claimBatch(@Param("ids") List<String> ids,@Param("token") String token,@Param("until") LocalDateTime until);
 
-    @Select("SELECT id,biz_key AS businessKey,event_type AS eventType,schema_version AS schemaVersion,rule_version AS ruleVersion,CAST(payload AS CHAR) AS payload,attempt_count AS attempts,lease_token AS leaseToken,occurred_at AS occurredAt FROM outbox_event WHERE id=#{id}")
+    String EVENT_COLUMNS="id,biz_key AS businessKey,event_type AS eventType,schema_version AS schemaVersion,rule_version AS ruleVersion,CAST(payload AS CHAR) AS payload,attempt_count AS attempts,lease_token AS leaseToken,occurred_at AS occurredAt";
+    @Select("SELECT "+EVENT_COLUMNS+" FROM outbox_event WHERE id=#{id}")
     OutboxEvent event(String id);
+
+    @Select("<script>SELECT "+EVENT_COLUMNS+" FROM outbox_event WHERE status='CLAIMED' AND lease_token=#{token} AND id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach> ORDER BY retry_at,id</script>")
+    List<OutboxEvent> claimedBatch(@Param("ids") List<String> ids,@Param("token") String token);
 
     @Update("UPDATE outbox_event SET status='DONE',completed_at=#{now},lease_token=NULL,lease_until=NULL,last_error_code=NULL WHERE id=#{id} AND status='CLAIMED' AND lease_token=#{token}")
     int complete(@Param("id") String id,@Param("token") String token,@Param("now") LocalDateTime now);

@@ -218,6 +218,23 @@ class GameFoundationIntegrationTest {
             String first=append(uid);assertEquals(first,append(uid));
             assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+uid+":1"));
         }
+        private void drainReady(){
+            for(int batch=0;batch<100;batch++){var tasks=outbox.claim(16);if(tasks.isEmpty())return;tasks.forEach(event->assertTrue(outbox.complete(event)));}
+            fail("测试待领取任务未排空");
+        }
+        @Test void batchClaimUsesOneFencedLeaseAndReturnsEveryLockedEvent(){
+            drainReady();Set<String> expected=new HashSet<>();for(int i=0;i<6;i++)expected.add(append(uid()));
+            var tasks=outbox.claim(6);assertEquals(expected,new HashSet<>(tasks.stream().map(com.ruoyi.game.outbox.OutboxEvent::id).toList()));
+            assertEquals(1,tasks.stream().map(com.ruoyi.game.outbox.OutboxEvent::leaseToken).distinct().count());
+            for(var event:tasks){assertEquals(1,event.attempts());assertTrue(outbox.complete(event));assertFalse(outbox.complete(event));}
+        }
+        @Test void batchReadFailureRollsBackEveryLeaseAndAttempt(){
+            drainReady();List<String> ids=new ArrayList<>();for(int i=0;i<6;i++)ids.add(append(uid()));
+            doThrow(new IllegalStateException("injected claimed batch read failure")).when(outboxMapper).claimedBatch(anyList(),anyString());
+            assertThrows(IllegalStateException.class,()->outbox.claim(6));
+            for(String id:ids){assertEquals("READY",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,id));assertEquals(0,jdbc.queryForObject("SELECT attempt_count FROM outbox_event WHERE id=?",Integer.class,id));assertNull(jdbc.queryForObject("SELECT lease_token FROM outbox_event WHERE id=?",String.class,id));}
+        }
+
         @Test void concurrentClaimsAreExclusiveAndStaleLeaseCannotCompleteReclaimedTask() throws Exception {
             Set<String> expected=new HashSet<>();for(int i=0;i<20;i++)expected.add(append(uid()));
             Set<String> seen=ConcurrentHashMap.newKeySet();

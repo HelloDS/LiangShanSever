@@ -60,8 +60,9 @@ public final class RoomStorageLoad {
         System.setProperty("spring.devtools.restart.enabled","false");
         Map<String,Object> report=new LinkedHashMap<>();report.put("startedAt",Instant.now().toString());
         report.put("scope","隔离 MySQL/Redis 的内部 6003 单张/过牌及测试换局持久提交；没有 WS、叫分、收费、积分结算或生产容量结论");
-        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3));
+        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10));
         report.put("sourceCommit",System.getenv().getOrDefault("ROOM_LOAD_GIT","unrecorded"));report.put("snapshotSha256",System.getenv().getOrDefault("ROOM_LOAD_SNAPSHOT_SHA256","unrecorded"));
+        report.put("flightRecordingEnabled","1".equals(System.getenv("ROOM_LOAD_JFR")));
         report.put("environment",Map.of("java",System.getProperty("java.version"),"vendor",System.getProperty("java.vendor"),"os",System.getProperty("os.name"),"arch",System.getProperty("os.arch"),"availableProcessors",Runtime.getRuntime().availableProcessors(),"maxHeapBytes",Runtime.getRuntime().maxMemory(),"mysqlImage",MYSQL_IMAGE,"redisImage",REDIS_IMAGE));
         boolean pass=false;
         try(var mysql=new MySQLContainer(DockerImageName.parse(MYSQL_IMAGE)).withDatabaseName("room_load").withUsername("room_load").withPassword(SecureTokens.create()).withUrlParam("allowPublicKeyRetrieval","true").withUrlParam("serverTimezone","UTC");
@@ -129,6 +130,8 @@ public final class RoomStorageLoad {
             try{window(boxes,actors,seconds,rate,stats);await(actors,30);}
             finally{sampler.shutdown();sampler.awaitTermination(5,TimeUnit.SECONDS);}
             report.put("measurementEndedAt",Instant.now().toString());report.put("measurementMs",stats.elapsedNanos/1e6);report.put("actual",stats.report());report.put("slowCommitCount",stats.slowCount.get());report.put("slowCommitSamples",List.copyOf(stats.slow));report.put("samples",List.copyOf(samples));report.put("sampleFailures",sampleFailures.get());
+            double maxLag=samples.stream().mapToDouble(sample->((Number)sample.get("oldestSeconds")).doubleValue()).max().orElse(Double.POSITIVE_INFINITY);
+            report.put("maxObservedOutboxLagSeconds",Double.isFinite(maxLag)?maxLag:null);
             long drainStart=System.nanoTime();OutboxStore.Backlog backlog;
             do{backlog=outbox.backlog();if(backlog.ready()==0&&backlog.claimed()==0)break;Thread.sleep(250);}while(System.nanoTime()-drainStart<30_000_000_000L);
             report.put("outboxAfterDrain",Map.of("ready",backlog.ready(),"claimed",backlog.claimed(),"dead",backlog.dead(),"oldestSeconds",backlog.oldestSeconds()));
@@ -158,7 +161,7 @@ public final class RoomStorageLoad {
             report.put("recoverySamples",recoveryTimes);
             long[] measured=Arrays.copyOf(stats.latency,stats.completed.get());Arrays.sort(measured);
             return stats.failed.get()==0&&stats.busy.get()==0&&stats.missed.get()==0&&stats.completed.get()==stats.sent.get()&&stats.completed.get()>=seconds*rate*.99&&stats.elapsedNanos>=seconds*1_000_000_000L
-                    &&drained&&sampleFailures.get()==0&&backlog.ready()==0&&backlog.claimed()==0&&backlog.dead()==0&&events==done&&done==receipts&&receipts==projected&&count(jdbc,"SELECT COUNT(*) FROM wallet_transaction")==0&&warmup.failed.get()==0&&percentile(measured,.95)<=300;
+                    &&drained&&maxLag<=10&&sampleFailures.get()==0&&backlog.ready()==0&&backlog.claimed()==0&&backlog.dead()==0&&events==done&&done==receipts&&receipts==projected&&count(jdbc,"SELECT COUNT(*) FROM wallet_transaction")==0&&warmup.failed.get()==0&&percentile(measured,.95)<=300;
         }
     }
     private static void window(RoomMailboxes<LandlordPlayState,Command,Event> boxes,List<Actor> actors,int seconds,int rate,Stats stats){
@@ -201,6 +204,10 @@ public final class RoomStorageLoad {
         if(ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os)values.put("processCpuFraction",os.getProcessCpuLoad());
         values.put("gcMillis",ManagementFactory.getGarbageCollectorMXBeans().stream().mapToLong(bean->Math.max(0,bean.getCollectionTime())).sum());
         for(String pool:List.of("room","general"))for(String metric:List.of("active","idle","waiters"))values.put(pool+"Sql"+metric,metrics.get("game.sql."+metric).tag("pool",pool).gauge().value());
+        for(String name:List.of("game.room.sql.duration","game.outbox.claim.duration","game.outbox.handle.duration")){
+            var timer=metrics.get(name).timer();values.put(name,Map.of("count",timer.count(),"totalMs",timer.totalTime(TimeUnit.MILLISECONDS),"maxMs",timer.max(TimeUnit.MILLISECONDS)));
+        }
+        var batches=metrics.get("game.outbox.batch.size").summary();values.put("outboxBatches",Map.of("count",batches.count(),"totalEvents",batches.totalAmount(),"maxSize",batches.max()));
         return values;
     }
     private static RoomSnapshot<String> encoded(RoomSnapshot<LandlordPlayState> state,LandlordPlayCodec codec){return new RoomSnapshot<>(state.roomId(),state.ownerEpoch(),state.version(),state.round(),state.phase(),codec.json(state.state()));}
