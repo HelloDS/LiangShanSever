@@ -5,58 +5,37 @@ import org.apache.commons.lang3.concurrent.BasicThreadFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.*;
 
-/**
- * 线程池配置
- *
- * @author ruoyi
- **/
+/** 后台异步任务必须有界，饱和时不能回退到请求线程执行数据库操作。 */
 @Configuration
 public class ThreadPoolConfig
 {
-    // 核心线程池大小
-    private int corePoolSize = 50;
-
-    // 最大可创建的线程数
-    private int maxPoolSize = 200;
-
-    // 队列最大长度
-    private int queueCapacity = 1000;
-
-    // 线程池维护线程所允许的空闲时间
-    private int keepAliveSeconds = 300;
-
     @Bean(name = "threadPoolTaskExecutor")
     public ThreadPoolTaskExecutor threadPoolTaskExecutor()
     {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setCorePoolSize(corePoolSize);
-        executor.setQueueCapacity(queueCapacity);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        // 线程池对拒绝任务(无线程可用)的处理策略
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setMaxPoolSize(8);
+        executor.setCorePoolSize(4);
+        executor.setQueueCapacity(256);
+        executor.setKeepAliveSeconds(60);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         return executor;
     }
 
-    /**
-     * 执行周期性或定时任务
-     */
-    @Bean(name = "scheduledExecutorService")
-    protected ScheduledExecutorService scheduledExecutorService()
+    /** 上游登录、操作日志不需要定时语义；使用有界队列直接异步投递。 */
+    @Bean(name = "adminAuditExecutor", destroyMethod = "shutdown")
+    public ThreadPoolExecutor adminAuditExecutor()
     {
-        return new ScheduledThreadPoolExecutor(corePoolSize,
-            BasicThreadFactory.builder().namingPattern("schedule-pool-%d").daemon(true).build(),
-            new ThreadPoolExecutor.CallerRunsPolicy())
+        return new ThreadPoolExecutor(2, 4, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<>(256),
+            BasicThreadFactory.builder().namingPattern("admin-audit-%d").daemon(true).build(),
+            new ThreadPoolExecutor.AbortPolicy())
         {
             @Override
-            protected void afterExecute(Runnable r, Throwable t)
+            protected void afterExecute(Runnable task, Throwable failure)
             {
-                super.afterExecute(r, t);
-                Threads.printException(r, t);
+                super.afterExecute(task, failure);
+                Threads.printException(task, failure);
             }
         };
     }

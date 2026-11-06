@@ -1,3 +1,3 @@
 package com.ruoyi.game.admin;
 
-public record PlayerRevoked(long uid) { }
+public record PlayerRevoked(long uid, long sessionVersion) { }

@@ -69,6 +69,30 @@ class GameFoundationIntegrationTest {
     @MockitoSpyBean WalletMapper walletMapper;
     @Autowired com.ruoyi.game.economy.WalletAdminService walletAdmin;
 
+    @Autowired com.ruoyi.game.transport.ConnectionRegistry connections;
+    @Autowired com.ruoyi.game.transport.OnlinePresence presence;
+    @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
+
+    @Test void onlineCountsRequireLiveConnectionValidIdentityAndRebuiltIndex(){
+        GuestIdentity identity=auth.verify(auth.createGuest());
+        var channel=new io.netty.channel.embedded.EmbeddedChannel();
+        var binding=connections.bind(identity,channel,sessions.create(identity));
+        try{
+            presence.refresh();assertTrue(presence.sample(true).uids().contains(identity.uid()));
+            jdbc.update("UPDATE user_account SET session_version=session_version+1 WHERE id=?",identity.accountId());
+            assertFalse(presence.sample(true).uids().contains(identity.uid()));
+            jdbc.update("UPDATE user_account SET session_version=session_version-1 WHERE id=?",identity.accountId());
+            redis.opsForZSet().remove("game:online:index",Long.toString(identity.uid()));
+            assertEquals("REBUILDING",presence.sample(true).dataStatus());assertNull(presence.sample(true).uids());
+            presence.refresh();assertTrue(presence.sample(true).uids().contains(identity.uid()));
+            jdbc.update("UPDATE guest_credential SET status='REVOKED' WHERE id=?",identity.credentialId());
+            assertFalse(presence.sample(true).uids().contains(identity.uid()));
+            jdbc.update("UPDATE guest_credential SET status='ACTIVE' WHERE id=?",identity.credentialId());
+            assertTrue(connections.remove(binding));
+            assertFalse(presence.sample(true).uids().contains(identity.uid()));
+        }finally{connections.remove(binding);presence.remove(binding);channel.finishAndReleaseAll();}
+    }
+
     @Test void identityAndLoginDeduplicationSurviveLossOfRedis() throws Exception {
         String token=auth.createGuest();GuestIdentity identity=auth.verify(token);
         auth.recordLogin(identity,"REG");auth.recordLogin(identity,"RESETFD");

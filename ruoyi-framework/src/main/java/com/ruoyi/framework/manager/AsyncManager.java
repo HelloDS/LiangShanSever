@@ -1,55 +1,36 @@
 package com.ruoyi.framework.manager;
 
 import java.util.TimerTask;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.ruoyi.common.utils.Threads;
 import com.ruoyi.common.utils.spring.SpringUtils;
 
-/**
- * 异步任务管理器
- * 
- * @author ruoyi
- */
+/** 上游后台访问日志的有界异步投递；游戏业务审计仍在业务事务内持久化。 */
 public class AsyncManager
 {
-    /**
-     * 操作延迟10毫秒
-     */
-    private final int OPERATE_DELAY_TIME = 10;
-
-    /**
-     * 异步操作任务调度线程池
-     */
-    private ScheduledExecutorService executor = SpringUtils.getBean("scheduledExecutorService");
-
-    /**
-     * 单例模式
-     */
+    private static final Logger log = LoggerFactory.getLogger(AsyncManager.class);
+    private final ThreadPoolExecutor executor = SpringUtils.getBean("adminAuditExecutor");
+    private final AtomicLong rejected = new AtomicLong();
+    private final AtomicLong nextWarning = new AtomicLong();
     private AsyncManager(){}
+    private static final AsyncManager INSTANCE = new AsyncManager();
+    public static AsyncManager me() { return INSTANCE; }
 
-    private static AsyncManager me = new AsyncManager();
-
-    public static AsyncManager me()
-    {
-        return me;
-    }
-
-    /**
-     * 执行任务
-     * 
-     * @param task 任务
-     */
     public void execute(TimerTask task)
     {
-        executor.schedule(task, OPERATE_DELAY_TIME, TimeUnit.MILLISECONDS);
+        try { executor.execute(task); }
+        catch (RejectedExecutionException failure)
+        {
+            long total = rejected.incrementAndGet();
+            long now = System.currentTimeMillis(), next = nextWarning.get();
+            if (now >= next && nextWarning.compareAndSet(next, now + 60_000))
+                log.error("后台异步访问日志队列已满或关闭，累计拒绝 {} 条；业务事务审计不使用此队列", total);
+        }
     }
-
-    /**
-     * 停止任务线程池
-     */
-    public void shutdown()
-    {
-        Threads.shutdownAndAwaitTermination(executor);
-    }
+    public long rejectedCount() { return rejected.get(); }
+    public void shutdown() { Threads.shutdownAndAwaitTermination(executor); }
 }

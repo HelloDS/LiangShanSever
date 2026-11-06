@@ -40,8 +40,9 @@ public class OnlinePresence {
         if (!registry.current(binding)) return;
         long expires = binding.lastActivity()+90_000;
         if (expires <= clock.millis()) return;
-        redis.execute(UPDATE, List.of("game:online:"+binding.identity().uid(),INDEX),
+        Long updated=redis.execute(UPDATE, List.of("game:online:"+binding.identity().uid(),INDEX),
                 Long.toString(binding.epoch()),Long.toString(expires),Long.toString(binding.identity().uid()));
+        if (!Long.valueOf(1).equals(updated)) throw new IllegalStateException("在线索引版本未更新");
     }
     public void connected(ConnectionRegistry.Binding binding){
         try{update(binding);}catch(RuntimeException e){status="UNAVAILABLE";}
@@ -57,7 +58,7 @@ public class OnlinePresence {
             redis.hasKey(INDEX); // Redis 无法连接时不能把空 registry 当成在线为零。
             for (var binding : registry.all()) {
                 try {sessions.verify(binding.token());update(binding);}
-                catch(GameFailure e){registry.disconnect(binding.identity().uid());remove(binding);}
+                catch(GameFailure e){registry.disconnect(binding);remove(binding);}
             }
             redis.opsForZSet().removeRangeByScore(INDEX,Double.NEGATIVE_INFINITY,clock.millis());
             status="AVAILABLE";
@@ -70,9 +71,19 @@ public class OnlinePresence {
         try {
             Set<String> uids=redis.opsForZSet().rangeByScore(INDEX,clock.millis()+1,Double.POSITIVE_INFINITY);
             if (!"AVAILABLE".equals(status)) return new Sample(status,asOf,null);
-            if(uids==null||uids.isEmpty())return new Sample("AVAILABLE",asOf,Set.of());
-            if(uids.size()>10000)return new Sample("UNAVAILABLE",asOf,null);
-            Set<Long> valid=new HashSet<>(players.activePlayers(uids.stream().map(Long::parseLong).toList(),includeTest));
+            if(uids!=null&&uids.size()>10000)return new Sample("UNAVAILABLE",asOf,null);
+            Set<Long> indexed=new HashSet<>();
+            if(uids!=null)for(String uid:uids)indexed.add(Long.parseLong(uid));
+            var live=registry.all().stream().filter(binding->registry.current(binding)
+                    && binding.channel().isActive() && binding.lastActivity()+90_000>clock.millis()).toList();
+            // 单进程连接表是在线事实；重启遗留的 Redis UID 不能制造幽灵在线。
+            // 索引丢失时返回未知，等刷新重建，不能把有连接的玩家显示为零。
+            if(live.stream().anyMatch(binding->!indexed.contains(binding.identity().uid()))) {
+                status="REBUILDING";return new Sample(status,asOf,null);
+            }
+            if(live.isEmpty())return new Sample("AVAILABLE",asOf,Set.of());
+            Set<Long> valid=new HashSet<>(players.activeIdentities(live.stream().map(ConnectionRegistry.Binding::identity).toList(),
+                    includeTest,java.time.LocalDateTime.ofInstant(clock.instant(),java.time.ZoneOffset.UTC)));
             return new Sample("AVAILABLE",asOf,Set.copyOf(valid));
         } catch (RuntimeException e) { status="UNAVAILABLE"; return new Sample(status,asOf,null); }
     }

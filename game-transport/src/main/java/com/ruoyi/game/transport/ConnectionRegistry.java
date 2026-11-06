@@ -51,6 +51,17 @@ public class ConnectionRegistry {
         Binding binding = players.remove(uid);
         if (binding != null) binding.channel().close();
     }
+    /** 只关闭被观察到的连接，异步清理不能误伤同 UID 的新连接。 */
+    public boolean disconnect(Binding binding) {
+        if (!remove(binding)) return false;
+        binding.channel().close();
+        return true;
+    }
+    /** 管理命令只撤销命令提交前的会话版本。 */
+    public void disconnectBeforeVersion(long uid, long version) {
+        Binding binding = players.get(uid);
+        if (binding != null && binding.identity().sessionVersion() < version) disconnect(binding);
+    }
     public static final class Binding {
         private final GuestIdentity identity;
         private final Channel channel;

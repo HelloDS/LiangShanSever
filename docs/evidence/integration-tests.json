@@ -1,13 +1,24 @@
 {
-  "executedAt": "2026-11-06T17:39:08.740885+00:00",
+  "executedAt": "2026-11-06T17:59:00.377209+00:00",
   "suites": [
     {
-      "suite": "com.ruoyi.GameFoundationIntegrationTest",
-      "tests": 9,
+      "suite": "com.ruoyi.AdminExecutorTest",
+      "tests": 1,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.714,
+      "seconds": 0.002,
+      "cases": [
+        "saturationRejectsWithoutRunningOnRequestThread"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest",
+      "tests": 10,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.79,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -15,6 +26,7 @@
         "identityAndLoginDeduplicationSurviveLossOfRedis",
         "lateInitializationFailureRollsBackAccountCredentialRoleAndWallet",
         "newGameSessionReplacesOldTokenForTheSamePlayer",
+        "onlineCountsRequireLiveConnectionValidIdentityAndRebuiltIndex",
         "parallelAdminRetriesHaveOneAuditAndOneSessionRevocation",
         "redisSessionFailureDoesNotCountAsSuccessfulLogin",
         "reportContactIsEncryptedAndFullReadIsSeparatelyAudited"
@@ -26,7 +38,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.148,
+      "seconds": 1.132,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -45,7 +57,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.655,
+      "seconds": 1.638,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
@@ -63,7 +75,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.051,
+      "seconds": 0.054,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
@@ -75,7 +87,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.125,
+      "seconds": 0.136,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -86,17 +98,18 @@
     },
     {
       "suite": "com.ruoyi.game.transport.ConnectionRegistryTest",
-      "tests": 2,
+      "tests": 3,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.013,
+      "seconds": 0.015,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
+        "delayedRevocationCannotDisconnectFreshSessionVersion",
         "slowWritesHaveBoundedPendingPushesAndReleaseOnFailure"
       ]
     }
   ],
-  "total": 35,
+  "total": 38,
   "result": "PASS"
 }

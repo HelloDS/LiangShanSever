@@ -21,6 +21,19 @@ class ConnectionRegistryTest {
             Object frame=fresh.readOutbound();assertNotNull(frame);ReferenceCountUtil.release(frame);assertEquals(0,registry.pendingPushes());
         }finally{old.finishAndReleaseAll();fresh.finishAndReleaseAll();}
     }
+    @Test void delayedRevocationCannotDisconnectFreshSessionVersion(){
+        ConnectionRegistry registry=new ConnectionRegistry(Clock.systemUTC());
+        EmbeddedChannel old=new EmbeddedChannel(),fresh=new EmbeddedChannel();
+        try{
+            var previous=registry.bind(identity(),old,"old");
+            registry.bind(new GuestIdentity(1,"fixture",100001,1,true),fresh,"fresh");
+            assertFalse(registry.disconnect(previous));
+            registry.disconnectBeforeVersion(100001,1);
+            assertTrue(fresh.isActive());
+            registry.disconnectBeforeVersion(100001,2);
+            assertFalse(fresh.isActive());
+        }finally{old.finishAndReleaseAll();fresh.finishAndReleaseAll();}
+    }
     @Test void slowWritesHaveBoundedPendingPushesAndReleaseOnFailure(){
         ConnectionRegistry registry=new ConnectionRegistry(Clock.systemUTC());
         List<ChannelPromise> promises=new ArrayList<>();List<Object> frames=new ArrayList<>();

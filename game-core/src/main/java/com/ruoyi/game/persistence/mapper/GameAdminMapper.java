@@ -3,6 +3,7 @@ package com.ruoyi.game.persistence.mapper;
 import java.time.*;
 import java.util.*;
 import org.apache.ibatis.annotations.*;
+import com.ruoyi.game.auth.GuestIdentity;
 
 public interface GameAdminMapper {
     @Select("SELECT COUNT(*) FROM admin_data_scope WHERE principal_id=#{actor} AND scope_type='PLATFORM' AND scope_id='*'")
@@ -29,8 +30,8 @@ public interface GameAdminMapper {
     @Select("<script>SELECT r.uid FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE a.is_test=FALSE AND a.status='ACTIVE' AND r.uid IN <foreach collection='uids' item='uid' open='(' separator=',' close=')'>#{uid}</foreach></script>")
     List<Long> realPlayers(@Param("uids") Collection<Long> uids);
 
-    @Select("<script>SELECT r.uid FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE a.status='ACTIVE' <if test='!includeTest'>AND a.is_test=FALSE</if> AND r.uid IN <foreach collection='uids' item='uid' open='(' separator=',' close=')'>#{uid}</foreach></script>")
-    List<Long> activePlayers(@Param("uids") Collection<Long> uids,@Param("includeTest") boolean includeTest);
+    @Select("<script>SELECT r.uid FROM player_role r JOIN user_account a ON a.id=r.account_id JOIN guest_credential g ON g.account_id=a.id WHERE a.status='ACTIVE' AND g.status='ACTIVE' AND g.expires_at &gt; #{now} <if test='!includeTest'>AND a.is_test=FALSE</if> AND <foreach collection='identities' item='identity' open='(' separator=' OR ' close=')'>(r.uid=#{identity.uid} AND a.id=#{identity.accountId} AND a.session_version=#{identity.sessionVersion} AND g.id=#{identity.credentialId})</foreach></script>")
+    List<Long> activeIdentities(@Param("identities") Collection<GuestIdentity> identities,@Param("includeTest") boolean includeTest,@Param("now") LocalDateTime now);
 
     @Select("SELECT CAST(r.uid AS CHAR) AS uid,r.name,r.head,r.sex,a.status,a.is_test AS isTest,r.created_at AS createdAt,r.last_login_at AS lastLoginAt FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE r.uid=#{uid}")
     Map<String,Object> player(long uid);

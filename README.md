@@ -61,3 +61,13 @@ RUN_ORGANIZATION_FIXTURES=1 node tools/club-smoke.mjs
 该测试建立已知上限的“既有圈”，成员通过真实申请/审批加入，结束后停用测试圈并保留审计。它不代表创建圈费用和资金转入已确认或通过验收。规则缺口与原消费者结构见 `docs/亲友圈协议与规则缺口.md`。
 
 统一钱包事务和只读账本/核对后台已经接入；兑换、转卡、补偿发放与圈费用尚未开放。资金防重、期初覆盖和剩余规则见 `docs/钱包账本与经济规则缺口.md`。
+
+大厅真实连接负载仅在本机显式运行，凭据文件仅写入忽略目录，测试账号不进入运营统计：
+
+```bash
+RUN_LOAD_FIXTURES=1 node tools/prepare-load.mjs 1000
+source scripts/java-env.sh
+RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobby-load.mjs
+```
+
+默认保持 1000 个已认证连接，其中 800 个空闲、200 个活跃，执行每秒 200 次大厅查询；查询 P95 目标 300ms。仅按实际运行时长和结果保存证据，不代表斗地主动作、结算、WSS 或 24 小时稳定性通过。

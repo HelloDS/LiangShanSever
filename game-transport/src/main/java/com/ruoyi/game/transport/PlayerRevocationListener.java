@@ -8,5 +8,5 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class PlayerRevocationListener {
     private final ConnectionRegistry registry;
     public PlayerRevocationListener(ConnectionRegistry registry){this.registry=registry;}
-    @TransactionalEventListener public void revoke(PlayerRevoked event){registry.disconnect(event.uid());}
+    @TransactionalEventListener public void revoke(PlayerRevoked event){registry.disconnectBeforeVersion(event.uid(),event.sessionVersion());}
 }
