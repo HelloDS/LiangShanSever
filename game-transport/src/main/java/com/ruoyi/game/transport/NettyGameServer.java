@@ -26,13 +26,15 @@ public class NettyGameServer implements SmartLifecycle {
     private final GameJsonCodec codec;
     private final Clock clock;
     private final GameTelemetry telemetry;
+    private final ConnectionAdmission admission;
+    private final InboundBudget inbound;
     private EventLoopGroup boss,workers;
     private Channel server;
     public NettyGameServer(@Value("${game.ws.port:8081}") int port,@Value("${game.allowed-origins}") String origins,
                            BusinessExecutor executor,GameDispatcher dispatcher,ConnectionRegistry registry,
-                           OnlinePresence presence,GameJsonCodec codec,Clock clock,GameTelemetry telemetry) {
+                           OnlinePresence presence,GameJsonCodec codec,Clock clock,GameTelemetry telemetry,ConnectionAdmission admission,InboundBudget inbound) {
         this.port=port;this.origins=Set.copyOf(Arrays.asList(origins.split(",")));this.executor=executor;this.dispatcher=dispatcher;
-        this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;this.telemetry=telemetry;
+        this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;this.telemetry=telemetry;this.admission=admission;this.inbound=inbound;
     }
     @Override public void start() {
         boss=new NioEventLoopGroup(1);workers=new NioEventLoopGroup(Math.min(4,Runtime.getRuntime().availableProcessors()));
@@ -42,19 +44,19 @@ public class NettyGameServer implements SmartLifecycle {
                     .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK,new WriteBufferWaterMark(512*1024,1024*1024))
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override protected void initChannel(SocketChannel channel) {
-                            channel.pipeline().addLast(new HttpServerCodec(),new HttpObjectAggregator(GameJsonCodec.MAX_BYTES),
+                            channel.pipeline().addLast(admission,new HttpServerCodec(),new HttpObjectAggregator(GameJsonCodec.MAX_BYTES),
                                     new WebSocketOriginHandler(origins),
                                     new WebSocketServerProtocolHandler(WebSocketServerProtocolConfig.newBuilder().websocketPath("/")
                                             .maxFramePayloadLength(GameJsonCodec.MAX_BYTES).dropPongFrames(false).build()),
-                                    new WebSocketFrameAggregator(GameJsonCodec.MAX_BYTES),new IdleStateHandler(90,30,0),
-                                    new GameSocketHandler(executor,dispatcher,registry,presence,codec,clock,telemetry));
+                                    new HandshakeDeadline(),new WebSocketFrameAggregator(GameJsonCodec.MAX_BYTES),new IdleStateHandler(90,30,0),
+                                    new GameSocketHandler(executor,dispatcher,registry,presence,codec,clock,telemetry,inbound));
                         }
                     }).bind("127.0.0.1",port).syncUninterruptibly().channel();
         } catch(RuntimeException e) {stop();throw e;}
     }
     @Override public void stop() {
         if(server!=null)server.close().syncUninterruptibly();
-        for(var binding:registry.all())binding.channel().close();
+        admission.closeAll();
         if(workers!=null)workers.shutdownGracefully();if(boss!=null)boss.shutdownGracefully();server=null;
     }
     @Override public boolean isRunning() { return server!=null&&server.isActive(); }

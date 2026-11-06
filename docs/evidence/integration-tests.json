@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T16:43:40.427600+00:00",
+  "executedAt": "2026-11-06T17:00:52.693004+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest",
@@ -7,7 +7,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.711,
+      "seconds": 0.71,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -26,7 +26,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.287,
+      "seconds": 1.306,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -45,10 +45,25 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.049,
+      "seconds": 0.052,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.transport.AdmissionTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.119,
+      "cases": [
+        "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
+        "concurrentReservationsNeverOvercommitBudget",
+        "incompleteHttpHandshakeExpiresFromConnectionTime",
+        "successfulHandshakeCancelsDeadline",
+        "unauthenticatedConnectionsAreCappedAndClosingReleasesPermit"
       ]
     },
     {
@@ -57,13 +72,13 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.117,
+      "seconds": 0.014,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "slowWritesHaveBoundedPendingPushesAndReleaseOnFailure"
       ]
     }
   ],
-  "total": 22,
+  "total": 27,
   "result": "PASS"
 }

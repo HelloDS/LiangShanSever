@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 public class GameTelemetry {
     private static final Set<String> APIS=Set.of("user","role","cfg","game","room","club","inform","activity","koi","manager","build");
     private final MeterRegistry metrics;
-    public GameTelemetry(MeterRegistry metrics,ConnectionRegistry registry,BusinessExecutor executor){
+    public GameTelemetry(MeterRegistry metrics,ConnectionRegistry registry,BusinessExecutor executor,ConnectionAdmission admission,InboundBudget inbound){
         this.metrics=metrics;
+        Gauge.builder("game.accepted.connections",admission,ConnectionAdmission::active).register(metrics);
+        Gauge.builder("game.inbound.bytes",inbound,InboundBudget::used).register(metrics);
         Gauge.builder("game.authenticated.connections",registry,r->r.all().size()).register(metrics);
         Gauge.builder("game.push.pending",registry,ConnectionRegistry::pendingPushes).register(metrics);
         Gauge.builder("game.business.queue",executor,BusinessExecutor::queued).register(metrics);

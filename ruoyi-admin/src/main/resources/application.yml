@@ -7,6 +7,7 @@ ruoyi:
   captchaType: math
 server:
   address: 127.0.0.1
+  forward-headers-strategy: framework
   port: ${HTTP_PORT:8082}
   tomcat:
     threads:
@@ -95,5 +96,7 @@ game:
   pii-key: ${GAME_PII_KEY}
   ws:
     port: ${WS_PORT:8081}
+    max-connections: ${GAME_MAX_CONNECTIONS:2048}
+    inbound-budget-bytes: ${GAME_INBOUND_BUDGET:33554432}
   allowed-origins: ${GAME_ALLOWED_ORIGINS:http://localhost:8080,http://127.0.0.1:8080,http://localhost:7456,http://127.0.0.1:7456,http://localhost:7501,http://127.0.0.1:7501}
   guest-credential-days: 365
