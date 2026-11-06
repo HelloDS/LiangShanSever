@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+from room_load_paths import validated_sources
 
 root = Path(__file__).resolve().parents[1]
 reports = sorted((root / 'ruoyi-admin/target/surefire-reports').glob('TEST-*.xml'), key=lambda path: path.stat().st_mtime, reverse=True)
@@ -17,13 +18,10 @@ properties = {entry.get('name'): entry.get('value') for entry in ET.parse(report
 classpath = properties.get('surefire.test.class.path')
 if not classpath:
     raise SystemExit('实际测试报告没有 classpath')
-# Java 的空 classpath 项表示当前目录，不属于编译产物，禁止递归复制工作区。
-sources = [Path(entry).resolve() for entry in classpath.split(os.pathsep) if entry.strip()]
-for source in sources:
-    if not source.exists():
-        raise SystemExit('classpath 条目不存在，拒绝生成不完整负载快照')
-    if source.is_dir() and (root not in source.parents or source.name not in {'classes', 'test-classes'} or source.parent.name != 'target'):
-        raise SystemExit('拒绝复制非 target 编译目录')
+try:
+    sources = validated_sources(classpath, root)
+except ValueError as error:
+    raise SystemExit(str(error)) from None
 stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
 destination = root / '.local' / ('room-storage-snapshot-' + stamp)
 destination.mkdir(parents=True, exist_ok=False)

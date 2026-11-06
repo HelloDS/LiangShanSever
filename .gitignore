@@ -5,6 +5,7 @@ admin-ui/dist/
 .env
 *.log
 .DS_Store
+**/__pycache__/
 .idea/
 *.iml
 playwright-report/
