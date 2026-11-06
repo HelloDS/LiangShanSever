@@ -5,8 +5,12 @@ cd "$(dirname "$0")/.."
 source scripts/java-env.sh
 source scripts/docker-env.sh
 mkdir -p .local
-./mvnw -B test-compile > .local/room-storage-load-compile.log 2>&1
-load_snapshot="$(python3 scripts/prepare-room-load.py)"
+if [[ -n "${ROOM_LOAD_FROZEN_SNAPSHOT:-}" ]]; then
+  load_snapshot="$(python3 scripts/prepare-room-load.py --verify "$ROOM_LOAD_FROZEN_SNAPSHOT")"
+else
+  ./mvnw -B test-compile > .local/room-storage-load-compile.log 2>&1
+  load_snapshot="$(python3 scripts/prepare-room-load.py)"
+fi
 export ROOM_LOAD_GIT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sourceCommit"])' "$load_snapshot/manifest.json")"
 export ROOM_LOAD_SNAPSHOT_SHA256="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sha256"])' "$load_snapshot/manifest.json")"
 load_classpath="$(cat "$load_snapshot/classpath.txt")"
