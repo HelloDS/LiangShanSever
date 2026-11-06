@@ -13,6 +13,7 @@ else
 fi
 export ROOM_LOAD_GIT="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sourceCommit"])' "$load_snapshot/manifest.json")"
 export ROOM_LOAD_SNAPSHOT_SHA256="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["sha256"])' "$load_snapshot/manifest.json")"
+export ROOM_LOAD_DOCKER_ENV="$(python3 -c 'import subprocess;print(subprocess.check_output(["docker","info","--format","{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}"],text=True,timeout=3).strip())')"
 load_classpath="$(cat "$load_snapshot/classpath.txt")"
 load_java_options=(-Xms256m -Xmx1024m)
 if [[ "${ROOM_LOAD_JFR:-}" == '1' ]]; then
