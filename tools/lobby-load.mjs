@@ -37,16 +37,17 @@ const proxy={image:(await run('docker',['inspect','--format','{{.Image}}','liang
  dockerContext,portForwarder,configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
 const engine=(await run('docker',['info','--format','{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}'])).stdout.trim();
 const mysqlDurability=sql('SELECT @@innodb_flush_log_at_trx_commit,@@sync_binlog,@@log_bin').split('\t').map(Number);
-const clients=[],latencies=[],errors={},samples=[];
+const clients=[],latencies=[],errors={},samples=[],socketFailures=[],connectionLatencies=[];
 let phase='connecting',sent=0,completed=0,pushes=0,closed=0,busy=0,missed=0,pings=0,pongs=0;
 let stopped=false;process.once('SIGINT',()=>{stopped=true;});process.once('SIGTERM',()=>{stopped=true;});
 const fail=code=>{errors[code]=(errors[code]||0)+1;};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const routes=[{api:'role',c:'syncCard'},{api:'club',c:'getClubs'},{api:'manager',c:'getNotices'},{api:'cfg',c:'getGame',game_id:'6003'}];
 async function connect(fixture){
+ const began=performance.now();
  const ws=new WebSocket(base.replace(/^http/,'ws')+'/',{origin:new URL(base).origin,handshakeTimeout:10000,autoPong:false});
  const client={ws,pending:null,session:null};clients.push(client);
- ws.on('error',()=>{if(phase!=='closing')fail('socket_error');});
+ ws.on('error',error=>{if(phase!=='closing'){fail('socket_error');if(socketFailures.length<20)socketFailures.push({phase,detail:detail(error)});}});
  ws.on('ping',data=>{if(phase==='closing')return;pings++;ws.pong(data,true,error=>{if(error){if(phase!=='closing')fail('heartbeat_write');}else pongs++;});});
  ws.on('close',()=>{if(phase!=='closing')closed++;if(client.pending){clearTimeout(client.pending.timer);client.pending.reject(Error('closed'));client.pending=null;}});
  ws.on('message',raw=>{
@@ -56,10 +57,10 @@ async function connect(fixture){
   if(!waiter){fail('extra_ack');return;}
   clearTimeout(waiter.timer);waiter.resolve(packet);
  });
- await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',()=>reject(Error('connect')));});
+ await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',error=>reject(Error('connect',{cause:error})));});
  const login=await request(client,'login',{api:'user',c:'reg',account:'tk_'+fixture.token,plat_id:'2'});
  assert.equal(login.state,0,'测试游客登录失败');assert.equal(login.loginData.role.uid,fixture.uid);
- assert.ok(/^[A-Za-z0-9_-]{43}$/.test(login.sessionToken),'会话格式无效');client.session=login.sessionToken;
+ assert.ok(/^[A-Za-z0-9_-]{43}$/.test(login.sessionToken),'会话格式无效');client.session=login.sessionToken;connectionLatencies.push(performance.now()-began);
  return client;
 }
 function request(client,path,reqData){
@@ -82,7 +83,12 @@ async function sample(){
  const recent=latencies.slice(-1000).sort((a,b)=>a-b);
  samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,recentP95Ms:recent.length?Number(recent[Math.ceil(recent.length*.95)-1].toFixed(3)):null,metrics:Object.fromEntries(entries)});
 }
-function detail(error){return /^HTTP \/actuator\/metrics\/[A-Za-z0-9.]+: [0-9]{3}/.exec(String(error?.message))?.[0]||String(error?.name||'Error')+(/^[A-Z0-9_]{1,40}$/.test(String(error?.cause?.code))?':'+String(error.cause.code):'');}
+function detail(error){
+ const upgrade=/^Unexpected server response: ([0-9]{3})$/.exec(String(error?.message||error?.cause?.message));if(upgrade)return 'WS_UPGRADE_HTTP_'+upgrade[1];
+ const nestedUpgrade=/^Unexpected server response: ([0-9]{3})$/.exec(String(error?.cause?.message));if(nestedUpgrade)return 'WS_UPGRADE_HTTP_'+nestedUpgrade[1];
+ const code=error?.code||error?.cause?.code;
+ return /^HTTP \/actuator\/metrics\/[A-Za-z0-9.]+: [0-9]{3}/.exec(String(error?.message))?.[0]||String(error?.name||'Error')+(/^[A-Z0-9_]{1,40}$/.test(String(code))?':'+String(code):'');
+}
 let sampling=null,measurementStart=null,fatalDetail=null;
 let startedAt,endedAt,measurementMs=0,fatal=false;
 try{
@@ -124,11 +130,12 @@ finally{
 latencies.sort((a,b)=>a-b);
 const percentile=p=>latencies.length?Number(latencies[Math.min(latencies.length-1,Math.ceil(latencies.length*p)-1)].toFixed(3)):null;
 const totalErrors=Object.values(errors).reduce((a,b)=>a+b,0);
+connectionLatencies.sort((a,b)=>a-b);const connectPercentile=p=>connectionLatencies.length?Number(connectionLatencies[Math.min(connectionLatencies.length-1,Math.ceil(connectionLatencies.length*p)-1)].toFixed(3)):null;
 const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论',base,
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
  java:javaVersion,git:buildCommit,artifactSha256,proxy,dockerCpuMemoryVersion:engine,mysqlDurability:{innodbFlushLogAtTrxCommit:mysqlDurability[0],syncBinlog:mysqlDurability[1],logBin:mysqlDurability[2]}},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
- fatalDetail,actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
+ fatalDetail,socketFailures,connectionLatencyMs:{p50:connectPercentile(.5),p95:connectPercentile(.95),max:connectPercentile(1)},actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
  result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
 await writeFile(reportFile,JSON.stringify(result,null,2)+'\n',{flag:'wx'});

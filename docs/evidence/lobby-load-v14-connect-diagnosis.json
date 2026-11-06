@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-11-06T22:40:21.386195+00:00",
+  "scope": "连接准备失败，未发送业务查询；单次代理到宿主 Netty 的 TCP 连接超时，不推断唯一根因",
+  "nginxEvent": {
+    "at": "2026-11-06T22:36:31Z",
+    "status": 504,
+    "message": "upstream timed out while connecting to upstream",
+    "upstream": "http://192.168.5.2:8081/"
+  },
+  "observedAfterFailure": {
+    "javaRunning": true,
+    "health": "UP",
+    "mysql": "healthy",
+    "redis": "healthy",
+    "nginx": "running"
+  },
+  "configurationChanged": false,
+  "recovery": "保留失败，从头再测；仅补充脱敏升级状态/系统错误码与连接延迟诊断"
+}
