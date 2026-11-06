@@ -94,6 +94,8 @@ management:
       show-details: never
 game:
   pii-key: ${GAME_PII_KEY}
+  outbox:
+    worker-enabled: ${GAME_OUTBOX_ENABLED:true}
   ws:
     port: ${WS_PORT:8081}
     max-connections: ${GAME_MAX_CONNECTIONS:2048}

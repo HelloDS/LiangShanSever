@@ -4,6 +4,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import os from 'node:os';
+import {createHash} from 'node:crypto';
 import WebSocket from 'ws';
 import {base,adminLogin,api,sql} from './test-client.mjs';
 
@@ -14,7 +15,7 @@ assert.ok(Number.isInteger(count)&&count>=1&&count<=1500);
 assert.ok(Number.isInteger(active)&&active>=1&&active<=count);
 assert.ok(Number.isInteger(seconds)&&seconds>=10&&seconds<=3600);
 assert.ok(Number.isInteger(rate)&&rate>=1&&rate<=500);
-const fixtures=(await readFile(new URL('../.local/load-guests.jsonl',import.meta.url),'utf8')).trim().split('\n').map(JSON.parse).slice(0,count);
+const fixtures=(await readFile(new URL('../.local/load-guests.jsonl',import.meta.url),'utf8')).trim().split('\n').map(line=>{try{return JSON.parse(line);}catch{throw Error('测试凭据文件格式损坏');}}).slice(0,count);
 assert.equal(fixtures.length,count);
 for(const row of fixtures)assert.ok(Number.isSafeInteger(row.uid)&&/^[A-Za-z0-9_-]{43}$/.test(row.token),'测试凭据格式无效');
 assert.equal(Number(sql(`SELECT COUNT(*) FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE a.is_test=TRUE AND a.status='ACTIVE' AND r.uid IN (${fixtures.map(row=>row.uid).join(',')})`)),count,'只能使用已标记的测试账号');
@@ -23,16 +24,18 @@ const serverPid=(await readFile(new URL('../.local/server.pid',import.meta.url),
 assert.ok(/^[0-9]+$/.test(serverPid));
 const buildCommit=(await run('git',['rev-parse','HEAD'])).stdout.trim();
 const javaVersion=(await run('jcmd',[serverPid,'VM.version'])).stdout.trim();
+const artifactSha256=createHash('sha256').update(await readFile(new URL('../ruoyi-admin/target/ruoyi-admin.jar',import.meta.url))).digest('hex');
 const clients=[],latencies=[],errors={},samples=[];
-let phase='connecting',sent=0,completed=0,pushes=0,closed=0,busy=0,missed=0;
+let phase='connecting',sent=0,completed=0,pushes=0,closed=0,busy=0,missed=0,pings=0,pongs=0;
 let stopped=false;process.once('SIGINT',()=>{stopped=true;});process.once('SIGTERM',()=>{stopped=true;});
 const fail=code=>{errors[code]=(errors[code]||0)+1;};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const routes=[{api:'role',c:'syncCard'},{api:'club',c:'getClubs'},{api:'manager',c:'getNotices'},{api:'cfg',c:'getGame',game_id:'6003'}];
 async function connect(fixture){
- const ws=new WebSocket(base.replace(/^http/,'ws')+'/',{origin:new URL(base).origin,handshakeTimeout:10000});
+ const ws=new WebSocket(base.replace(/^http/,'ws')+'/',{origin:new URL(base).origin,handshakeTimeout:10000,autoPong:false});
  const client={ws,pending:null,session:null};clients.push(client);
  ws.on('error',()=>fail('socket_error'));
+ ws.on('ping',data=>{pings++;ws.pong(data,true,error=>{if(error)fail('heartbeat_write');else pongs++;});});
  ws.on('close',()=>{if(phase!=='closing')closed++;if(client.pending){clearTimeout(client.pending.timer);client.pending.reject(Error('closed'));client.pending=null;}});
  ws.on('message',raw=>{
   let packet;try{packet=JSON.parse(raw);}catch{fail('invalid_json');return;}
@@ -61,7 +64,7 @@ async function sample(){
   const response=await api('/actuator/metrics/'+name,undefined,token);
   metrics[name]=response.measurements?.map(row=>({statistic:row.statistic,value:row.value}))||[];
  }
- samples.push({at:new Date().toISOString(),phase,sent,completed,closed,metrics});
+ samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,metrics});
 }
 let startedAt,endedAt,measurementMs=0,fatal=false;
 try{
@@ -95,7 +98,7 @@ try{
  measurementMs=performance.now()-start;endedAt=new Date().toISOString();
  phase='drain';for(let i=0;i<60&&clients.some(client=>client.pending);i++)await sleep(100);
  await sample();
-}catch{fatal=true;fail(stopped?'interrupted':'setup_or_metrics_failed');}
+}catch(error){fatal=true;fail(stopped?'interrupted':'setup_or_metrics_failed');console.error(`负载流程失败：阶段 ${phase}，异常类型 ${error?.name||'Error'}`);}
 finally{
  phase='closing';for(const client of clients)client.ws.close();
  await sleep(500);for(const client of clients)if(client.ws.readyState!==WebSocket.CLOSED)client.ws.terminate();
@@ -105,11 +108,11 @@ const percentile=p=>latencies.length?Number(latencies[Math.min(latencies.length-
 const totalErrors=Object.values(errors).reduce((a,b)=>a+b,0);
 const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论',base,
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
- java:javaVersion,git:buildCommit},
+ java:javaVersion,git:buildCommit,artifactSha256},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
- actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
+ actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
- result:percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
+ result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
 await writeFile(new URL('../docs/evidence/lobby-load.json',import.meta.url),JSON.stringify(result,null,2)+'\n');
 console.log(JSON.stringify({result:result.result,...result.actual,samples:samples.length}));
 if(result.result!=='PASS')process.exitCode=1;

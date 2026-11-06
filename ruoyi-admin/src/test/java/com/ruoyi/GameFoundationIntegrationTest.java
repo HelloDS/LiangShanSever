@@ -33,7 +33,7 @@ import com.ruoyi.game.economy.WalletPosting.*;
 import com.ruoyi.game.economy.WalletPosting.Currency;
 
 @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0"})
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false"})
 class GameFoundationIntegrationTest {
     private static final String DB_PASSWORD=SecureTokens.create();
     private static final String REDIS_PASSWORD=SecureTokens.create();
@@ -53,6 +53,10 @@ class GameFoundationIntegrationTest {
         properties.add("token.secret",SecureTokens::create);
         properties.add("game.pii-key",SecureTokens::create);
     }
+    @Autowired com.ruoyi.game.outbox.OutboxStore outbox;
+    @Autowired com.ruoyi.game.outbox.OutboxAdminService outboxAdmin;
+    @MockitoSpyBean OutboxMapper outboxMapper;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
     @Autowired GuestAuthService auth;
     @MockitoSpyBean GameSessionService sessions;
     @Autowired GameLoginService login;
@@ -136,6 +140,7 @@ class GameFoundationIntegrationTest {
             assertEquals(1,ids.size());
         }
         assertEquals(1,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+identity.uid()+":1"));
         assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE target=? AND action='kick'",Integer.class,Long.toString(identity.uid())));
     }
 
@@ -175,6 +180,80 @@ class GameFoundationIntegrationTest {
         assertEquals("13800000000",reports.contacts(1,(String)row.get("id"),"本地权限验收").get("telephone"));
         String audit=jdbc.queryForObject("SELECT after_json FROM admin_audit WHERE target=? AND action='report:contact'",String.class,row.get("id"));
         assertFalse(audit.contains("13800000000"));assertFalse(audit.contains("test_contact"));
+    }
+
+    @Nested class DurableOutbox {
+        private String append(long uid){
+            return new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                    .execute(status->outbox.playerRevoked(uid,1));
+        }
+        private long uid(){return auth.verify(auth.createGuest()).uid();}
+        private com.ruoyi.game.outbox.OutboxEvent claim(String id){
+            for(int i=0;i<20;i++)for(var event:outbox.claim(16)){if(event.id().equals(id))return event;else outbox.complete(event);}
+            throw new AssertionError("目标事件未领取");
+        }
+        @Test void outboxInsertFailureRollsBackPlayerCommandAndAudit(){
+            GuestIdentity identity=auth.verify(auth.createGuest());
+            doThrow(new IllegalStateException("injected outbox failure")).when(outboxMapper)
+                    .append(anyString(),anyString(),anyString(),anyString(),anyString(),anyString(),any());
+            assertThrows(IllegalStateException.class,()->admin.command(1,identity.uid(),"ban","事务末尾故障验收",UUID.randomUUID().toString()));
+            assertEquals("ACTIVE",jdbc.queryForObject("SELECT status FROM user_account WHERE id=?",String.class,identity.accountId()));
+            assertEquals(0,jdbc.queryForObject("SELECT session_version FROM user_account WHERE id=?",Integer.class,identity.accountId()));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE target=?",Integer.class,Long.toString(identity.uid())));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+identity.uid()+":1"));
+        }
+        @Test void appendRequiresBusinessTransactionAndStableKeyIsUnique(){
+            long uid=uid();
+            assertThrows(org.springframework.transaction.IllegalTransactionStateException.class,()->outbox.playerRevoked(uid,1));
+            String first=append(uid);assertEquals(first,append(uid));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE biz_key=?",Integer.class,"player-revoked:"+uid+":1"));
+        }
+        @Test void concurrentClaimsAreExclusiveAndStaleLeaseCannotCompleteReclaimedTask() throws Exception {
+            Set<String> expected=new HashSet<>();for(int i=0;i<20;i++)expected.add(append(uid()));
+            Set<String> seen=ConcurrentHashMap.newKeySet();
+            try(ExecutorService workers=Executors.newFixedThreadPool(4)){
+                List<Future<?>> results=new ArrayList<>();
+                for(int i=0;i<4;i++)results.add(workers.submit(()->{
+                    for(int n=0;n<8;n++)for(var event:outbox.claim(16)){
+                        assertTrue(seen.add(event.id()),"同一租期不能重复领取");assertTrue(outbox.complete(event));
+                    }
+                }));
+                for(var result:results)result.get(10,TimeUnit.SECONDS);
+            }
+            assertTrue(seen.containsAll(expected));
+            String id=append(uid());var old=claim(id);
+            jdbc.update("UPDATE outbox_event SET lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",id);
+            var fresh=claim(id);assertNotEquals(old.leaseToken(),fresh.leaseToken());assertEquals(2,fresh.attempts());
+            assertFalse(outbox.complete(old));assertFalse(outbox.failed(old,"OLD_WORKER"));assertTrue(outbox.complete(fresh));
+        }
+        @Test void boundedRetryBecomesDeadAndManualRetryPreservesEventAndAudit(){
+            String id=append(uid());
+            for(int i=1;i<=5;i++){
+                var event=claim(id);assertEquals(i,event.attempts());assertTrue(outbox.failed(event,"TEST_FAILURE"));
+                jdbc.update("UPDATE outbox_event SET retry_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",id);
+            }
+            assertEquals("DEAD",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,id));
+            assertThrows(SecurityException.class,()->outboxAdmin.retry(999,id,"跨范围重试验收",UUID.randomUUID().toString()));
+            String key=UUID.randomUUID().toString();
+            var first=outboxAdmin.retry(1,id,"人工排障重试验收",key);var again=outboxAdmin.retry(1,id,"人工排障重试验收",key);
+            assertEquals(first.get("operationId"),again.get("operationId"));
+            assertEquals(1,jdbc.queryForObject("SELECT manual_retries FROM outbox_event WHERE id=?",Integer.class,id));
+            assertEquals(5,jdbc.queryForObject("SELECT total_attempts FROM outbox_event WHERE id=?",Integer.class,id));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE action='outbox:retry' AND target=?",Integer.class,id));
+            var event=claim(id);assertEquals(1,event.attempts());assertTrue(outbox.complete(event));
+            assertEquals(6,jdbc.queryForObject("SELECT total_attempts FROM outbox_event WHERE id=?",Integer.class,id));
+        }
+        @Test void finalExpiredLeaseEntersDeadAndAdminQueryIsScopedAndDateBounded(){
+            String id=append(uid());var event=claim(id);
+            jdbc.update("UPDATE outbox_event SET attempt_count=5,total_attempts=5,lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",id);
+            outbox.claim(16);
+            assertEquals("DEAD",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,id));assertFalse(outbox.complete(event));
+            var today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            assertThrows(SecurityException.class,()->outboxAdmin.list(999,null,today,today,1,50));
+            assertThrows(IllegalArgumentException.class,()->outboxAdmin.list(1,null,today.minusDays(31),today,1,50));
+            assertTrue(((Number)outboxAdmin.list(1,"DEAD",today,today,1,50).get("total")).longValue()>=1);
+            assertTrue(outbox.backlog().dead()>=1);
+        }
     }
 
     @Nested class ClubOrganization {

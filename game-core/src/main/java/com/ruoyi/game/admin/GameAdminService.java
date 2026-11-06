@@ -13,8 +13,9 @@ public class GameAdminService {
     private final AdminOperations operations;
     private final ApplicationEventPublisher events;
     private final Clock clock;
-    public GameAdminService(GameAdminMapper mapper,AdminOperations operations,ApplicationEventPublisher events,Clock clock) {
-        this.mapper=mapper;this.operations=operations;this.events=events;this.clock=clock;
+    private final com.ruoyi.game.outbox.OutboxStore outbox;
+    public GameAdminService(GameAdminMapper mapper,AdminOperations operations,ApplicationEventPublisher events,Clock clock,com.ruoyi.game.outbox.OutboxStore outbox) {
+        this.mapper=mapper;this.operations=operations;this.events=events;this.clock=clock;this.outbox=outbox;
     }
     public void requirePlatform(long actor) {
         if(mapper.platformScope(actor)==0)throw new SecurityException("缺少平台游戏数据授权");
@@ -50,7 +51,9 @@ public class GameAdminService {
             if(before==null)throw new IllegalArgumentException("玩家不存在");
             String status=switch(action){case "ban"->"BANNED";case "unban"->"ACTIVE";default->(String)before.get("status");};
             mapper.changePlayer(((Number)before.get("accountId")).longValue(),status);
-            events.publishEvent(new PlayerRevoked(uid, ((Number)before.get("sessionVersion")).longValue()+1));
+            long version=((Number)before.get("sessionVersion")).longValue()+1;
+            outbox.playerRevoked(uid,version);
+            events.publishEvent(new PlayerRevoked(uid,version));
             return new AdminOperations.Change(before,Map.of("status",status),Map.of("uid",Long.toString(uid)));
         });
     }
