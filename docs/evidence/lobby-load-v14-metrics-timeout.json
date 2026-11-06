@@ -1,0 +1,16 @@
+{
+  "observedAt": "2026-11-06T23:02:44.607944+00:00",
+  "result": "FAIL",
+  "stoppedAfterFailure": true,
+  "signal": "SIGINT",
+  "measurementMs": 1110722.581,
+  "queriesCompleted": 222144,
+  "businessErrors": 0,
+  "closed": 0,
+  "monitoringErrors": {
+    "metrics_failed": 1
+  },
+  "fatalDetail": "TimeoutError:23",
+  "scope": "约18.5分钟后主动结束已含一次采集超时的尝试；不能记为一小时通过",
+  "diagnosis": "本轮采集请求达到3秒客户端期限，未确认唯一原因。保留原Docker代理证据，下一轮改用独立本机Nginx拓扑做隔离验证。"
+}

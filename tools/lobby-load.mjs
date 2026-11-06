@@ -32,7 +32,16 @@ const artifactSha256=createHash('sha256').update(await readFile(new URL('../ruoy
 const dockerContext=(await run('docker',['context','show'])).stdout.trim();
 let portForwarder='unrecorded';
 if(dockerContext==='colima'){try{portForwarder=/^portForwarder:\s*(ssh|grpc|none)\s*$/m.exec(await readFile(os.homedir()+'/.colima/default/colima.yaml','utf8'))?.[1]||'unrecorded';}catch{}}
-const proxy={image:(await run('docker',['inspect','--format','{{.Image}}','liangshan-nginx-1'])).stdout.trim(),
+const proxyProbe=await fetch(base+'/actuator/health',{signal:AbortSignal.timeout(3000)});assert.equal(proxyProbe.status,200);
+let proxy;
+if(proxyProbe.headers.get('x-liangshan-proxy')==='host-native'){
+ const masterPid=(await readFile(new URL('../.local/nginx-native/nginx.pid',import.meta.url),'utf8')).trim();assert.match(masterPid,/^[0-9]+$/);
+ const processArgs=(await run('ps',['-ww','-p',masterPid,'-o','args='])).stdout;assert.ok(processArgs.includes('deploy/nginx-host.conf'));
+ const binary=(await run('which',['nginx'])).stdout.trim();const version=(await run(binary,['-v'])).stderr.trim();
+ proxy={mode:'host-native',version,masterPid,launchNofile:Number((await readFile(new URL('../.local/nginx-native/nofile',import.meta.url),'utf8')).trim()),
+  binarySha256:createHash('sha256').update(await readFile(binary)).digest('hex'),dockerContext,portForwarder,
+  configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx-host.conf',import.meta.url))).digest('hex')};
+}else proxy={mode:'docker',image:(await run('docker',['inspect','--format','{{.Image}}','liangshan-nginx-1'])).stdout.trim(),
  ulimits:JSON.parse((await run('docker',['inspect','--format','{{json .HostConfig.Ulimits}}','liangshan-nginx-1'])).stdout),
  dockerContext,portForwarder,configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
 const engine=(await run('docker',['info','--format','{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}'])).stdout.trim();
@@ -135,7 +144,7 @@ const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅�
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
  java:javaVersion,git:buildCommit,artifactSha256,proxy,dockerCpuMemoryVersion:engine,mysqlDurability:{innodbFlushLogAtTrxCommit:mysqlDurability[0],syncBinlog:mysqlDurability[1],logBin:mysqlDurability[2]}},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
- fatalDetail,socketFailures,connectionLatencyMs:{p50:connectPercentile(.5),p95:connectPercentile(.95),max:connectPercentile(1)},actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
+ fatalDetail,socketFailures,hostCompetition:process.env.HOST_LOAD_COMPETITION||'none',connectionLatencyMs:{p50:connectPercentile(.5),p95:connectPercentile(.95),max:connectPercentile(1)},actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
  result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
 await writeFile(reportFile,JSON.stringify(result,null,2)+'\n',{flag:'wx'});

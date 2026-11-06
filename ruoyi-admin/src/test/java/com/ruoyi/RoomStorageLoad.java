@@ -65,6 +65,7 @@ public final class RoomStorageLoad {
         report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10,"adminSessions",adminReaders));
         report.put("sourceCommit",System.getenv().getOrDefault("ROOM_LOAD_GIT","unrecorded"));report.put("snapshotSha256",System.getenv().getOrDefault("ROOM_LOAD_SNAPSHOT_SHA256","unrecorded"));
         report.put("flightRecordingEnabled","1".equals(System.getenv("ROOM_LOAD_JFR")));
+        report.put("hostCompetition",System.getenv().getOrDefault("HOST_LOAD_COMPETITION","none"));
         long hostMemory=ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os?os.getTotalMemorySize():-1;
         report.put("environment",Map.of("java",System.getProperty("java.version"),"vendor",System.getProperty("java.vendor"),"os",System.getProperty("os.name"),"arch",System.getProperty("os.arch"),"availableProcessors",Runtime.getRuntime().availableProcessors(),"maxHeapBytes",Runtime.getRuntime().maxMemory(),"mysqlImage",MYSQL_IMAGE,"redisImage",REDIS_IMAGE,"dockerCpuMemoryVersion",System.getenv().getOrDefault("ROOM_LOAD_DOCKER_ENV","unrecorded"),"hostMemoryBytes",hostMemory));
         boolean pass=false;

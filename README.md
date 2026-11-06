@@ -92,3 +92,6 @@ RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobb
 后台生成资源通过 scripts/sync-admin-assets.py 替换，旧资源保留在忽略的 .local 备份目录。脚本拒绝替换符号链接或包含已跟踪文件的目录，防止旧哈希资源混入新 JAR。
 
 内部房间持久写入的一小时实际复核见 `docs/房间持久写入验收.md`。测试使用独立 Testcontainers MySQL/Redis、200 房间/600 身份，仅推进单张/过牌及测试换局；没有网络房间动作或费用/计分，不能外推为完整斗地主容量。显式复现时为 ROOM_LOAD_REPORT 指定新的 room-storage-load-*.json 文件名，已存在报告不会覆盖。十后台会话读取模式及其范围见 `docs/内部后台混合读取.md`。
+
+
+本机代理隔离模式：本次 Docker→宿主代理路径出现连接/采样超时，现使用已安装的本机 Nginx 1.31.3，仍仅监听 127.0.0.1:8080，上游直接为本机 Java。`scripts/host-proxy.sh start|stop|status` 管理此独立实例，配置 `deploy/nginx-host.conf`，日志与 PID 位于 .local/nginx-native；不影响 MySQL/Redis 容器或 Java。Docker Nginx 与本机 Nginx 只能二选一：恢复 Compose 代理前先执行 `scripts/host-proxy.sh stop`；使用本机代理前先停止 liangshan-nginx-1。两种拓扑的验收证据分别保留，不混用结果。
