@@ -39,8 +39,8 @@ const routes=[{api:'role',c:'syncCard'},{api:'club',c:'getClubs'},{api:'manager'
 async function connect(fixture){
  const ws=new WebSocket(base.replace(/^http/,'ws')+'/',{origin:new URL(base).origin,handshakeTimeout:10000,autoPong:false});
  const client={ws,pending:null,session:null};clients.push(client);
- ws.on('error',()=>fail('socket_error'));
- ws.on('ping',data=>{pings++;ws.pong(data,true,error=>{if(error)fail('heartbeat_write');else pongs++;});});
+ ws.on('error',()=>{if(phase!=='closing')fail('socket_error');});
+ ws.on('ping',data=>{if(phase==='closing')return;pings++;ws.pong(data,true,error=>{if(error){if(phase!=='closing')fail('heartbeat_write');}else pongs++;});});
  ws.on('close',()=>{if(phase!=='closing')closed++;if(client.pending){clearTimeout(client.pending.timer);client.pending.reject(Error('closed'));client.pending=null;}});
  ws.on('message',raw=>{
   let packet;try{packet=JSON.parse(raw);}catch{fail('invalid_json');return;}
@@ -63,14 +63,20 @@ function request(client,path,reqData){
   client.ws.send(JSON.stringify({path,reqData}),error=>{if(error&&client.pending===waiter){clearTimeout(waiter.timer);client.pending=null;reject(Error('write'));}});
  });
 }
+const metricNames=['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.push.pending','jvm.memory.used','process.cpu.usage'];
 async function sample(){
- const metrics={};
- for(const name of ['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.push.pending','jvm.memory.used','process.cpu.usage']){
-  const response=await api('/actuator/metrics/'+name,undefined,token);
-  metrics[name]=response.measurements?.map(row=>({statistic:row.statistic,value:row.value}))||[];
- }
- samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,metrics});
+ const entries=await Promise.all(metricNames.map(async name=>{
+  const response=await fetch(base+'/actuator/metrics/'+name,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(3000)});
+  assert.equal(response.status,200,`HTTP /actuator/metrics/${name}: ${response.status}`);
+  const result=await response.json();
+  if(!Array.isArray(result.measurements))throw Error('指标结构无效');
+  return [name,result.measurements.map(row=>({statistic:row.statistic,value:row.value}))];
+ }));
+ const recent=latencies.slice(-1000).sort((a,b)=>a-b);
+ samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,recentP95Ms:recent.length?Number(recent[Math.ceil(recent.length*.95)-1].toFixed(3)):null,metrics:Object.fromEntries(entries)});
 }
+function detail(error){return /^HTTP \/actuator\/metrics\/[A-Za-z0-9.]+: [0-9]{3}/.exec(String(error?.message))?.[0]||String(error?.name||'Error');}
+let sampling=null,measurementStart=null,fatalDetail=null;
 let startedAt,endedAt,measurementMs=0,fatal=false;
 try{
  for(let i=0;i<count&&!stopped;i++){
@@ -80,7 +86,7 @@ try{
  }
  if(stopped)throw Error('interrupted');
  phase='warmup';await sleep(3000);await sample();
- phase='measurement';startedAt=new Date().toISOString();const start=performance.now();
+ phase='measurement';startedAt=new Date().toISOString();const start=performance.now();measurementStart=start;
  let nextSample=start+5000,nextReport=start+30000,sequence=0;
  while(!stopped&&performance.now()-start<seconds*1000){
   const now=performance.now(),due=Math.min(seconds*rate,Math.floor((now-start)*rate/1000));
@@ -96,14 +102,14 @@ try{
     latencies.push(performance.now()-began);completed++;
    }).catch(()=>fail('request_failed'));
   }
-  if(now>=nextSample){await sample();nextSample+=5000;}
-  if(now>=nextReport){console.log(`测量 ${Math.floor((now-start)/1000)} 秒：发送 ${sent}，完成 ${completed}，断开 ${closed}，错误 ${Object.values(errors).reduce((a,b)=>a+b,0)}`);nextReport+=30000;}
+  if(now>=nextSample){if(!sampling)sampling=sample().catch(error=>{fail('metrics_failed');fatalDetail=detail(error);}).finally(()=>{sampling=null;});nextSample+=5000;}
+  if(now>=nextReport){console.log(`测量 ${Math.floor((now-start)/1000)} 秒：发送 ${sent}，完成 ${completed}，断开 ${closed}，错误 ${Object.values(errors).reduce((a,b)=>a+b,0)}，最近查询 P95 ${samples.at(-1)?.recentP95Ms??'未知'}ms`);nextReport+=30000;}
   await sleep(2);
  }
  measurementMs=performance.now()-start;endedAt=new Date().toISOString();
- phase='drain';for(let i=0;i<60&&clients.some(client=>client.pending);i++)await sleep(100);
+ phase='drain';if(sampling)await sampling;for(let i=0;i<60&&clients.some(client=>client.pending);i++)await sleep(100);
  await sample();
-}catch(error){fatal=true;fail(stopped?'interrupted':'setup_or_metrics_failed');console.error(`负载流程失败：阶段 ${phase}，异常类型 ${error?.name||'Error'}`);}
+}catch(error){fatal=true;fatalDetail=detail(error);if(measurementStart!==null&&measurementMs===0){measurementMs=performance.now()-measurementStart;endedAt=new Date().toISOString();}fail(stopped?'interrupted':'setup_or_metrics_failed');console.error(`负载流程失败：阶段 ${phase}，${fatalDetail}`);}
 finally{
  phase='closing';for(const client of clients)client.ws.close();
  await sleep(500);for(const client of clients)if(client.ws.readyState!==WebSocket.CLOSED)client.ws.terminate();
@@ -115,7 +121,7 @@ const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅�
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
  java:javaVersion,git:buildCommit,artifactSha256,proxy,dockerCpuMemoryVersion:engine,mysqlDurability:{innodbFlushLogAtTrxCommit:mysqlDurability[0],syncBinlog:mysqlDurability[1],logBin:mysqlDurability[2]}},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
- actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
+ fatalDetail,actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
  result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
 await writeFile(new URL('../docs/evidence/lobby-load.json',import.meta.url),JSON.stringify(result,null,2)+'\n');

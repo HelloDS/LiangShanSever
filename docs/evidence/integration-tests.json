@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T18:09:28.216105+00:00",
+  "executedAt": "2026-11-06T18:21:16.830024+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.AdminExecutorTest",
@@ -18,7 +18,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.811,
+      "seconds": 0.826,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -38,7 +38,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.051,
+      "seconds": 1.131,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -57,7 +57,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.855,
+      "seconds": 0.933,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "boundedRetryBecomesDeadAndManualRetryPreservesEventAndAudit",
@@ -72,7 +72,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.645,
+      "seconds": 1.706,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
@@ -90,7 +90,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.049,
+      "seconds": 0.051,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
@@ -102,13 +102,24 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.121,
+      "seconds": 0.13,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
         "incompleteHttpHandshakeExpiresFromConnectionTime",
         "successfulHandshakeCancelsDeadline",
         "unauthenticatedConnectionsAreCappedAndClosingReleasesPermit"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.transport.BusinessExecutorTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.005,
+      "cases": [
+        "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
     },
     {
@@ -130,12 +141,12 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.613,
+      "seconds": 0.629,
       "cases": [
         "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
       ]
     }
   ],
-  "total": 44,
+  "total": 45,
   "result": "PASS"
 }
