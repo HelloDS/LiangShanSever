@@ -28,13 +28,15 @@ public class OutboxWorker implements SmartLifecycle {
     private long nextSample;
     private volatile boolean running;
     private ScheduledExecutorService scheduler;
-    private ThreadPoolExecutor workers;
+    private volatile ThreadPoolExecutor workers;
     public OutboxWorker(OutboxStore store,ConnectionRegistry connections,GameJsonCodec codec,MeterRegistry metrics,com.ruoyi.game.room.RoomEventConsumer roomEvents){
         this.store=store;this.connections=connections;this.codec=codec;this.roomEvents=roomEvents;
         completed=metrics.counter("game.outbox.completed");failed=metrics.counter("game.outbox.failed");
         lostLease=metrics.counter("game.outbox.lease.lost");pollFailure=metrics.counter("game.outbox.poll.failed");
         claimTime=metrics.timer("game.outbox.claim.duration");handleTime=metrics.timer("game.outbox.handle.duration");batchSizes=metrics.summary("game.outbox.batch.size");
         Gauge.builder("game.outbox.inflight",slots,value->18-value.availablePermits()).register(metrics);
+        Gauge.builder("game.outbox.active",this,value->value.workers==null?0:value.workers.getActiveCount()).register(metrics);
+        Gauge.builder("game.outbox.queue",this,value->value.workers==null?0:value.workers.getQueue().size()).register(metrics);
         Gauge.builder("game.outbox.backlog.available",this,value->value.backlog==null?0:1).register(metrics);
         Gauge.builder("game.outbox.ready",this,value->value.backlog==null?Double.NaN:value.backlog.ready()).register(metrics);
         Gauge.builder("game.outbox.claimed",this,value->value.backlog==null?Double.NaN:value.backlog.claimed()).register(metrics);
@@ -43,7 +45,7 @@ public class OutboxWorker implements SmartLifecycle {
     }
     @Override public synchronized void start(){
         if(running)return;
-        workers=new ThreadPoolExecutor(2,2,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),
+        workers=new ThreadPoolExecutor(4,4,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(16),
                 Thread.ofPlatform().name("game-outbox-",0).daemon().factory(),new ThreadPoolExecutor.AbortPolicy());
         scheduler=Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().name("game-outbox-poll").daemon().factory());
         running=true;scheduler.execute(this::poll);

@@ -9,7 +9,7 @@ if [[ "$process_args" != 'java -jar ruoyi-admin/target/ruoyi-admin.jar'* ]]; the
   exit 0
 fi
 kill "$server_pid"
-for attempt in {1..100}; do
+for attempt in {1..300}; do
   if ! kill -0 "$server_pid" 2>/dev/null; then exit 0; fi
   sleep 0.1
 done

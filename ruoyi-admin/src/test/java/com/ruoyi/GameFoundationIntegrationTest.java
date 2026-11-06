@@ -10,6 +10,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
@@ -35,7 +36,7 @@ import com.ruoyi.game.games.landlord.*;
 import com.ruoyi.game.room.*;
 
 @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false"})
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false"})
 class GameFoundationIntegrationTest {
     private static final String DB_PASSWORD=SecureTokens.create();
     private static final String REDIS_PASSWORD=SecureTokens.create();
@@ -82,6 +83,10 @@ class GameFoundationIntegrationTest {
     @Autowired com.ruoyi.game.economy.WalletPostingService wallets;
     @MockitoSpyBean WalletMapper walletMapper;
     @Autowired com.ruoyi.game.economy.WalletAdminService walletAdmin;
+    @Autowired com.ruoyi.game.economy.WalletReconciliationJobs reconciliationJobs;
+    @Autowired com.ruoyi.game.economy.WalletReconciliationAdmin reconciliationAdmin;
+    @MockitoSpyBean WalletReconciliationMapper reconciliationMapper;
+    @Autowired org.apache.ibatis.session.SqlSessionFactory sqlSessions;
 
     @Autowired com.ruoyi.game.transport.ConnectionRegistry connections;
     @Autowired com.ruoyi.game.transport.OnlinePresence presence;
@@ -235,6 +240,18 @@ class GameFoundationIntegrationTest {
             for(String id:ids){assertEquals("READY",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,id));assertEquals(0,jdbc.queryForObject("SELECT attempt_count FROM outbox_event WHERE id=?",Integer.class,id));assertNull(jdbc.queryForObject("SELECT lease_token FROM outbox_event WHERE id=?",String.class,id));}
         }
 
+        @Test void backlogQueryUsesCoveringStatusRangesDespiteLargeCompletedHistory(){
+            drainReady();for(int i=0;i<6;i++)append(uid());var claimed=outbox.claim(2);
+            jdbc.update("UPDATE outbox_event SET status='DEAD',lease_token=NULL,lease_until=NULL WHERE id=?",claimed.getFirst().id());
+            var before=outbox.backlog();
+            assertEquals(20000,jdbc.update("INSERT INTO outbox_event(id,biz_key,event_type,schema_version,rule_version,payload,request_hash,status,retry_at,occurred_at,completed_at) SELECT UUID(),CONCAT('backlog-fixture:',UUID()),'TEST_LOAD',1,'fixture-v1','{}',REPEAT('a',64),'DONE',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),UTC_TIMESTAMP(6) FROM sys_menu a CROSS JOIN sys_menu b CROSS JOIN sys_menu c LIMIT 20000"));
+            jdbc.execute("ANALYZE TABLE outbox_event");var after=outbox.backlog();
+            assertEquals(before.ready(),after.ready());assertEquals(before.claimed(),after.claimed());assertEquals(before.dead(),after.dead());
+            String statement=sqlSessions.getConfiguration().getMappedStatement(OutboxMapper.class.getName()+".backlog").getBoundSql(null).getSql();
+            var plan=jdbc.queryForList("EXPLAIN "+statement);assertEquals(3,plan.size());
+            for(var branch:plan){assertEquals("idx_outbox_backlog",branch.get("key"));assertTrue(Set.of("ref","range").contains(branch.get("type")));assertTrue(((Number)branch.get("rows")).longValue()<1000,"不应为少量积压扫描大量 DONE 历史");}
+        }
+
         @Test void concurrentClaimsAreExclusiveAndStaleLeaseCannotCompleteReclaimedTask() throws Exception {
             Set<String> expected=new HashSet<>();for(int i=0;i<20;i++)expected.add(append(uid()));
             Set<String> seen=ConcurrentHashMap.newKeySet();
@@ -253,6 +270,18 @@ class GameFoundationIntegrationTest {
             var fresh=claim(id);assertNotEquals(old.leaseToken(),fresh.leaseToken());assertEquals(2,fresh.attempts());
             assertFalse(outbox.complete(old));assertFalse(outbox.failed(old,"OLD_WORKER"));assertTrue(outbox.complete(fresh));
         }
+        @Test void completingALockedEventTimesOutWithoutOverwritingTheLease() throws Exception {
+            String id=append(uid());var event=claim(id);
+            try(var connection=generalPool.getConnection();ExecutorService worker=Executors.newSingleThreadExecutor()){
+                connection.setAutoCommit(false);
+                try(var statement=connection.prepareStatement("SELECT id FROM outbox_event WHERE id=? FOR UPDATE")){statement.setString(1,id);statement.executeQuery().close();}
+                long began=System.nanoTime();var completion=worker.submit(()->outbox.complete(event));
+                try{assertThrows(ExecutionException.class,()->completion.get(8,TimeUnit.SECONDS));assertTrue(System.nanoTime()-began<8_000_000_000L);}
+                finally{connection.rollback();}
+            }
+            assertEquals("CLAIMED",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,id));assertTrue(outbox.complete(event));
+        }
+
         @Test void boundedRetryBecomesDeadAndManualRetryPreservesEventAndAudit(){
             String id=append(uid());
             for(int i=1;i<=5;i++){
@@ -698,6 +727,143 @@ class GameFoundationIntegrationTest {
         }
 
     }
+    @Nested class DailyWalletReconciliation {
+        private record Fixture(String id,long uid){ }
+        @BeforeEach void isolatedJobQueue(){jdbc.update("DELETE FROM wallet_reconciliation_detail");jdbc.update("DELETE FROM wallet_reconciliation_run");}
+        private Fixture fixture(boolean test){
+            var identity=auth.verify(auth.createGuest());long uid=identity.uid();
+            if(test)jdbc.update("UPDATE user_account SET is_test=TRUE WHERE id=?",identity.accountId());
+            String id=UUID.randomUUID().toString();
+            reconciliationMapper.begin(id,reconciliationJobs.today(),uid,0,"SYSTEM",null,java.time.LocalDateTime.now(java.time.ZoneOffset.UTC));
+            // 隔离夹具只覆盖本次新 UID 和两个清算账户，不扫描其他测试方法的账户。
+            jdbc.update("UPDATE wallet_reconciliation_run SET cursor_owner=? WHERE id=?",uid,id);
+            return new Fixture(id,uid);
+        }
+        private long number(String sql,Object... args){return jdbc.queryForObject(sql,Long.class,args);}
+        private void due(Fixture fixture){jdbc.update("UPDATE wallet_reconciliation_run SET retry_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",fixture.id());}
+        private void finish(com.ruoyi.game.economy.WalletReconciliationJobs.Lease lease){
+            for(int step=0;step<20;step++){
+                var result=reconciliationJobs.process(lease);
+                if(result==com.ruoyi.game.economy.WalletReconciliationJobs.Step.DONE)return;
+                assertEquals(com.ruoyi.game.economy.WalletReconciliationJobs.Step.PROGRESSED,result);
+            }
+            fail("隔离核对未在账户预算内结束");
+        }
+        private void fund(long uid,long amount){wallets.post(new WalletPosting(Kind.REWARD,"recon_fixture:"+UUID.randomUUID(),"fixture-v1","reconciliation-fixture",List.of(new Entry(new Account(OwnerType.PERSONAL,uid,Currency.CARD),amount,0),new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-amount,0))));}
+
+        @Test void concurrentDailyCreationReturnsOnePersistentRun() throws Exception {
+            Set<String> runs=ConcurrentHashMap.newKeySet();
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Future<?>> results=new ArrayList<>();for(int i=0;i<16;i++)results.add(workers.submit(()->runs.add((String)reconciliationJobs.ensureToday("SYSTEM",null).get("id"))));
+                for(var result:results)result.get(10,TimeUnit.SECONDS);
+            }
+            assertEquals(1,runs.size());assertEquals(1,number("SELECT COUNT(*) FROM wallet_reconciliation_run"));
+        }
+        @Test void realZeroAccountsCompleteOnceAndDoNotCreateMoney(){
+            var fixture=fixture(false);var lease=reconciliationJobs.claim();assertEquals(fixture.id(),lease.id());finish(lease);
+            assertEquals("DONE",reconciliationMapper.metadata(fixture.id()).get("status"));
+            assertEquals(4,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            assertEquals(4,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=?",fixture.id()));
+            assertEquals(com.ruoyi.game.economy.WalletReconciliationJobs.Step.LOST,reconciliationJobs.process(lease));assertFalse(reconciliationJobs.failed(lease,"LATE_ERROR"));
+            assertEquals(0,number("SELECT SUM(balance+frozen) FROM wallet_account WHERE uid=?",fixture.uid()));
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_ledger WHERE owner_type='PERSONAL' AND owner_id=?",fixture.uid()));
+        }
+        @Test void mismatchIsRecordedWithoutRepairAndNewAccountsWaitForAnotherRun(){
+            var fixture=fixture(false);fund(fixture.uid(),10);jdbc.update("UPDATE wallet_account SET balance=balance+1 WHERE uid=? AND currency='card'",fixture.uid());
+            long later=auth.verify(auth.createGuest()).uid();finish(reconciliationJobs.claim());
+            assertEquals("DONE_WITH_ISSUES",reconciliationMapper.metadata(fixture.id()).get("status"));assertEquals(1,number("SELECT mismatched_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            assertEquals("10",jdbc.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.expectedAvailable')) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL' AND owner_id=? AND currency='card'",String.class,fixture.id(),fixture.uid()));
+            assertEquals("11",jdbc.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.actualAvailable')) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL' AND owner_id=? AND currency='card'",String.class,fixture.id(),fixture.uid()));
+            assertEquals(11,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",fixture.uid()));
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL' AND owner_id=?",fixture.id(),later));
+        }
+        @Test void testAccountsAreExcludedFromTheDailyScope(){
+            var fixture=fixture(true);finish(reconciliationJobs.claim());
+            assertEquals(2,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL'",fixture.id()));
+        }
+        @Test void clubAccountsAreCheckedButTestClubsAreExcluded(){
+            for(boolean test:List.of(false,true)){
+                isolatedJobQueue();var fixture=fixture(false);String name=UUID.randomUUID().toString().substring(0,8);
+                jdbc.update("INSERT INTO club(name,owner_uid,max_members,is_test,created_at,updated_at) VALUES(?,?,5,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",name,fixture.uid(),test);
+                long club=number("SELECT id FROM club WHERE owner_uid=? AND name=?",fixture.uid(),name);
+                jdbc.update("INSERT INTO club_wallet_account(club_id,currency) VALUES(?,'card'),(?,'diamond')",club,club);
+                jdbc.update("UPDATE wallet_reconciliation_run SET club_highwater=?,cursor_kind=1,cursor_owner=?,cursor_currency='' WHERE id=?",club,club,fixture.id());
+                finish(reconciliationJobs.claim());
+                assertEquals(test?0:2,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='CLUB'",fixture.id()));
+                assertEquals(test?2:4,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            }
+        }
+        @Test void concurrentClaimAndExpiredLeasePreserveOneCursorOwner() throws Exception {
+            var fixture=fixture(false);List<com.ruoyi.game.economy.WalletReconciliationJobs.Lease> leases=new ArrayList<>();
+            try(ExecutorService workers=Executors.newFixedThreadPool(4)){
+                List<Future<com.ruoyi.game.economy.WalletReconciliationJobs.Lease>> results=new ArrayList<>();for(int i=0;i<4;i++)results.add(workers.submit(reconciliationJobs::claim));
+                for(var result:results){var lease=result.get(5,TimeUnit.SECONDS);if(lease!=null)leases.add(lease);}
+            }
+            assertEquals(1,leases.size());var old=leases.getFirst();jdbc.update("UPDATE wallet_reconciliation_run SET lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",fixture.id());
+            var fresh=reconciliationJobs.claim();assertNotEquals(old.token(),fresh.token());
+            assertEquals(com.ruoyi.game.economy.WalletReconciliationJobs.Step.LOST,reconciliationJobs.process(old));assertFalse(reconciliationJobs.failed(old,"OLD_WORKER"));assertFalse(reconciliationJobs.release(old));
+            finish(fresh);assertEquals(4,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=?",fixture.id()));
+        }
+        @Test void lateCursorFailureRollsBackResultAndDoesNotSkipAccount(){
+            var fixture=fixture(false);var lease=reconciliationJobs.claim();
+            doThrow(new IllegalStateException("injected reconciliation cursor failure")).when(reconciliationMapper).advance(anyString(),anyString(),anyInt(),anyLong(),anyString(),anyInt(),anyInt(),any(),any());
+            assertThrows(IllegalStateException.class,()->reconciliationJobs.process(lease));assertEquals(0,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=?",fixture.id()));
+            assertEquals(0,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));assertEquals(fixture.uid(),number("SELECT cursor_owner FROM wallet_reconciliation_run WHERE id=?",fixture.id()));assertEquals("",jdbc.queryForObject("SELECT cursor_currency FROM wallet_reconciliation_run WHERE id=?",String.class,fixture.id()));
+            assertTrue(reconciliationJobs.failed(lease,"STORAGE_FAILURE"));reset(reconciliationMapper);due(fixture);finish(reconciliationJobs.claim());
+            assertEquals(4,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+        }
+        @Test void fiveFailuresStopAndAuditedManualRetryPreservesProgress(){
+            var fixture=fixture(false);
+            doThrow(new DataAccessResourceFailureException("injected unavailable ledger scan")).when(reconciliationMapper).nextPersonal(anyLong(),anyString(),anyLong());
+            for(int attempt=1;attempt<=5;attempt++){
+                var lease=reconciliationJobs.claim();assertNotNull(lease);assertThrows(DataAccessResourceFailureException.class,()->reconciliationJobs.process(lease));assertTrue(reconciliationJobs.failed(lease,"STORAGE_FAILURE"));due(fixture);
+            }
+            assertEquals("FAILED",reconciliationMapper.metadata(fixture.id()).get("status"));assertNull(reconciliationJobs.claim());reset(reconciliationMapper);
+            String key=UUID.randomUUID().toString();var first=reconciliationAdmin.retry(1,fixture.id(),"隔离数据库故障恢复验收",key);var replay=reconciliationAdmin.retry(1,fixture.id(),"隔离数据库故障恢复验收",key);
+            assertEquals(first.get("operationId"),replay.get("operationId"));assertEquals(1,number("SELECT manual_retries FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            finish(reconciliationJobs.claim());assertEquals(4,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            assertEquals(1,number("SELECT COUNT(*) FROM admin_audit WHERE action='wallet:daily:retry' AND target=?",fixture.id()));
+        }
+        @Test void accountSnapshotStaysConsistentWhileAnotherThreadPostsMoney() throws Exception {
+            var fixture=fixture(false);fund(fixture.uid(),10);var lease=reconciliationJobs.claim();CountDownLatch read=new CountDownLatch(1),release=new CountDownLatch(1);
+            doAnswer(invocation->{
+                var row=jdbc.queryForMap("SELECT balance,frozen,version FROM wallet_account WHERE uid=? AND currency='card'",fixture.uid());read.countDown();
+                if(!release.await(3,TimeUnit.SECONDS))throw new IllegalStateException("snapshot gate timed out");return row;
+            }).when(walletMapper).personalView(fixture.uid(),"card");
+            try(ExecutorService worker=Executors.newSingleThreadExecutor()){
+                var result=worker.submit(()->reconciliationJobs.process(lease));try{assertTrue(read.await(3,TimeUnit.SECONDS));fund(fixture.uid(),5);}finally{release.countDown();}
+                assertEquals(com.ruoyi.game.economy.WalletReconciliationJobs.Step.PROGRESSED,result.get(5,TimeUnit.SECONDS));
+            }
+            assertEquals("10",jdbc.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(result_json,'$.actualAvailable')) FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL' AND owner_id=? AND currency='card'",String.class,fixture.id(),fixture.uid()));
+            assertEquals("MATCH",jdbc.queryForObject("SELECT status FROM wallet_reconciliation_detail WHERE run_id=? AND owner_type='PERSONAL' AND owner_id=? AND currency='card'",String.class,fixture.id(),fixture.uid()));
+            assertEquals(15,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",fixture.uid()));
+        }
+        @Test void lostCommitResultResumesFromPersistentCursorWithoutDuplicateResult(){
+            var fixture=fixture(false);var lease=reconciliationJobs.claim();var once=new java.util.concurrent.atomic.AtomicBoolean();
+            doAnswer(invocation->{
+                var row=jdbc.queryForMap("SELECT balance,frozen,version FROM wallet_account WHERE uid=? AND currency='card'",fixture.uid());
+                if(once.compareAndSet(false,true))org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization(){@Override public void afterCommit(){throw new DataAccessResourceFailureException("injected lost check result after commit");}});
+                return row;
+            }).when(walletMapper).personalView(fixture.uid(),"card");
+            assertThrows(DataAccessResourceFailureException.class,()->reconciliationJobs.process(lease));assertEquals(1,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));
+            assertTrue(reconciliationJobs.failed(lease,"CHECK_RESULT_UNKNOWN"));due(fixture);finish(reconciliationJobs.claim());
+            assertEquals(4,number("SELECT checked_count FROM wallet_reconciliation_run WHERE id=?",fixture.id()));assertEquals(4,number("SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=?",fixture.id()));
+        }
+        @Test void adminRunCommandIsIdempotentAndQueriesRemainScopedAndBounded(){
+            String key=UUID.randomUUID().toString();var first=reconciliationAdmin.trigger(1,"隔离本日核对命令验收",key);var replay=reconciliationAdmin.trigger(1,"隔离本日核对命令验收",key);
+            assertEquals(first.get("operationId"),replay.get("operationId"));assertEquals(1,number("SELECT COUNT(*) FROM wallet_reconciliation_run"));
+            var today=reconciliationJobs.today();assertThrows(SecurityException.class,()->reconciliationAdmin.list(999,today,today,null,1,50));
+            var listing=reconciliationAdmin.list(1,today,today,null,1,50);assertEquals(false,listing.get("processingEnabled"));
+            var metadata=(Map<?,?>)((List<?>)listing.get("rows")).getFirst();for(String field:List.of("leaseToken","leaseUntil","cursorOwner","personalHighwater"))assertFalse(metadata.containsKey(field));
+            assertThrows(IllegalArgumentException.class,()->reconciliationAdmin.list(1,today.minusDays(31),today,null,1,50));
+            assertThrows(IllegalArgumentException.class,()->reconciliationAdmin.list(1,today,today,"BOGUS",1,50));
+            assertThrows(IllegalArgumentException.class,()->reconciliationAdmin.list(1,today,today,null,1,201));
+            doThrow(new DataAccessResourceFailureException("injected reconciliation query failure")).when(reconciliationMapper).list(any(),any(),any(),anyInt(),anyInt());
+            assertThrows(com.ruoyi.game.admin.GameDataUnavailable.class,()->reconciliationAdmin.list(1,today,today,null,1,50));
+        }
+    }
+
     @Nested class WalletTransactions {
         private WalletPosting batchTransfer(long from,long to,String key){return new WalletPosting(Kind.TRANSFER,key,"fixture-v1","batch-validation",List.of(new Entry(new Account(OwnerType.PERSONAL,from,Currency.CARD),-1,0),new Entry(new Account(OwnerType.PERSONAL,to,Currency.CARD),1,0)));}
         @Test void batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts(){

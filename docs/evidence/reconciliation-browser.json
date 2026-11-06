@@ -1,0 +1,14 @@
+{
+  "executedAt": "2026-11-06T21:15:38.630640+00:00",
+  "base": "http://localhost:8080/admin/game/reconciliation",
+  "method": "actual IAB readonly QA account",
+  "checks": [
+    "only reconciliation menu visible; no run or retry button",
+    "today actual automatic job DONE, 2 checked, 2 matched, 0 mismatched",
+    "detail defaults to MISMATCH and honestly empty; MATCH shows card and diamond system balances 0 / 0",
+    "data scope revoked; next refresh denies, clears previous rows, hides pagination, displays 查询未完成",
+    "temporary user and role disabled, data scope removed and original menus restored"
+  ],
+  "screenshot": "reconciliation-browser.png",
+  "result": "PASS"
+}

@@ -47,14 +47,15 @@ public class OutboxStore {
         List<String> ids=mapper.ready(now,limit);if(ids.isEmpty())return List.of();
         // 仍逐事件用 id+token 围栏；同一领取批次共享 token，减少 2N 次 SQL 往返。
         String token=UUID.randomUUID().toString();
-        if(mapper.claimBatch(ids,token,now.plusSeconds(20))!=ids.size())throw new IllegalStateException("持久任务批量领取冲突");
+        // 四线程、最多十八条在途；处理/完成事务各五秒，租期预留排队余量，仍以围栏和幂等保证安全。
+        if(mapper.claimBatch(ids,token,now.plusSeconds(60))!=ids.size())throw new IllegalStateException("持久任务批量领取冲突");
         var events=mapper.claimedBatch(ids,token);
         if(events.size()!=ids.size()||!new HashSet<>(ids).equals(new HashSet<>(events.stream().map(OutboxEvent::id).toList())))throw new IllegalStateException("持久任务批量读取不完整");
         return List.copyOf(events);
     }
-    @Transactional
+    @Transactional(timeout=5)
     public boolean complete(OutboxEvent event){return mapper.complete(event.id(),event.leaseToken(),now())==1;}
-    @Transactional
+    @Transactional(timeout=5)
     public boolean failed(OutboxEvent event,String code){
         if(code==null||!code.matches("[A-Z_]{1,64}"))throw new IllegalArgumentException("错误代码无效");
         long delay=Math.min(60,1L<<Math.min(Math.max(0,event.attempts()-1),6));

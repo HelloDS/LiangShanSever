@@ -49,7 +49,7 @@ public interface OutboxMapper {
     @Select("<script>SELECT COUNT(*) FROM outbox_event WHERE occurred_at>=#{start} AND occurred_at&lt;#{end} <if test='status!=null'>AND status=#{status}</if></script>")
     long count(@Param("status") String status,@Param("start") LocalDateTime start,@Param("end") LocalDateTime end);
 
-    @Select("SELECT status,COUNT(*) AS total,MIN(occurred_at) AS oldest FROM outbox_event WHERE status IN ('READY','CLAIMED','DEAD') GROUP BY status")
+    @Select("SELECT status,COUNT(*) AS total,MIN(occurred_at) AS oldest FROM outbox_event FORCE INDEX(idx_outbox_backlog) WHERE status='READY' GROUP BY status UNION ALL SELECT status,COUNT(*) AS total,MIN(occurred_at) AS oldest FROM outbox_event FORCE INDEX(idx_outbox_backlog) WHERE status='CLAIMED' GROUP BY status UNION ALL SELECT status,COUNT(*) AS total,MIN(occurred_at) AS oldest FROM outbox_event FORCE INDEX(idx_outbox_backlog) WHERE status='DEAD' GROUP BY status")
     @Options(timeout=2)
     List<Map<String,Object>> backlog();
 }

@@ -7,7 +7,7 @@
     </el-form>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="feedback" />
     <div class="backlog"><span>待处理 <b>{{ summary?.READY ?? '未知' }}</b></span><span>处理中 <b>{{ summary?.CLAIMED ?? '未知' }}</b></span><span>待人工处理 <b>{{ summary?.DEAD ?? '未知' }}</b></span><small v-if="asOf">截至 {{ gameTime(asOf) }}</small></div>
-    <el-table v-loading="loading" :data="rows" empty-text="所选范围暂无持久任务">
+    <el-table v-loading="loading" :data="rows" :empty-text="error?'查询未完成':'所选范围暂无持久任务'">
       <el-table-column label="发生时间" min-width="175"><template #default="{row}">{{ gameTime(row.occurredAt) }}</template></el-table-column>
       <el-table-column label="类型" width="145"><template #default="{row}">{{ eventText(row.eventType) }}</template></el-table-column>
       <el-table-column label="状态" width="130"><template #default="{row}"><el-tag :type="row.status==='DEAD'?'danger':row.status==='DONE'?'success':'info'">{{ labels[row.status as TaskStatus] }}</el-tag></template></el-table-column>
@@ -17,7 +17,7 @@
       <el-table-column label="重试/租约时间" min-width="175"><template #default="{row}">{{ gameTime(row.leaseUntil||row.retryAt) }}</template></el-table-column>
       <el-table-column label="操作" width="100" fixed="right"><template #default="{row}"><el-button v-if="row.status==='DEAD'" v-hasPermi="['game:outbox:retry']" link type="primary" @click="openRetry(row)">重新处理</el-button></template></el-table-column>
     </el-table>
-    <el-pagination v-model:current-page="page" :total="total" :page-size="50" layout="total, prev, pager, next" class="pagination" @change="load" />
+    <el-pagination v-if="!error" v-model:current-page="page" :total="total" :page-size="50" layout="total, prev, pager, next" class="pagination" @change="load" />
     <el-dialog v-model="showRetry" title="重新处理失败任务" width="min(560px,95%)" :close-on-click-modal="false" :before-close="beforeClose">
       <p>重试保留原事件及业务编号。排查错误后填写处理原因，系统会记录操作人和审计。</p>
       <p class="identifier">{{ selected?.businessKey }}</p>
@@ -48,7 +48,7 @@ async function load(){
     const counts: Record<TaskStatus,number>={READY:0,CLAIMED:0,DONE:0,DEAD:0}
     for(const row of backlog.data.rows)counts[row.status]=row.total
     summary.value=counts
-  }catch{if(seq===sequence){error.value='任务查询失败，请检查时间范围与数据授权后重试。';summary.value=null}}
+  }catch{if(seq===sequence){rows.value=[];total.value=0;asOf.value='';error.value='任务查询失败，请检查时间范围与数据授权后重试。';summary.value=null}}
   finally{if(seq===sequence)loading.value=false}
 }
 function search(){page.value=1;void load()}
