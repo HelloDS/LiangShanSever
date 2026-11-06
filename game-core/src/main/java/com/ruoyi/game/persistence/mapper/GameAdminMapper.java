@@ -35,7 +35,7 @@ public interface GameAdminMapper {
     @Select("SELECT CAST(r.uid AS CHAR) AS uid,r.name,r.head,r.sex,a.status,a.is_test AS isTest,r.created_at AS createdAt,r.last_login_at AS lastLoginAt FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE r.uid=#{uid}")
     Map<String,Object> player(long uid);
 
-    @Select("SELECT currency,balance,version FROM wallet_account WHERE uid=#{uid} ORDER BY currency")
+    @Select("SELECT currency,balance,frozen,version FROM wallet_account WHERE uid=#{uid} ORDER BY currency")
     List<Map<String,Object>> wallets(long uid);
 
     @Select("SELECT a.id AS accountId,a.status,a.session_version AS sessionVersion FROM user_account a JOIN player_role r ON r.account_id=a.id WHERE r.uid=#{uid} FOR UPDATE")

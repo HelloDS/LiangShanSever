@@ -4,7 +4,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes={GameAdminController.class,NoticeAdminController.class,ReportAdminController.class,ClubAdminController.class})
+@RestControllerAdvice(assignableTypes={GameAdminController.class,NoticeAdminController.class,ReportAdminController.class,ClubAdminController.class,WalletAdminController.class})
 @Order(-20)
 public class GameAdminErrors {
     @ExceptionHandler(IllegalArgumentException.class)

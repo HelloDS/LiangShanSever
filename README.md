@@ -41,6 +41,8 @@ npm ci --prefix tools --ignore-scripts
 node tools/smoke.mjs
 node tools/admin-smoke.mjs
 node tools/report-smoke.mjs
+node tools/wallet-smoke.mjs
+node tools/transport-smoke.mjs
 python3 scripts/collect-test-evidence.py
 ```
 
@@ -55,3 +57,5 @@ RUN_ORGANIZATION_FIXTURES=1 node tools/club-smoke.mjs
 ```
 
 该测试建立已知上限的“既有圈”，成员通过真实申请/审批加入，结束后停用测试圈并保留审计。它不代表创建圈费用和资金转入已确认或通过验收。规则缺口与原消费者结构见 `docs/亲友圈协议与规则缺口.md`。
+
+统一钱包事务和只读账本/核对后台已经接入；兑换、转卡、补偿发放与圈费用尚未开放。资金防重、期初覆盖和剩余规则见 `docs/钱包账本与经济规则缺口.md`。

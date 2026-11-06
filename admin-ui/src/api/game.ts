@@ -21,3 +21,5 @@ export const club = (id: string) => request({ url: `/game-admin/clubs/${id}`, me
 export const clubMembers = (id: string, params: Record<string, unknown>) => request({ url: `/game-admin/clubs/${id}/members`, method: 'get', params })
 export const clubApplications = (id: string, params: Record<string, unknown>) => request({ url: `/game-admin/clubs/${id}/applications`, method: 'get', params })
 export const clubCommand = (id: string, action: string, data: unknown, key: string) => request({ url: `/game-admin/clubs/${id}/${action}`, method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })
+export const walletLedger = (type: string, owner: string, currency: string, params: Record<string, unknown>) => request({ url: `/game-admin/wallets/${type}/${owner}/${currency}`, method: 'get', params })
+export const walletReconcile = (type: string, owner: string, currency: string, reason: string, key: string) => request({ url: `/game-admin/wallets/${type}/${owner}/${currency}/reconcile`, method: 'post', data: { reason }, headers: { 'Idempotency-Key': key, repeatSubmit: false } })

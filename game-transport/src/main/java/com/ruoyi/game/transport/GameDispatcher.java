@@ -71,6 +71,7 @@ public class GameDispatcher {
     private Map<String,Object> logic(WireRequest req,long uid) {
         JsonNode data=req.data();
         return switch(req.api()+"/"+req.command()) {
+            case "role/exchangeCard","role/exchangeDiamond","club/transferDiamond","club/transferToClub","club/exchangeCard","club/exchangeDiamond","cfg/getExchangeRate" -> throw new GameFailure(-18,"兑换或划转规则尚未确认，暂不可执行");
             case "role/syncCard" -> { var role=players.ownRole(uid); yield Map.of("state",0,"card",role.get("card"),"diamond",role.get("diamond")); }
             case "role/getRoleInfo" -> Map.of("state",0,"role",players.publicRole(uid(data,"targetUid")));
             case "role/getRoles" -> {

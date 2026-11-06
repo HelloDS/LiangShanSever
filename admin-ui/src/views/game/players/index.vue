@@ -20,7 +20,7 @@
     <el-pagination v-model:current-page="query.pageNum" v-model:page-size="query.pageSize" :total="total" :page-sizes="[20,50,100,200]" layout="total, sizes, prev, pager, next" @change="load" class="pagination" />
     <el-dialog v-model="showDetail" title="玩家详情" width="620px">
       <el-descriptions v-if="details" :column="2" border><el-descriptions-item label="UID">{{ details.player.uid }}</el-descriptions-item><el-descriptions-item label="昵称">{{ details.player.name }}</el-descriptions-item><el-descriptions-item label="状态">{{ details.player.status }}</el-descriptions-item><el-descriptions-item label="注册时间">{{ gameTime(details.player.createdAt) }}</el-descriptions-item></el-descriptions>
-      <el-table :data="details?.wallets || []"><el-table-column prop="currency" label="币种" /><el-table-column prop="balance" label="余额" /></el-table>
+      <el-table :data="details?.wallets || []"><el-table-column prop="currency" label="币种" /><el-table-column prop="balance" label="可用" /><el-table-column prop="frozen" label="冻结" /></el-table>
     </el-dialog>
     <el-dialog v-model="showCommand" :title="commandTitle" width="500px" :close-on-click-modal="false">
       <p>玩家 {{ command.uid }} · {{ command.name }}</p><el-input v-model="command.reason" type="textarea" :rows="3" maxlength="512" show-word-limit placeholder="填写操作原因（至少 3 字）" />

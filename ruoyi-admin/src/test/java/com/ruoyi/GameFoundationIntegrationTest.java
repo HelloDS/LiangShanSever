@@ -27,6 +27,10 @@ import com.ruoyi.game.auth.*;
 import com.ruoyi.game.persistence.mapper.*;
 import com.ruoyi.game.protocol.GameJsonCodec;
 import com.ruoyi.game.lobby.ReportService;
+import com.ruoyi.game.economy.WalletPosting;
+import com.ruoyi.game.economy.WalletPostingService;
+import com.ruoyi.game.economy.WalletPosting.*;
+import com.ruoyi.game.economy.WalletPosting.Currency;
 
 @Testcontainers
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0"})
@@ -61,6 +65,9 @@ class GameFoundationIntegrationTest {
     @MockitoSpyBean IdentityMapper identities;
     @Autowired com.ruoyi.game.club.ClubService clubs;
     @Autowired com.ruoyi.game.club.ClubAdminService clubAdmin;
+    @Autowired com.ruoyi.game.economy.WalletPostingService wallets;
+    @MockitoSpyBean WalletMapper walletMapper;
+    @Autowired com.ruoyi.game.economy.WalletAdminService walletAdmin;
 
     @Test void identityAndLoginDeduplicationSurviveLossOfRedis() throws Exception {
         String token=auth.createGuest();GuestIdentity identity=auth.verify(token);
@@ -261,4 +268,77 @@ class GameFoundationIntegrationTest {
         }
 
     }
+    @Nested class WalletTransactions {
+        private long player(){return auth.verify(auth.createGuest()).uid();}
+        private Account personal(long uid,Currency currency){return new Account(OwnerType.PERSONAL,uid,currency);}
+        private Account system(Currency currency){return new Account(OwnerType.SYSTEM,0,currency);}
+        private WalletPosting reward(long uid,long amount,String key){return new WalletPosting(Kind.REWARD,key,"test-v1","isolated-test",List.of(new Entry(personal(uid,Currency.CARD),amount,0),new Entry(system(Currency.CARD),-amount,0)));}
+        private void fund(long uid,long amount){wallets.post(reward(uid,amount,"reward:"+UUID.randomUUID()));}
+        private long balance(long uid){return jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,uid);}
+        @Test void parallelRetriesHaveOnePostingAndCanonicalEquivalentEntries() throws Exception {
+            long uid=player();String key="reward:"+UUID.randomUUID();var command=reward(uid,10,key);
+            Set<String> transactions=new HashSet<>();
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Callable<WalletPostingService.Receipt>> calls=new ArrayList<>();for(int n=0;n<16;n++)calls.add(()->wallets.post(command));
+                for(var result:workers.invokeAll(calls))transactions.add(result.get().transactionId());
+            }
+            assertEquals(1,transactions.size());assertEquals(10,balance(uid));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_ledger WHERE owner_type='PERSONAL' AND owner_id=?",Integer.class,uid));
+            var equivalent=new WalletPosting(Kind.REWARD,key,"test-v1","isolated-test",List.of(new Entry(system(Currency.CARD),-10,0),new Entry(personal(uid,Currency.CARD),4,0),new Entry(personal(uid,Currency.CARD),6,0)));
+            assertTrue(wallets.post(equivalent).replayed());assertEquals(10,balance(uid));
+            assertThrows(IllegalArgumentException.class,()->wallets.post(reward(uid,11,key)));
+        }
+        @Test void opposingTransfersUseStableAccountLockOrder() throws Exception {
+            long a=player(),b=player();fund(a,50);fund(b,50);
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Callable<Void>> calls=new ArrayList<>();
+                for(int n=0;n<100;n++){long from=n%2==0?a:b,to=n%2==0?b:a;calls.add(()->{wallets.post(new WalletPosting(Kind.TRANSFER,"transfer:"+UUID.randomUUID(),"test-v1","isolated-transfer",List.of(new Entry(personal(from,Currency.CARD),-1,0),new Entry(personal(to,Currency.CARD),1,0))));return null;});}
+                for(var result:workers.invokeAll(calls))result.get(10,TimeUnit.SECONDS);
+            }
+            assertEquals(50,balance(a));assertEquals(50,balance(b));assertEquals("MATCH",wallets.reconcile(personal(a,Currency.CARD)).get("status"));assertEquals("MATCH",wallets.reconcile(personal(b,Currency.CARD)).get("status"));
+        }
+        @Test void freezeAndReleasePreventOverspendingAndDuplicateRelease(){
+            long uid=player();fund(uid,10);Account account=personal(uid,Currency.CARD);
+            wallets.post(new WalletPosting(Kind.FREEZE,"freeze:"+UUID.randomUUID(),"test-v1","test-freeze",List.of(new Entry(account,-7,7))));
+            assertEquals(3,balance(uid));assertEquals(7,jdbc.queryForObject("SELECT frozen FROM wallet_account WHERE uid=? AND currency='card'",Long.class,uid));
+            assertThrows(GameFailure.class,()->wallets.post(new WalletPosting(Kind.FREEZE,"freeze:"+UUID.randomUUID(),"test-v1","test-freeze",List.of(new Entry(account,-4,4)))));
+            var release=new WalletPosting(Kind.RELEASE,"release:"+UUID.randomUUID(),"test-v1","test-freeze",List.of(new Entry(account,7,-7)));
+            wallets.post(release);assertTrue(wallets.post(release).replayed());assertEquals(10,balance(uid));
+            assertEquals("MATCH",wallets.reconcile(account).get("status"));
+        }
+        @Test void failureAtFinalPostingMarkerRollsBackAllAccountsAndEntries(){
+            long uid=player();String key="reward:"+UUID.randomUUID();long clearing=jdbc.queryForObject("SELECT balance FROM wallet_system_account WHERE currency='card'",Long.class);
+            doThrow(new IllegalStateException("injected final marker failure")).when(walletMapper).posted(anyString(),anyString(),any());
+            assertThrows(IllegalStateException.class,()->wallets.post(reward(uid,10,key)));
+            assertEquals(0,balance(uid));assertEquals(clearing,jdbc.queryForObject("SELECT balance FROM wallet_system_account WHERE currency='card'",Long.class));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Integer.class,key));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_ledger WHERE owner_type='PERSONAL' AND owner_id=?",Integer.class,uid));
+        }
+        @Test void currenciesMustBalanceIndependentlyAndClientIntegersRemainExact(){
+            long uid=player();assertThrows(IllegalArgumentException.class,()->new WalletPosting(Kind.EXCHANGE,"exchange:"+UUID.randomUUID(),"test-v1","test-only-not-a-business-rate",List.of(new Entry(personal(uid,Currency.CARD),-1,0),new Entry(personal(uid,Currency.DIAMOND),7,0))));
+            fund(uid,WalletPosting.MAX_CLIENT_INTEGER);String key="reward:"+UUID.randomUUID();
+            assertThrows(IllegalArgumentException.class,()->wallets.post(reward(uid,1,key)));assertEquals(WalletPosting.MAX_CLIENT_INTEGER,balance(uid));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Integer.class,key));
+        }
+        @Test void reconciliationDetectsManualDifferenceWithoutChangingBalance(){
+            long uid=player();fund(uid,10);jdbc.update("UPDATE wallet_account SET balance=balance+1 WHERE uid=? AND currency='card'",uid);
+            var report=wallets.reconcile(personal(uid,Currency.CARD));assertEquals("MISMATCH",report.get("status"));assertEquals("10",report.get("expectedAvailable"));assertEquals("11",report.get("actualAvailable"));assertEquals(11,balance(uid));
+        }
+        @Test void replayReturnsOriginalReceiptAfterLaterTransactions(){
+            long uid=player();var original=reward(uid,10,"reward:"+UUID.randomUUID());var first=wallets.post(original);fund(uid,5);var replay=wallets.post(original);
+            assertTrue(replay.replayed());assertEquals(first.transactionId(),replay.transactionId());assertEquals(first.balances(),replay.balances());assertEquals(15,balance(uid));
+        }
+        @Test void adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation(){
+            long uid=player();fund(uid,10);Account account=personal(uid,Currency.CARD);java.time.LocalDate today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"));
+            var list=walletAdmin.ledger(1,account,today,today,1,50);assertEquals(1L,list.get("total"));assertEquals("10",((Map<?,?>)list.get("account")).get("available"));
+            assertThrows(IllegalArgumentException.class,()->walletAdmin.ledger(1,account,today.minusDays(31),today,1,50));
+            assertThrows(SecurityException.class,()->walletAdmin.ledger(900002,account,today,today,1,50));
+            String key=UUID.randomUUID().toString();var report=walletAdmin.reconcile(1,account,"隔离环境人工余额核对",key);var replay=walletAdmin.reconcile(1,account,"隔离环境人工余额核对",key);
+            assertEquals(report.get("operationId"),replay.get("operationId"));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_reconciliation WHERE owner_type='PERSONAL' AND owner_id=?",Integer.class,uid));
+            assertEquals(10,balance(uid));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_audit WHERE action='wallet:reconcile' AND target=?",Integer.class,"PERSONAL:"+uid+":card"));
+            assertThrows(IllegalArgumentException.class,()->walletAdmin.account("SYSTEM",0,"card"));
+        }
+
+    }
+
 }

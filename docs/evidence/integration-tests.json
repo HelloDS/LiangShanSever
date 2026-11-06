@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T17:00:52.693004+00:00",
+  "executedAt": "2026-11-06T17:10:00.188451+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest",
@@ -7,7 +7,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.71,
+      "seconds": 0.748,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -26,7 +26,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.306,
+      "seconds": 1.177,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -40,12 +40,30 @@
       ]
     },
     {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$WalletTransactions",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 1.639,
+      "cases": [
+        "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
+        "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
+        "failureAtFinalPostingMarkerRollsBackAllAccountsAndEntries",
+        "freezeAndReleasePreventOverspendingAndDuplicateRelease",
+        "opposingTransfersUseStableAccountLockOrder",
+        "parallelRetriesHaveOnePostingAndCanonicalEquivalentEntries",
+        "reconciliationDetectsManualDifferenceWithoutChangingBalance",
+        "replayReturnsOriginalReceiptAfterLaterTransactions"
+      ]
+    },
+    {
       "suite": "com.ruoyi.game.protocol.GameJsonCodecTest",
       "tests": 2,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.052,
+      "seconds": 0.057,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "preservesLegacyFieldsAndValueTypes"
@@ -57,7 +75,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.119,
+      "seconds": 0.142,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -72,13 +90,13 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.014,
+      "seconds": 0.015,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "slowWritesHaveBoundedPendingPushesAndReleaseOnFailure"
       ]
     }
   ],
-  "total": 27,
+  "total": 35,
   "result": "PASS"
 }
