@@ -55,6 +55,12 @@ public class TokenService
     @Autowired
     private RedisCache redisCache;
 
+    @Autowired
+    private com.ruoyi.system.service.ISysUserService userService;
+
+    @Autowired
+    private SysPermissionService permissionService;
+
     /**
      * 获取用户身份信息
      * 
@@ -73,11 +79,25 @@ public class TokenService
                 String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
                 String userKey = getTokenKey(uuid);
                 LoginUser user = redisCache.getCacheObject(userKey);
+                if (user == null) return null;
+                long now = System.currentTimeMillis();
+                if (user.getIssuedAt() == null || user.getExpireTime() <= now || now - user.getIssuedAt() >= 8 * 60 * MILLIS_MINUTE) {
+                    delLoginUser(uuid);
+                    return null;
+                }
+                var current = userService.selectUserById(user.getUserId());
+                if (current == null || !"0".equals(current.getStatus()) || !"0".equals(current.getDelFlag())
+                        || !java.util.Objects.equals(current.getPwdUpdateDate(), user.getUser().getPwdUpdateDate())) {
+                    delLoginUser(uuid);
+                    return null;
+                }
+                user.setUser(current);
+                user.setPermissions(permissionService.getMenuPermission(current));
                 return user;
             }
             catch (Exception e)
             {
-                log.error("获取用户信息异常'{}'", e.getMessage());
+                log.debug("后台会话验证失败：{}", e.getClass().getSimpleName());
             }
         }
         return null;
@@ -116,6 +136,7 @@ public class TokenService
     {
         String token = IdUtils.fastUUID();
         loginUser.setToken(token);
+        loginUser.setIssuedAt(System.currentTimeMillis());
         setUserAgent(loginUser);
         refreshToken(loginUser);
 
@@ -135,7 +156,7 @@ public class TokenService
     {
         long expireTime = loginUser.getExpireTime();
         long currentTime = System.currentTimeMillis();
-        if (expireTime - currentTime <= MILLIS_MINUTE_TWENTY)
+        if (currentTime < expireTime)
         {
             refreshToken(loginUser);
         }
@@ -149,10 +170,10 @@ public class TokenService
     public void refreshToken(LoginUser loginUser)
     {
         loginUser.setLoginTime(System.currentTimeMillis());
-        loginUser.setExpireTime(loginUser.getLoginTime() + expireTime * MILLIS_MINUTE);
+        loginUser.setExpireTime(Math.min(loginUser.getLoginTime() + expireTime * MILLIS_MINUTE, loginUser.getIssuedAt() + 8 * 60 * MILLIS_MINUTE));
         // 根据uuid将loginUser缓存
         String userKey = getTokenKey(loginUser.getToken());
-        redisCache.setCacheObject(userKey, loginUser, expireTime, TimeUnit.MINUTES);
+        redisCache.setCacheObject(userKey, loginUser, Math.toIntExact(Math.max(1, loginUser.getExpireTime() - loginUser.getLoginTime())), TimeUnit.MILLISECONDS);
     }
 
     /**

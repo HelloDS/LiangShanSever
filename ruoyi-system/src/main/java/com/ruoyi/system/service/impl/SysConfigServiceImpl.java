@@ -20,6 +20,7 @@ import com.ruoyi.system.service.ISysConfigService;
  * 
  * @author ruoyi
  */
+@org.springframework.context.annotation.DependsOn("flywayInitializer")
 @Service
 public class SysConfigServiceImpl implements ISysConfigService
 {

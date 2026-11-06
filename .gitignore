@@ -9,3 +9,4 @@ admin-ui/dist/
 *.iml
 playwright-report/
 test-results/
+ruoyi-admin/src/main/resources/static/admin/

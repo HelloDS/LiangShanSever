@@ -23,6 +23,8 @@ import com.ruoyi.framework.interceptor.RepeatSubmitInterceptor;
 @Configuration
 public class ResourcesConfig implements WebMvcConfigurer
 {
+    @org.springframework.beans.factory.annotation.Value("${game.allowed-origins}")
+    private String allowedOrigins;
     @Autowired
     private RepeatSubmitInterceptor repeatSubmitInterceptor;
 
@@ -45,7 +47,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     @Override
     public void addInterceptors(InterceptorRegistry registry)
     {
-        registry.addInterceptor(repeatSubmitInterceptor).addPathPatterns("/**");
+        registry.addInterceptor(repeatSubmitInterceptor).addPathPatterns("/system/**", "/monitor/**", "/game-admin/**");
     }
 
     /**
@@ -56,7 +58,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     {
         CorsConfiguration config = new CorsConfiguration();
         // 设置访问源地址
-        config.addAllowedOriginPattern("*");
+        for (String origin : allowedOrigins.split(",")) config.addAllowedOrigin(origin);
         // 设置访问源请求头
         config.addAllowedHeader("*");
         // 设置访问源请求方法

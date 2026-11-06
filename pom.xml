@@ -16,7 +16,7 @@
         <ruoyi.version>3.9.2</ruoyi.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
         <spring-boot.version>4.1.0</spring-boot.version>
         <mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
         <druid.version>1.2.28</druid.version>
@@ -36,6 +36,13 @@
     <!-- 依赖声明 -->
     <dependencyManagement>
         <dependencies>
+            <!-- 游戏与后台均使用 Druid；Starter 的默认连接池不能混入最终依赖。 -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-jdbc</artifactId>
+                <version>${spring-boot.version}</version>
+                <exclusions><exclusion><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId></exclusion></exclusions>
+            </dependency>
 
             <!-- SpringBoot的依赖配置 -->
             <dependency>
@@ -177,13 +184,15 @@
         <module>ruoyi-admin</module>
         <module>ruoyi-framework</module>
         <module>ruoyi-system</module>
-        <module>ruoyi-quartz</module>
-        <module>ruoyi-generator</module>
         <module>ruoyi-common</module>
+        <module>game-protocol</module>
+        <module>game-core</module>
+        <module>game-transport</module>
     </modules>
     <packaging>pom</packaging>
 
     <build>
+        <pluginManagement><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.4</version></plugin></plugins></pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -208,7 +217,7 @@
         <repository>
             <id>public</id>
             <name>aliyun nexus</name>
-            <url>https://maven.aliyun.com/repository/public</url>
+            <url>https://repo.maven.apache.org/maven2</url>
             <releases>
                 <enabled>true</enabled>
             </releases>
@@ -219,7 +228,7 @@
         <pluginRepository>
             <id>public</id>
             <name>aliyun nexus</name>
-            <url>https://maven.aliyun.com/repository/public</url>
+            <url>https://repo.maven.apache.org/maven2</url>
             <releases>
                 <enabled>true</enabled>
             </releases>

@@ -23,6 +23,7 @@ import com.ruoyi.system.service.ISysDictTypeService;
  * 
  * @author ruoyi
  */
+@org.springframework.context.annotation.DependsOn("flywayInitializer")
 @Service
 public class SysDictTypeServiceImpl implements ISysDictTypeService
 {

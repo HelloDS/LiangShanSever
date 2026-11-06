@@ -83,10 +83,12 @@ public class SecurityConfig
      * authenticated       |   用户登录后可访问
      */
     @Bean
+    @org.springframework.core.annotation.Order(0)
     protected SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception
     {
         return httpSecurity
             // CSRF禁用，因为不使用session
+            .securityMatcher("/login", "/logout", "/captchaImage", "/getInfo", "/getRouters", "/system/**", "/monitor/**", "/game-admin/**", "/common/**", "/actuator/**")
             .csrf(csrf -> csrf.disable())
             // 禁用HTTP响应标头
             .headers((headersCustomizer) -> {
@@ -100,10 +102,10 @@ public class SecurityConfig
             .authorizeHttpRequests((requests) -> {
                 permitAllUrl.getUrls().forEach(url -> requests.requestMatchers(url).permitAll());
                 // 对于登录login 注册register 验证码captchaImage 允许匿名访问
-                requests.requestMatchers("/login", "/register", "/captchaImage").permitAll()
+                requests.requestMatchers("/login", "/captchaImage", "/actuator/health").permitAll()
                     // 静态资源，可匿名访问
                     .requestMatchers(HttpMethod.GET, "/", "/*.html", "/**.html", "/**.css", "/**.js", "/profile/**").permitAll()
-                    .requestMatchers("/swagger-ui.html", "/v3/api-docs/**", "/swagger-ui/**", "/druid/**").permitAll()
+                    .requestMatchers("/monitor/cache/**", "/monitor/cacheList/**").denyAll()
                     // 除上面外的所有请求全部需要鉴权认证
                     .anyRequest().authenticated();
             })

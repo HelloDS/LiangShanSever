@@ -71,7 +71,7 @@ public class FilterConfig
     {
         FilterRegistrationBean registration = new FilterRegistrationBean();
         registration.setFilter(new RepeatableFilter());
-        registration.addUrlPatterns("/*");
+        registration.addUrlPatterns("/system/*", "/monitor/*", "/game-admin/*");
         registration.setName("repeatableFilter");
         registration.setOrder(FilterRegistrationBean.LOWEST_PRECEDENCE);
         return registration;

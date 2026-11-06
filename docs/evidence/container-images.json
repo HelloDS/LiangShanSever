@@ -1,0 +1,17 @@
+{
+  "mysql:8.4": {
+    "digest": "mysql@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902",
+    "architecture": "arm64",
+    "id": "sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902"
+  },
+  "redis:8": {
+    "digest": "redis@sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc",
+    "architecture": "arm64",
+    "id": "sha256:f245f4c83b84a9e9a0588da1c9456e579455310f0945d5db52cd2ba27f2000cc"
+  },
+  "nginx:stable-alpine": {
+    "digest": "nginx@sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311",
+    "architecture": "arm64",
+    "id": "sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311"
+  }
+}

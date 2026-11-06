@@ -1,0 +1,8 @@
+{
+  "name": "liangshan-verification",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "ws": "8.22.1"
+  }
+}

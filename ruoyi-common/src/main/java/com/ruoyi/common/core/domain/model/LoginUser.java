@@ -40,6 +40,12 @@ public class LoginUser implements UserDetails
      */
     private Long loginTime;
 
+    /** 首次签发时间，续期不能延长绝对期限。 */
+    private Long issuedAt;
+
+    public Long getIssuedAt() { return issuedAt; }
+    public void setIssuedAt(Long issuedAt) { this.issuedAt = issuedAt; }
+
     /**
      * 过期时间
      */
