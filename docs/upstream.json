@@ -1,0 +1,14 @@
+{
+  "backend": {
+    "url": "https://github.com/yangzongzhuan/RuoYi-Vue",
+    "branch": "master",
+    "commit": "13db1fcef36bee9ce45d2d636a1d4e8f5ed5bbc3",
+    "license": "MIT"
+  },
+  "admin": {
+    "url": "https://github.com/yangzongzhuan/RuoYi-Vue3",
+    "branch": "typescript",
+    "commit": "0ea09ef814213875b61cffb3485d76de680256f3",
+    "license": "MIT"
+  }
+}

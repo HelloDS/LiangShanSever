@@ -1,0 +1,11 @@
+**/target/
+**/node_modules/
+admin-ui/dist/
+.local/
+.env
+*.log
+.DS_Store
+.idea/
+*.iml
+playwright-report/
+test-results/
