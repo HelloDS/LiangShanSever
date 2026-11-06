@@ -31,6 +31,8 @@ import com.ruoyi.game.economy.WalletPosting;
 import com.ruoyi.game.economy.WalletPostingService;
 import com.ruoyi.game.economy.WalletPosting.*;
 import com.ruoyi.game.economy.WalletPosting.Currency;
+import com.ruoyi.game.games.landlord.*;
+import com.ruoyi.game.room.*;
 
 @Testcontainers
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false"})
@@ -506,6 +508,53 @@ class GameFoundationIntegrationTest {
             assertThrows(IllegalArgumentException.class,()->roomAdmin.list(1,null,null,null,"UNKNOWN",today,today,1,50));
             assertThrows(IllegalArgumentException.class,()->roomAdmin.list(1,null,null,null,null,today.minusDays(31),today,1,50));
         }
+        @Test void naturalLandlordPlayRecoversMidRoundAndPersistsLastCardWithoutInventedSettlement() throws Exception {
+            List<GuestIdentity> identities=List.of(auth.verify(auth.createGuest()),auth.verify(auth.createGuest()),auth.verify(auth.createGuest()));
+            List<Long> players=identities.stream().map(GuestIdentity::uid).toList();Map<Long,GuestIdentity> actors=new HashMap<>();identities.forEach(identity->actors.put(identity.uid(),identity));
+            String id=UUID.randomUUID().toString(),code=Integer.toString(ROOM_CODES.incrementAndGet()),rule="mechanics-fixture-v1",empty="{}";
+            var playCodec=new LandlordPlayCodec(codec);var engine=new LandlordPlayEngine();
+            jdbc.update("INSERT INTO room_record(room_id,room_code,game_id,owner_uid,creator_uid,options_json,rule_version,status,is_test,created_at) VALUES(?,?,'6003',?,?,'{}',?,'WAITING',TRUE,UTC_TIMESTAMP(6))",id,code,players.getFirst(),players.getFirst(),rule);
+            jdbc.update("INSERT INTO active_room_code(room_code,room_id) VALUES(?,?)",code,id);
+            jdbc.update("INSERT INTO room_runtime(room_id,state_hash,snapshot_json,snapshot_hash,schema_version,engine_version,updated_at) VALUES(?,?,?,?,1,?,UTC_TIMESTAMP(6))",id,journal.stateHash(empty),empty,journal.stateHash(empty),LandlordPlayEngine.ENGINE_VERSION);
+            for(int seat=0;seat<3;seat++){
+                jdbc.update("INSERT INTO room_player(room_id,uid,seat,joined_at) VALUES(?,?,?,UTC_TIMESTAMP(6))",id,players.get(seat),seat);
+                jdbc.update("INSERT INTO player_room_binding(uid,room_id,seat,joined_at) VALUES(?,?,?,UTC_TIMESTAMP(6))",players.get(seat),id,seat);
+            }
+            var ownership=journal.claim(id,UUID.randomUUID().toString(),1,LandlordPlayEngine.ENGINE_VERSION);
+            // 测试从已确定地主的发牌检查点开始，不冒充叫分、收费或完整结算验收。
+            var initial=LandlordPlayEngine.start(players,LandlordDeck.deal(),players.getFirst());String initialJson=playCodec.json(initial);
+            var previous=new RoomSnapshot<>(id,ownership.ownerEpoch(),0,0,"WAITING",empty);
+            var started=new RoomSnapshot<>(id,ownership.ownerEpoch(),1,1,"PLAYING",initialJson);
+            assertEquals(RoomPersistence.Decision.COMMITTED,journal.commit(new RoomJournalCommand(previous,started,"DEAL_RECORDED",initialJson,rule,1,LandlordPlayEngine.ENGINE_VERSION,identities.getFirst(),List.of(),null,true,java.time.Instant.now())));
+            var plans=new LandlordPlayPlans(playCodec,rule);
+            var persistence=new JournalRoomPersistence<LandlordPlayState,LandlordPlayCommand,LandlordPlayEvent>(journal,write->plans.command(write,actors.get(write.command().uid())));
+            java.util.function.Supplier<RoomMailboxes<LandlordPlayState,LandlordPlayCommand,LandlordPlayEvent>> boxes=()->new RoomMailboxes<>(new RoomMailboxes.Config(2,128,16,16,2,32,10),persistence);
+            var box=boxes.get();var handle=box.register(new RoomSnapshot<>(id,ownership.ownerEpoch(),1,1,"PLAYING",initial),engine);
+            int moves=0,restarts=0;RoomSnapshot<LandlordPlayState> current=box.snapshot(handle);
+            try{
+                while(!current.state().finished()){
+                    if(moves==10){
+                        box.close();var recovery=journal.claim(id,UUID.randomUUID().toString(),1,LandlordPlayEngine.ENGINE_VERSION);
+                        var recovered=RoomReplay.recover(recovery,playCodec,engine::replay,journal::stateHash);
+                        assertEquals(current.state(),recovered.state());assertEquals(current.version(),recovered.version());assertTrue(recovered.ownerEpoch()>current.ownerEpoch());
+                        box=boxes.get();handle=box.register(recovered,engine);current=recovered;restarts++;
+                    }
+                    assertTrue(++moves<=200);var state=current.state();long uid=state.currentUid();var target=state.target();
+                    var card=state.hands().get(uid).stream().filter(value->target==null||value.rank()>target.pattern().mainRank()).min(Comparator.comparingInt(LandlordCard::rank));
+                    LandlordAction action=card.<LandlordAction>map(value->new LandlordAction.Play(List.of(value),LandlordPatterns.classify(List.of(value)).orElseThrow())).orElseGet(LandlordAction.Pass::new);
+                    current=box.submit(handle,new LandlordPlayCommand(uid,action)).toCompletableFuture().get(5,TimeUnit.SECONDS);
+                }
+            }finally{box.close();}
+            assertEquals(1,restarts);assertEquals("ROUND_FINISHED",current.phase());assertEquals(moves+1,current.version());
+            assertEquals(moves+1,number("SELECT COUNT(*) FROM room_event WHERE room_id=?",id));
+            assertEquals(moves+1,number("SELECT COUNT(*) FROM outbox_event WHERE biz_key LIKE ?","room-event:"+id+":%"));
+            assertEquals(current.version(),number("SELECT snapshot_seq FROM room_runtime WHERE room_id=?",id));
+            var recovered=RoomReplay.recover(journal.claim(id,UUID.randomUUID().toString(),1,LandlordPlayEngine.ENGINE_VERSION),playCodec,engine::replay,journal::stateHash);
+            assertEquals(current.state(),recovered.state());assertEquals(current.state().winner(),engine.outcome(recovered.state()).winner());
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_transaction WHERE reference_id=?",id));
+            for(long uid:players)assertEquals(0,number("SELECT SUM(balance+frozen) FROM wallet_account WHERE uid=?",uid));
+        }
+
         @Test void revokedIdentityAndForeignWalletIntentCannotChangeRoom(){
             var fixture=room();fund(fixture,100);jdbc.update("UPDATE user_account SET status='BANNED' WHERE id=?",fixture.owner().accountId());
             assertEquals(com.ruoyi.game.room.RoomPersistence.Decision.NOT_COMMITTED,journal.commit(change(fixture,fixture.state(),1,false)));

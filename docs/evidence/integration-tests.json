@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T19:35:33.914083+00:00",
+  "executedAt": "2026-11-06T19:47:30.023295+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.AdminExecutorTest",
@@ -18,7 +18,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.77,
+      "seconds": 0.786,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -38,7 +38,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.97,
+      "seconds": 0.941,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
@@ -57,7 +57,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.882,
+      "seconds": 0.749,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "boundedRetryBecomesDeadAndManualRetryPreservesEventAndAudit",
@@ -68,11 +68,11 @@
     },
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest$RoomStorage",
-      "tests": 21,
+      "tests": 22,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 1.763,
+      "seconds": 2.784,
       "cases": [
         "afterCommitExceptionCannotBeMistakenForKnownPrecommitRejection",
         "committedButLostBoundaryResultResolvesWithoutRepeatingEffects",
@@ -82,6 +82,7 @@
         "lateOutboxFailureRollsBackSeatWalletEventVersionAndCheckpoint",
         "lostCommitResultKeepsMailboxOldStateUntilDatabaseConfirmation",
         "missingEventOrCorruptReplayPayloadFailsRecovery",
+        "naturalLandlordPlayRecoversMidRoundAndPersistsLastCardWithoutInventedSettlement",
         "newOwnerEpochFencesOldWriterAndUnknownEngineDoesNotAcquireOwner",
         "outerTransactionCannotSilentlyRouteRoomCommitToGeneralPool",
         "parallelRetriesDebitOnceAndUseOnePersistentRoomVersion",
@@ -103,7 +104,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.64,
+      "seconds": 2.579,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts",
@@ -124,7 +125,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.01,
+      "seconds": 0.008,
       "cases": [
         "allThirteenWireTypesAreRecomputedFromPhysicalCards",
         "comparisonsUseMainGroupAndRequireSameSequenceLength",
@@ -137,12 +138,47 @@
       ]
     },
     {
+      "suite": "com.ruoyi.game.games.landlord.LandlordPlayCodecTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.114,
+      "cases": [
+        "exactEventFieldsRejectUnknownKeysWrongTypesAndUnknownVersions",
+        "persistedEventsCanRebuildACompleteNaturallyPlayedRound",
+        "plansBindActorAndRejectForgedCandidateBeforeStartingDatabaseWork",
+        "privateStateRoundTripsWithoutMutableCollectionsOrUnversionedSupport",
+        "replayRejectsOutOfTurnOrUnownedSavedEvents",
+        "stateDecoderRejectsExtraFieldsAndCorruptOwnership"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.games.landlord.LandlordPlayEngineTest",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.615,
+      "cases": [
+        "actorTurnOwnershipAndPhaseAreValidatedBeforeAnyStateChange",
+        "autoFlagMayChangeOutOfTurnButDoesNotPlayCardsOrChangeTurn",
+        "bombAndRocketAreRecordedAsFactsWithoutGeneratingScores",
+        "clearedTrickStillChecksWhoseHandActuallyLostCards",
+        "corruptOwnershipAndCursorCannotBeInstalledAsState",
+        "fourHundredNaturallyPlayedRoundsConserveCardsAndReplayEveryEvent",
+        "initialStateContainsWholeDeckAndCannotBeMutated",
+        "nonMatchingTypeCannotBeatAnExistingPair",
+        "twoPassesClearTargetAndReturnLeadWithoutChangingOtherHands"
+      ]
+    },
+    {
       "suite": "com.ruoyi.game.games.landlord.LandlordVisibilityTest",
       "tests": 4,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.125,
+      "seconds": 0.006,
       "cases": [
         "biddingViewContainsOnlyOwnHandAndNoBottom",
         "completedViewRequiresWinnerAndStillRejectsSpectator",
@@ -156,7 +192,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.014,
+      "seconds": 0.005,
       "cases": [
         "internalPlayCannotCarryAForgedPatternEither",
         "originalFlatTagsHaveExplicitTypedActions",
@@ -171,7 +207,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.066,
+      "seconds": 0.073,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "internalCanonicalDigestKeepsPrecisionAndIgnoresObjectKeyOrder",
@@ -184,7 +220,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.111,
+      "seconds": 0.104,
       "cases": [
         "acceptedCommandsHaveOneSerialEngineAndMonotonicPersistedVersions",
         "completionUsesReservedCapacityWhenOrdinaryAdmissionIsExhausted",
@@ -207,7 +243,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.118,
+      "seconds": 0.113,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -222,7 +258,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.004,
+      "seconds": 0.003,
       "cases": [
         "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
@@ -233,7 +269,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.016,
+      "seconds": 0.013,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "delayedRevocationCannotDisconnectFreshSessionVersion",
@@ -248,12 +284,12 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.602,
+      "seconds": 0.612,
       "cases": [
         "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
       ]
     }
   ],
-  "total": 102,
+  "total": 118,
   "result": "PASS"
 }
