@@ -11,7 +11,7 @@ const ws=await open();
 try{
  const responses=[];const received=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('普通响应超时')),8000);ws.on('message',raw=>{responses.push(JSON.parse(raw));if(responses.length===32){clearTimeout(timer);resolve();}});});
  for(let i=0;i<32;i++)ws.send('{');await received;assert.equal(responses.length,32);assert.ok(responses.every(row=>row.state===-4&&!row.cmd));
- const metric=await api('/actuator/metrics/game.inbound.bytes',undefined,token);assert.equal(metric.measurements[0].value,0);checks.push('32 个流水解析失败各一条普通响应，处理后全局入站预算回零');
+ const metric=await api('/actuator/metrics/game.inbound.bytes',undefined,token);assert.equal(metric.measurements[0].value,0);for(const name of ['game.reply.pending','game.reply.active','game.reply.queue']){const reply=await api('/actuator/metrics/'+name,undefined,token);assert.equal(reply.measurements[0].value,0);}checks.push('32 个流水解析失败各一条普通响应，处理后全局入站预算回零');
 }finally{ws.close();}
 const binary=await open();const closed=once(binary,'close');binary.send(Buffer.from([1,2,3]));assert.equal((await closed)[0],1003);checks.push('二进制业务帧按协议拒绝关闭');
 const forbidden=new WebSocket(base.replace(/^http/,'ws')+'/',{origin:'http://not-allowed.invalid'});forbidden.on('error',()=>{});

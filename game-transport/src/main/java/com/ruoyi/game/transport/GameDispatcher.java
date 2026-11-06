@@ -11,7 +11,7 @@ import tools.jackson.databind.JsonNode;
 import io.netty.channel.Channel;
 
 @Component
-public class GameDispatcher {
+public class GameDispatcher implements GameRequestDispatcher {
     private final GuestAuthService auth;
     private final GameSessionService sessions;
     private final PlayerService players;
@@ -28,7 +28,12 @@ public class GameDispatcher {
         this.reports=reports;this.login=login;this.clubs=clubs;
     }
     public record Result(Map<String,Object> ack,ConnectionRegistry.Binding binding,List<com.ruoyi.game.club.ClubService.Notification> notifications) {
+        public Result{ack=Collections.unmodifiableMap(new LinkedHashMap<>(ack));notifications=List.copyOf(notifications);}
         public Result(Map<String,Object> ack,ConnectionRegistry.Binding binding){this(ack,binding,List.of());}
+    }
+    @Override public java.util.concurrent.CompletionStage<Result> dispatchAsync(WireRequest request,ConnectionRegistry.Binding binding,Channel channel){
+        // 当前大厅/圈接口同步执行于业务池。未来房间适配直接返回邮箱阶段，不阻塞业务线程。
+        return java.util.concurrent.CompletableFuture.completedFuture(dispatch(request,binding,channel));
     }
     public Result dispatch(WireRequest request, ConnectionRegistry.Binding binding, Channel channel) {
         if ("login".equals(request.path())) {

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class GameTelemetry {
     private static final Set<String> APIS=Set.of("user","role","cfg","game","room","club","inform","activity","koi","manager","build");
     private final MeterRegistry metrics;
-    public GameTelemetry(MeterRegistry metrics,ConnectionRegistry registry,BusinessExecutor executor,ConnectionAdmission admission,InboundBudget inbound){
+    public GameTelemetry(MeterRegistry metrics,ConnectionRegistry registry,BusinessExecutor executor,ConnectionAdmission admission,InboundBudget inbound,ReplyExecutor replies){
         this.metrics=metrics;
         Gauge.builder("game.accepted.connections",admission,ConnectionAdmission::active).register(metrics);
         Gauge.builder("game.inbound.bytes",inbound,InboundBudget::used).register(metrics);
@@ -18,6 +18,9 @@ public class GameTelemetry {
         Gauge.builder("game.push.pending",registry,ConnectionRegistry::pendingPushes).register(metrics);
         Gauge.builder("game.business.queue",executor,BusinessExecutor::queued).register(metrics);
         Gauge.builder("game.business.active",executor,BusinessExecutor::active).register(metrics);
+        Gauge.builder("game.reply.pending",replies,ReplyExecutor::pending).register(metrics);
+        Gauge.builder("game.reply.active",replies,ReplyExecutor::active).register(metrics);
+        Gauge.builder("game.reply.queue",replies,ReplyExecutor::queued).register(metrics);
     }
     public void complete(String api,String result,long nanos){
         String boundedApi=APIS.contains(api)?api:"unknown";
