@@ -1,0 +1,25 @@
+{
+  "collectedAt": "2026-11-06T23:55:25.155520+00:00",
+  "duringRun": true,
+  "sourceCommit": "217ed82512eebc82ad9ea016af265183b9a5e730",
+  "snapshotSha256": "73f723a7b44558363ec43cc863c91dbdb36bb824d469c32c64b5f19559ff40dc",
+  "scope": "同宿主两 JVM；内部 200 房间/200 提交每秒与十 JWT 会话、最多两路 HTTP 读取；并行主服务千连接大厅",
+  "observedMaximumOutboxLagSeconds": 28.218,
+  "budgetSeconds": 10,
+  "budgetExceeded": true,
+  "firstBreachObservedAt": "2026-11-06T23:40:46Z",
+  "initialObservedBreachSeconds": 10.952,
+  "samplesVisibleInLog": 486,
+  "logBytes": 60600,
+  "logSnapshotSha256": "30fabc187409075f55c49ffd645ce76905858eaee1e4f8b0b9543b1edb04c946",
+  "readOnlyDiagnostics": {
+    "readyClaimPlanIndex": "idx_outbox_ready",
+    "expiredClaimPlanIndex": "idx_outbox_lease",
+    "planObservedAt": "2026-11-06T23:40:46Z",
+    "bufferPoolWaitFree": 0,
+    "redoLogWaits": 0,
+    "statusObservedAt": "2026-11-06T23:41:43Z"
+  },
+  "changesDuringMeasurement": "没有改变 JAR、冻结产物、数据库配置或容量判定；仅静态编辑、轻量语法/兼容性诊断及只读资源/执行计划观察",
+  "conclusion": "本轮已不满足 outbox 延迟目标，等待原进程完整结束和排空核验；不认定唯一根因"
+}
