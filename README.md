@@ -2,7 +2,7 @@
 
 按 `Java高性能棋牌游戏服务器方案.md` 分阶段实现。游戏 HTTP/WS 与若依后台同进程运行，Creator 现有协议是兼容依据。
 
-当前完成最小工程：持久游客凭据、WS 注册与恢复、按连接顺序响应、独立游戏 Jackson 3、若依原生登录、数据库迁移及统一 Nginx 入口。大厅周边、圈、房间与玩法仍按 `docs/开发进度.md` 推进，不将工程启动等同于全部业务完成。
+当前已实现持久游客登录与恢复、大厅资料/公告/匿名举报、玩家与统计后台，以及亲友圈成员申请/审批/退出/权限与组织后台。圈创建、兑换和资金操作仍受未确认规则约束，房间与斗地主尚未接通。实际验收范围见 `docs/开发进度.md`，不将页面可用等同于三个版本全部完成。
 
 ## 本地启动
 
@@ -39,8 +39,19 @@ Flyway 通过自己的无池 JDBC 连接迁移，运行期使用若依 Druid 数
 scripts/test.sh
 npm ci --prefix tools --ignore-scripts
 node tools/smoke.mjs
+node tools/admin-smoke.mjs
+node tools/report-smoke.mjs
+python3 scripts/collect-test-evidence.py
 ```
 
 `test.sh` 使用独立 Testcontainers MySQL/Redis 验证迁移、回滚、身份恢复与并发幂等；不会清空本地运行数据库。smoke 创建真实的本地测试游客并校验 HTTP/WS/Admin，不调用旧服务器。结果只保存检查项，不写凭据、原始认证报文或密码。完整范围与实际通过项见 `docs/开发进度.md` 和 `docs/evidence/`。
 
 官方后端与前端固定提交及 MIT 来源见 `docs/upstream.json`，保留 `LICENSE-RuoYi` 与 `admin-ui/LICENSE`。已有设计文档与前端证据不代表实现已通过所有验收。
+
+亲友圈组织联调使用明确标记的本地测试夹具，需显式执行：
+
+```bash
+RUN_ORGANIZATION_FIXTURES=1 node tools/club-smoke.mjs
+```
+
+该测试建立已知上限的“既有圈”，成员通过真实申请/审批加入，结束后停用测试圈并保留审计。它不代表创建圈费用和资金转入已确认或通过验收。规则缺口与原消费者结构见 `docs/亲友圈协议与规则缺口.md`。

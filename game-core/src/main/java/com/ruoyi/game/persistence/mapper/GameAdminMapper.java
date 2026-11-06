@@ -8,6 +8,9 @@ public interface GameAdminMapper {
     @Select("SELECT COUNT(*) FROM admin_data_scope WHERE principal_id=#{actor} AND scope_type='PLATFORM' AND scope_id='*'")
     int platformScope(long actor);
 
+    @Select("SELECT COUNT(*) FROM admin_data_scope WHERE principal_id=#{actor} AND ((scope_type='PLATFORM' AND scope_id='*') OR (scope_type='CLUB' AND scope_id=CAST(#{club} AS CHAR)))")
+    int clubScope(@Param("actor") long actor,@Param("club") long club);
+
     @Select("<script>SELECT CAST(r.uid AS CHAR) AS uid,r.name,r.head,r.sex,a.status,a.is_test AS isTest,r.created_at AS createdAt,r.last_login_at AS lastLoginAt FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE 1=1 <if test='uid != null'>AND r.uid=#{uid}</if><if test='name != null'>AND r.name LIKE CONCAT('%',#{name},'%')</if><if test='status != null'>AND a.status=#{status}</if> ORDER BY r.uid DESC LIMIT #{limit} OFFSET #{offset}</script>")
     List<Map<String,Object>> players(@Param("uid") Long uid,@Param("name") String name,@Param("status") String status,@Param("offset") int offset,@Param("limit") int limit);
 
@@ -25,6 +28,9 @@ public interface GameAdminMapper {
 
     @Select("<script>SELECT r.uid FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE a.is_test=FALSE AND a.status='ACTIVE' AND r.uid IN <foreach collection='uids' item='uid' open='(' separator=',' close=')'>#{uid}</foreach></script>")
     List<Long> realPlayers(@Param("uids") Collection<Long> uids);
+
+    @Select("<script>SELECT r.uid FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE a.status='ACTIVE' <if test='!includeTest'>AND a.is_test=FALSE</if> AND r.uid IN <foreach collection='uids' item='uid' open='(' separator=',' close=')'>#{uid}</foreach></script>")
+    List<Long> activePlayers(@Param("uids") Collection<Long> uids,@Param("includeTest") boolean includeTest);
 
     @Select("SELECT CAST(r.uid AS CHAR) AS uid,r.name,r.head,r.sex,a.status,a.is_test AS isTest,r.created_at AS createdAt,r.last_login_at AS lastLoginAt FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE r.uid=#{uid}")
     Map<String,Object> player(long uid);

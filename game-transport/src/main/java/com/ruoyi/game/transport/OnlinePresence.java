@@ -64,14 +64,15 @@ public class OnlinePresence {
         } catch (RuntimeException e) { status="UNAVAILABLE"; }
     }
     public record Sample(String dataStatus,String asOf,Set<Long> uids) { }
-    public Sample sample() {
+    public Sample sample(){return sample(false);}
+    public Sample sample(boolean includeTest) {
         String asOf=clock.instant().toString();
         try {
             Set<String> uids=redis.opsForZSet().rangeByScore(INDEX,clock.millis()+1,Double.POSITIVE_INFINITY);
             if (!"AVAILABLE".equals(status)) return new Sample(status,asOf,null);
             if(uids==null||uids.isEmpty())return new Sample("AVAILABLE",asOf,Set.of());
             if(uids.size()>10000)return new Sample("UNAVAILABLE",asOf,null);
-            Set<Long> valid=new HashSet<>(players.realPlayers(uids.stream().map(Long::parseLong).toList()));
+            Set<Long> valid=new HashSet<>(players.activePlayers(uids.stream().map(Long::parseLong).toList(),includeTest));
             return new Sample("AVAILABLE",asOf,Set.copyOf(valid));
         } catch (RuntimeException e) { status="UNAVAILABLE"; return new Sample(status,asOf,null); }
     }

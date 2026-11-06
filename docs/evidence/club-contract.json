@@ -1,0 +1,76 @@
+{
+  "source": "../Client/archive/8.137.34.190/client/modules/club/assets/module_club.min.js",
+  "sha256": "04616d472a2ab55674ea5fa1621dd524b14ab096456b5d70328cbb4778237332",
+  "kind": "根据消费者构造的脱敏结构样例，非原站抓包",
+  "samples": {
+    "club/getClubs": {
+      "state": 0,
+      "clubs": {
+        "100001": {
+          "id": 100001,
+          "name": "测试圈",
+          "owner": 100001,
+          "current_mem": 2,
+          "max_mem": 10,
+          "card": 0,
+          "diamond": 0
+        }
+      },
+      "msgRedPoint": false
+    },
+    "club/getClubMems": {
+      "state": 0,
+      "mems": [
+        100001,
+        100002
+      ]
+    },
+    "club/getApplyList": {
+      "state": 0,
+      "list": {
+        "page": 1,
+        "total_page": 1,
+        "rows": [
+          {
+            "apply_role": {
+              "uid": 100003,
+              "name": "测试申请人",
+              "head": "",
+              "sex": 0
+            },
+            "apply_time": "2026-11-07 00:00:00"
+          }
+        ]
+      }
+    },
+    "club/getApplyLeaveList": {
+      "state": 0,
+      "list": {
+        "100002": "2026-11-07 00:00:00"
+      }
+    },
+    "club/getClubConfig": {
+      "state": 0,
+      "config": {
+        "only_manager_open_room": 1
+      },
+      "is_manager": true,
+      "is_partner": false
+    },
+    "clubConfigChange": {
+      "cmd": "clubConfigChange",
+      "club_id": 100001,
+      "config": {
+        "only_manager_open_room": 1
+      }
+    },
+    "clubManagerChange": {
+      "cmd": "clubManagerChange",
+      "club_id": 100001,
+      "member": {
+        "uid": 100002,
+        "level": 1
+      }
+    }
+  }
+}

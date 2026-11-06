@@ -19,6 +19,7 @@ public class GameAdminService {
     public void requirePlatform(long actor) {
         if(mapper.platformScope(actor)==0)throw new SecurityException("缺少平台游戏数据授权");
     }
+    public void requireClub(long actor,long club){if(mapper.clubScope(actor,club)==0)throw new SecurityException("缺少此亲友圈的数据授权");}
     public Map<String,Object> dashboard(long actor) {
         requirePlatform(actor);
         LocalDate today=clock.instant().atZone(ZoneId.of("Asia/Shanghai")).toLocalDate();

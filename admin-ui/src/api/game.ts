@@ -16,3 +16,8 @@ export const noticePreview = (data: unknown) => request({ url: '/game-admin/noti
 export const reports = (params: Record<string, unknown>) => request({ url: '/game-admin/reports', method: 'get', params })
 export const reportProcess = (id: string, data: unknown, key: string) => request({ url: `/game-admin/reports/${id}/process`, method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })
 export const reportContact = (id: string, reason: string) => request({ url: `/game-admin/reports/${id}/contact`, method: 'post', data: { reason }, headers: { repeatSubmit: false } })
+export const clubs = (params: Record<string, unknown>) => request({ url: '/game-admin/clubs', method: 'get', params })
+export const club = (id: string) => request({ url: `/game-admin/clubs/${id}`, method: 'get' })
+export const clubMembers = (id: string, params: Record<string, unknown>) => request({ url: `/game-admin/clubs/${id}/members`, method: 'get', params })
+export const clubApplications = (id: string, params: Record<string, unknown>) => request({ url: `/game-admin/clubs/${id}/applications`, method: 'get', params })
+export const clubCommand = (id: string, action: string, data: unknown, key: string) => request({ url: `/game-admin/clubs/${id}/${action}`, method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })

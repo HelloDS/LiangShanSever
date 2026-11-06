@@ -21,12 +21,15 @@ public class GameDispatcher {
     private final GameRateLimiter limiter;
     private final ReportService reports;
     private final GameLoginService login;
+    private final ClubWireRouter clubs;
     public GameDispatcher(GuestAuthService auth, GameSessionService sessions, PlayerService players,
-                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login) {
+                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login,ClubWireRouter clubs) {
         this.auth=auth; this.sessions=sessions; this.players=players; this.registry=registry; this.online=online;this.lobby=lobby;this.limiter=limiter;
-        this.reports=reports;this.login=login;
+        this.reports=reports;this.login=login;this.clubs=clubs;
     }
-    public record Result(Map<String,Object> ack, ConnectionRegistry.Binding binding) { }
+    public record Result(Map<String,Object> ack,ConnectionRegistry.Binding binding,List<com.ruoyi.game.club.ClubService.Notification> notifications) {
+        public Result(Map<String,Object> ack,ConnectionRegistry.Binding binding){this(ack,binding,List.of());}
+    }
     public Result dispatch(WireRequest request, ConnectionRegistry.Binding binding, Channel channel) {
         if ("login".equals(request.path())) {
             if (!"user".equals(request.api())) throw new GameFailure(-2,"登录通道不支持此接口");
@@ -60,6 +63,9 @@ public class GameDispatcher {
         GuestIdentity identity=sessions.verify(token);
         if (identity.uid()!=binding.identity().uid()) throw new GameFailure(-5,"会话身份不匹配");
         limiter.account(identity.uid());
+        if(clubs.supports(request)){
+            var reply=clubs.dispatch(request,identity.uid());return new Result(reply.ack(),binding,reply.notifications());
+        }
         return new Result(logic(request,identity.uid()),binding);
     }
     private Map<String,Object> logic(WireRequest req,long uid) {
@@ -85,7 +91,6 @@ public class GameDispatcher {
             case "role/checkRolePhone" -> Map.of("state",0,"is_approved",0);
             case "identify/getIdentifyInfo" -> Map.of("state",0,"isIdentify",-1);
             case "game/returnGame" -> {Map<String,Object> response=new LinkedHashMap<>();response.put("state",0);response.put("room",null);yield response;}
-            case "club/getClubs" -> Map.of("state",0,"clubs",List.of());
             case "role/getZhanji" -> Map.of("state",0,"zhanji",List.of());
             case "activity/getActivitys" -> Map.of("state",0,"activitys",List.of());
             case "activity/getActivityOpenType" -> Map.of("state",0,"status",Map.of());

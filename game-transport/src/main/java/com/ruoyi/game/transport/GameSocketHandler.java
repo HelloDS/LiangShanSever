@@ -3,6 +3,7 @@ package com.ruoyi.game.transport;
 import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.Queue;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import com.ruoyi.game.auth.GameFailure;
 import com.ruoyi.game.protocol.GameJsonCodec;
@@ -20,6 +21,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
     private final Clock clock;
     private final GameTelemetry telemetry;
     private record Inbound(String text,long receivedNanos,int bytes){ }
+    private record EncodedPush(List<Long> recipients,String packet){ }
     private final Queue<Inbound> inbox=new ArrayDeque<>();
     private ConnectionRegistry.Binding binding;
     private boolean busy;
@@ -53,17 +55,20 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
             executor.execute(()->{
                 GameDispatcher.Result result=null;
                 String output;
+                List<EncodedPush> pushes=List.of();
                 String api="unknown",category="success";
                 try {
                     if(limited) throw new GameFailure(-2,"请求过于频繁");
                     var request=codec.request(input.text());api=request.api();
                     result=dispatcher.dispatch(request,previous,ctx.channel());
                     output=codec.write(result.ack());
+                    pushes=result.notifications().stream().map(n->new EncodedPush(n.recipients(),codec.write(n.packet()))).toList();
                 } catch(GameFailure e) { category="business_error";output=codec.write(GameJsonCodec.error(e.state(),e.getMessage())); }
                 catch(IllegalArgumentException e) { category="business_error";output=codec.write(GameJsonCodec.error(-4,"请求参数无效")); }
                 catch(Exception e) { category="unavailable";output=codec.write(GameJsonCodec.error(-5,"服务暂不可用，请稍后重试")); }
                 var completed=result;
                 String response=output;
+                List<EncodedPush> notifications=pushes;
                 String apiName=api,resultCategory=category;
                 ctx.executor().execute(()->{
                     telemetry.complete(apiName,resultCategory,System.nanoTime()-input.receivedNanos());
@@ -72,6 +77,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
                         if(!ctx.channel().isWritable()) {close(ctx,1013,"输出队列已满");}
                         else ctx.writeAndFlush(new TextWebSocketFrame(response));
                     } else cleanup();
+                    notifications.forEach(push->registry.push(push.recipients(),push.packet()));
                     busy=false;drain(ctx);
                 });
             });

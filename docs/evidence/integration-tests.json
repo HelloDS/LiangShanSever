@@ -1,37 +1,69 @@
 {
-  "executedAt": "2026-11-06T16:19:00.612786+00:00",
+  "executedAt": "2026-11-06T16:43:40.427600+00:00",
   "suites": [
-    {
-      "suite": "com.ruoyi.game.protocol.GameJsonCodecTest",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "seconds": 0.162,
-      "cases": [
-        "preservesLegacyFieldsAndValueTypes",
-        "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests"
-      ]
-    },
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest",
       "tests": 9,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 15.645,
+      "seconds": 0.711,
       "cases": [
-        "authenticationStorageFailureUsesHttp503AndPreservesCredential",
-        "redisSessionFailureDoesNotCountAsSuccessfulLogin",
-        "identityAndLoginDeduplicationSurviveLossOfRedis",
-        "finalRuntimeContainsOnlyDruidAsConnectionPool",
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
-        "parallelAdminRetriesHaveOneAuditAndOneSessionRevocation",
+        "authenticationStorageFailureUsesHttp503AndPreservesCredential",
+        "finalRuntimeContainsOnlyDruidAsConnectionPool",
+        "identityAndLoginDeduplicationSurviveLossOfRedis",
         "lateInitializationFailureRollsBackAccountCredentialRoleAndWallet",
         "newGameSessionReplacesOldTokenForTheSamePlayer",
+        "parallelAdminRetriesHaveOneAuditAndOneSessionRevocation",
+        "redisSessionFailureDoesNotCountAsSuccessfulLogin",
         "reportContactIsEncryptedAndFullReadIsSeparatelyAudited"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$ClubOrganization",
+      "tests": 9,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 1.287,
+      "cases": [
+        "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
+        "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
+        "concurrentApplicantsCannotOversubscribeLastSeat",
+        "concurrentApprovalCreatesOneMembershipAndOneEvent",
+        "consumerManagementFlagIncludesOwnerAndAutoBuildRemainsClosed",
+        "leaveApprovalMaintainsCountsAndReadableMessages",
+        "pendingJoinProfilesAreVisibleOnlyToManagers",
+        "resourceAndRoleChecksRejectCrossClubAndPeerRemoval",
+        "unknownManagerLimitDoesNotGrantUnlimitedManagers"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.protocol.GameJsonCodecTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.049,
+      "cases": [
+        "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
+        "preservesLegacyFieldsAndValueTypes"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.transport.ConnectionRegistryTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.117,
+      "cases": [
+        "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
+        "slowWritesHaveBoundedPendingPushesAndReleaseOnFailure"
       ]
     }
   ],
+  "total": 22,
   "result": "PASS"
 }
