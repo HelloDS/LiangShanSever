@@ -50,6 +50,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
         Inbound input=inbox.remove();
         queuedBytes-=input.bytes();
         ConnectionRegistry.Binding previous=binding;
+        registry.requestStarted(previous);
         long now=clock.millis();
         if(now-rateWindow>=1000) {rateWindow=now;requestCount=0;}
         boolean limited=++requestCount>40;
@@ -78,7 +79,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
                     if(completed!=null) binding=completed.binding();
                     if(ctx.channel().isActive()) {
                         if(!ctx.channel().isWritable()) {close(ctx,1013,"输出队列已满");}
-                        else ctx.writeAndFlush(new TextWebSocketFrame(response));
+                        else {ctx.writeAndFlush(new TextWebSocketFrame(response));registry.ackQueued(binding);}
                     } else cleanup();
                     notifications.forEach(push->registry.push(push.recipients(),push.packet()));
                     busy=false;drain(ctx);
@@ -94,6 +95,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
             inboundBudget.release(input.bytes());
             telemetry.complete("unknown","unavailable",System.nanoTime()-input.receivedNanos());
             ctx.writeAndFlush(new TextWebSocketFrame(codec.write(GameJsonCodec.error(-5,"服务繁忙，请稍后重试"))));
+            registry.ackQueued(binding);
             busy=false; drain(ctx);
         }
     }

@@ -16,7 +16,7 @@ class ConnectionRegistryTest {
         EmbeddedChannel old=new EmbeddedChannel(),fresh=new EmbeddedChannel();
         try{
             var previous=registry.bind(identity(),old,"first");var current=registry.bind(identity(),fresh,"second");
-            assertFalse(old.isActive());assertFalse(registry.remove(previous));assertTrue(registry.current(current));
+            assertFalse(old.isActive());assertFalse(registry.remove(previous));assertTrue(registry.current(current));registry.ackQueued(current);
             registry.push(List.of(100001L),"{\"cmd\":\"fixture\"}");fresh.runPendingTasks();
             Object frame=fresh.readOutbound();assertNotNull(frame);ReferenceCountUtil.release(frame);assertEquals(0,registry.pendingPushes());
         }finally{old.finishAndReleaseAll();fresh.finishAndReleaseAll();}
@@ -34,6 +34,27 @@ class ConnectionRegistryTest {
             assertFalse(fresh.isActive());
         }finally{old.finishAndReleaseAll();fresh.finishAndReleaseAll();}
     }
+    @Test void pushBeforeLoginAckIsHeldAndReleasedInWireOrder(){
+        ConnectionRegistry registry=new ConnectionRegistry(Clock.systemUTC());EmbeddedChannel channel=new EmbeddedChannel();
+        try{
+            var binding=registry.bind(identity(),channel,"fixture");registry.push(List.of(100001L),"{\"cmd\":\"fixture\"}");channel.runPendingTasks();
+            assertNull(channel.readOutbound());assertEquals(1,registry.pendingPushes());
+            channel.writeAndFlush(new io.netty.handler.codec.http.websocketx.TextWebSocketFrame("{\"state\":0}"));registry.ackQueued(binding);channel.runPendingTasks();
+            var ack=(io.netty.handler.codec.http.websocketx.TextWebSocketFrame)channel.readOutbound();var push=(io.netty.handler.codec.http.websocketx.TextWebSocketFrame)channel.readOutbound();
+            assertEquals("{\"state\":0}",ack.text());assertEquals("{\"cmd\":\"fixture\"}",push.text());ReferenceCountUtil.release(ack);ReferenceCountUtil.release(push);assertEquals(0,registry.pendingPushes());
+            registry.requestStarted(binding);registry.push(List.of(100001L),"{\"cmd\":\"next\"}");channel.runPendingTasks();assertNull(channel.readOutbound());
+            channel.close();channel.runPendingTasks();assertEquals(0,registry.pendingPushes());
+        }finally{channel.finishAndReleaseAll();}
+    }
+    @Test void preAckPushOverflowClosesAndReleasesTheSameBoundedBudget(){
+        ConnectionRegistry registry=new ConnectionRegistry(Clock.systemUTC());EmbeddedChannel channel=new EmbeddedChannel();
+        try{
+            registry.bind(identity(),channel,"fixture");
+            for(int i=0;i<64;i++){registry.push(List.of(100001L),"{\"cmd\":\"fixture\"}");channel.runPendingTasks();}
+            assertEquals(64,registry.pendingPushes());assertTrue(channel.isActive());
+            registry.push(List.of(100001L),"{\"cmd\":\"overflow\"}");channel.runPendingTasks();assertFalse(channel.isActive());assertEquals(0,registry.pendingPushes());
+        }finally{channel.finishAndReleaseAll();}
+    }
     @Test void slowWritesHaveBoundedPendingPushesAndReleaseOnFailure(){
         ConnectionRegistry registry=new ConnectionRegistry(Clock.systemUTC());
         List<ChannelPromise> promises=new ArrayList<>();List<Object> frames=new ArrayList<>();
@@ -41,7 +62,7 @@ class ConnectionRegistryTest {
             @Override public void write(ChannelHandlerContext context,Object message,ChannelPromise promise){frames.add(message);promises.add(promise);}
         });
         try{
-            registry.bind(identity(),channel,"fixture");
+            registry.ackQueued(registry.bind(identity(),channel,"fixture"));
             for(int i=0;i<64;i++){registry.push(List.of(100001L),"{\"cmd\":\"fixture\"}");channel.runPendingTasks();}
             assertEquals(64,registry.pendingPushes());assertTrue(channel.isActive());
             registry.push(List.of(100001L),"{\"cmd\":\"overflow\"}");channel.runPendingTasks();
