@@ -25,6 +25,8 @@ scripts/run.sh
 
 首次迁移的管理员处于禁用状态，只在提供初始密码且尚未初始化时启用。后续启动不覆盖已设置密码。数据库持久数据保存在命名 volume；普通停止不会删除。
 
+举报联系方式使用 `.local/local.env` 中的 `GAME_PII_KEY` 加密保存；该密钥与数据库一起保留，丢失后无法解密已有联系方式。匿名举报不保存联系方式。
+
 ```bash
 docker-compose --env-file .local/local.env stop
 ```

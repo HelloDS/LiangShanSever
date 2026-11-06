@@ -24,5 +24,5 @@ export async function guest(){
   const client=await socket();const reg=await client.send('login',{api:'user',c:'reg',account:'tk_'+identity.token,plat_id:'2'});assert.equal(reg.state,0);
   return {token:identity.token,session:reg.sessionToken,uid:reg.loginData.role.uid,client,reg,send(api,c,fields={}){return client.send('logic',{api,c,...fields,sessionToken:reg.sessionToken});}};
 }
-export function sql(query){return execFileSync('docker',['exec','liangshan-mysql-1','sh','-c','MYSQL_PWD="$MYSQL_PASSWORD" mysql --batch --skip-column-names -u"$MYSQL_USER" "$MYSQL_DATABASE" -e "$1"','mysql-test',query],{encoding:'utf8'}).trim();}
+export function sql(query){return execFileSync('docker',['exec','liangshan-mysql-1','sh','-c','MYSQL_PWD="$MYSQL_PASSWORD" mysql --default-character-set=utf8mb4 --batch --skip-column-names -u"$MYSQL_USER" "$MYSQL_DATABASE" -e "$1"','mysql-test',query],{encoding:'utf8'}).trim();}
 export function markTest(uid){assert.match(String(uid),/^\d+$/);sql(`UPDATE user_account a JOIN player_role r ON r.account_id=a.id SET a.is_test=TRUE WHERE r.uid=${uid}`);}

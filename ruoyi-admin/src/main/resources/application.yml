@@ -92,6 +92,7 @@ management:
     health:
       show-details: never
 game:
+  pii-key: ${GAME_PII_KEY}
   ws:
     port: ${WS_PORT:8081}
   allowed-origins: ${GAME_ALLOWED_ORIGINS:http://localhost:8080,http://127.0.0.1:8080,http://localhost:7456,http://127.0.0.1:7456,http://localhost:7501,http://127.0.0.1:7501}

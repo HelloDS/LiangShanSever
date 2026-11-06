@@ -19,12 +19,13 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
     private final GameJsonCodec codec;
     private final Clock clock;
     private final GameTelemetry telemetry;
-    private record Inbound(String text,long receivedNanos){ }
+    private record Inbound(String text,long receivedNanos,int bytes){ }
     private final Queue<Inbound> inbox=new ArrayDeque<>();
     private ConnectionRegistry.Binding binding;
     private boolean busy;
     private long rateWindow;
     private int requestCount;
+    private int queuedBytes;
 
     public GameSocketHandler(BusinessExecutor executor,GameDispatcher dispatcher,ConnectionRegistry registry,
                              OnlinePresence presence,GameJsonCodec codec,Clock clock,GameTelemetry telemetry) {
@@ -34,13 +35,16 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
         if(binding!=null) binding.activity(clock.millis());
         if(frame instanceof PongWebSocketFrame) return;
         if(!(frame instanceof TextWebSocketFrame text)) { close(ctx,1003,"只接受 JSON 文本消息"); return; }
-        if(inbox.size()>=64) { close(ctx,1013,"请求队列已满"); return; }
-        inbox.add(new Inbound(text.text(),System.nanoTime())); drain(ctx);
+        int frameBytes=text.content().readableBytes();
+        if(inbox.size()>=64||queuedBytes+frameBytes>1024*1024) { close(ctx,1013,"请求队列已满"); return; }
+        queuedBytes+=frameBytes;
+        inbox.add(new Inbound(text.text(),System.nanoTime(),frameBytes)); drain(ctx);
     }
     private void drain(ChannelHandlerContext ctx) {
         if(busy||inbox.isEmpty()||!ctx.channel().isActive()) return;
         busy=true;
         Inbound input=inbox.remove();
+        queuedBytes-=input.bytes();
         ConnectionRegistry.Binding previous=binding;
         long now=clock.millis();
         if(now-rateWindow>=1000) {rateWindow=now;requestCount=0;}
@@ -86,7 +90,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
     @Override public void channelWritabilityChanged(ChannelHandlerContext ctx) {
         if(!ctx.channel().isWritable()) close(ctx,1013,"输出队列已满");
     }
-    @Override public void channelInactive(ChannelHandlerContext ctx) { inbox.clear();cleanup(); }
+    @Override public void channelInactive(ChannelHandlerContext ctx) { inbox.clear();queuedBytes=0;cleanup(); }
     private void cleanup() {
         ConnectionRegistry.Binding old=binding;
         registry.remove(old);

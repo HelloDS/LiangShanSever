@@ -43,6 +43,9 @@ public class OnlinePresence {
         redis.execute(UPDATE, List.of("game:online:"+binding.identity().uid(),INDEX),
                 Long.toString(binding.epoch()),Long.toString(expires),Long.toString(binding.identity().uid()));
     }
+    public void connected(ConnectionRegistry.Binding binding){
+        try{update(binding);}catch(RuntimeException e){status="UNAVAILABLE";}
+    }
     public void remove(ConnectionRegistry.Binding binding) {
         if (binding == null) return;
         redis.execute(REMOVE,List.of("game:online:"+binding.identity().uid(),INDEX),

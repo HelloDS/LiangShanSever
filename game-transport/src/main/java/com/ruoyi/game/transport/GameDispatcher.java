@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import com.ruoyi.game.auth.*;
 import com.ruoyi.game.lobby.PlayerService;
 import com.ruoyi.game.lobby.LobbyService;
+import com.ruoyi.game.lobby.ReportService;
 import com.ruoyi.game.protocol.*;
 import tools.jackson.databind.JsonNode;
 import io.netty.channel.Channel;
@@ -18,9 +19,12 @@ public class GameDispatcher {
     private final OnlinePresence online;
     private final LobbyService lobby;
     private final GameRateLimiter limiter;
+    private final ReportService reports;
+    private final GameLoginService login;
     public GameDispatcher(GuestAuthService auth, GameSessionService sessions, PlayerService players,
-                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter) {
+                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login) {
         this.auth=auth; this.sessions=sessions; this.players=players; this.registry=registry; this.online=online;this.lobby=lobby;this.limiter=limiter;
+        this.reports=reports;this.login=login;
     }
     public record Result(Map<String,Object> ack, ConnectionRegistry.Binding binding) { }
     public Result dispatch(WireRequest request, ConnectionRegistry.Binding binding, Channel channel) {
@@ -30,20 +34,23 @@ public class GameDispatcher {
                 String account=GameJsonCodec.text(request.data(),"account",46);
                 if (!account.startsWith("tk_")) throw new GameFailure(-5,"请使用有效游客凭据");
                 GuestIdentity identity=auth.verify(account.substring(3));
+                limiter.account(identity.uid());
                 if (binding != null && binding.identity().uid()!=identity.uid()) throw new GameFailure(-5,"请重新建立连接");
-                String token=sessions.create(identity);
-                auth.recordLogin(identity,"REG");
-                binding=registry.bind(identity,channel,token); online.update(binding);
+                Map<String,Object> role=players.ownRole(identity.uid());
+                Map<String,Object> notices=players.notices();
+                String token=login.login(identity,"REG",null);
+                binding=registry.bind(identity,channel,token); online.connected(binding);
                 Map<String,Object> loginData=new LinkedHashMap<>();
-                loginData.put("role",players.ownRole(identity.uid())); loginData.put("notices",players.notices());
+                loginData.put("role",role); loginData.put("notices",notices);
                 loginData.put("paoMaDeng",List.of()); loginData.put("m_id",null); loginData.put("saplingIsOpen",false);
                 return new Result(Map.of("state",0,"sessionToken",token,"user",Map.of("id",identity.accountId(),"uid",identity.uid()),"loginData",loginData),binding);
             }
             if ("resetfd".equals(request.command())) {
                 String token=GameJsonCodec.text(request.data(),"sessionToken",43);
                 GuestIdentity identity=sessions.verify(token);
+                limiter.account(identity.uid());
                 if (binding!=null && binding.identity().uid()!=identity.uid()) throw new GameFailure(-5,"连接身份不匹配");
-                auth.recordLogin(identity,"RESETFD"); binding=registry.bind(identity,channel,token); online.update(binding);
+                login.login(identity,"RESETFD",token); binding=registry.bind(identity,channel,token); online.connected(binding);
                 return new Result(Map.of("state",0),binding);
             }
             throw new GameFailure(-2,"登录操作不可用");
@@ -85,10 +92,20 @@ public class GameDispatcher {
             case "koi/getInfo" -> lobby.koi(uid);
             case "activity/incrActivityVisit" -> {lobby.visit(uid,GameJsonCodec.text(data,"activityId",48));yield Map.of("state",0);}
             case "cfg/getGame" -> lobby.gameConfiguration(GameJsonCodec.text(data,"game_id",4));
+            case "inform/addInformInfo" -> {
+                if(!data.path("contact_way").isIntegralNumber())throw new GameFailure(-4,"联系类型无效");
+                reports.submit(uid,new ReportService.Submission(GameJsonCodec.text(data,"type",32),data.get("contact_way").asInt(),optionalText(data,"tel",32),optionalText(data,"wechat",80),GameJsonCodec.text(data,"detail",2000)));
+                yield Map.of("state",0);
+            }
             default -> throw new GameFailure(-2,"此功能尚未开放");
         };
     }
     private static long uid(JsonNode data,String field) { return uid(data.path(field)); }
+    private static String optionalText(JsonNode data,String field,int max){
+        JsonNode value=data.get(field);if(value==null||value.isNull())return "";
+        if(!value.isString()||value.asString().length()>max)throw new GameFailure(-4,"字段无效："+field);
+        return value.asString();
+    }
     private static long uid(JsonNode id) {
         String value=id.isIntegralNumber()?id.asString():id.isString()?id.asString():"";
         if(!value.matches("[1-9][0-9]{0,8}")) throw new GameFailure(-2,"玩家编号无效");

@@ -13,3 +13,6 @@ export const noticeVersions = (id: string) => request({ url: `/game-admin/notice
 export const noticeDraft = (data: unknown, key: string) => request({ url: '/game-admin/notices/drafts', method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })
 export const noticeAction = (id: string, action: string, data: unknown, key: string) => request({ url: `/game-admin/notices/${id}/${action}`, method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })
 export const noticePreview = (data: unknown) => request({ url: '/game-admin/notices/preview', method: 'post', data, responseType: 'blob', headers: { repeatSubmit: false } })
+export const reports = (params: Record<string, unknown>) => request({ url: '/game-admin/reports', method: 'get', params })
+export const reportProcess = (id: string, data: unknown, key: string) => request({ url: `/game-admin/reports/${id}/process`, method: 'post', data, headers: { 'Idempotency-Key': key, repeatSubmit: false } })
+export const reportContact = (id: string, reason: string) => request({ url: `/game-admin/reports/${id}/contact`, method: 'post', data: { reason }, headers: { repeatSubmit: false } })

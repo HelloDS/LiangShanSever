@@ -10,11 +10,17 @@ local.mkdir(exist_ok=True)
 path = local / 'local.env'
 if not path.exists():
     values = {'MYSQL_DATABASE': 'liangshan', 'MYSQL_USER': 'liangshan'}
-    for name in ['MYSQL_PASSWORD', 'MYSQL_ROOT_PASSWORD', 'REDIS_PASSWORD', 'ADMIN_INITIAL_PASSWORD', 'ADMIN_TOKEN_SECRET']:
-        values[name] = secrets.token_urlsafe(64 if name == 'ADMIN_TOKEN_SECRET' else 15 if name == 'ADMIN_INITIAL_PASSWORD' else 24)
+    for name in ['MYSQL_PASSWORD', 'MYSQL_ROOT_PASSWORD', 'REDIS_PASSWORD', 'ADMIN_INITIAL_PASSWORD', 'ADMIN_TOKEN_SECRET', 'GAME_PII_KEY']:
+        values[name] = secrets.token_urlsafe(64 if name == 'ADMIN_TOKEN_SECRET' else 32 if name == 'GAME_PII_KEY' else 15 if name == 'ADMIN_INITIAL_PASSWORD' else 24)
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'w') as stream:
         stream.write(''.join(f'{name}={value}\n' for name, value in values.items()))
     print('已创建 .local/local.env（权限 600）；管理员密码请在本机文件中查看。')
 else:
-    print('保留现有 .local/local.env。')
+    if not any(line.startswith('GAME_PII_KEY=') for line in path.read_text().splitlines()):
+        with path.open('a') as stream:
+            stream.write('GAME_PII_KEY=' + secrets.token_urlsafe(32) + '\n')
+        os.chmod(path, 0o600)
+        print('保留现有凭据，已补充联系方式加密密钥。')
+    else:
+        print('保留现有 .local/local.env。')

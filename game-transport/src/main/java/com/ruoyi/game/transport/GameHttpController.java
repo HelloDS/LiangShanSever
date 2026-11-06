@@ -33,7 +33,7 @@ public class GameHttpController {
 
     @PostMapping(value="/api/auth/{action}",produces=MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<String> auth(@PathVariable String action,HttpServletRequest request) throws IOException {
-        limiter.authentication(request.getRemoteAddr());
+        if(!"logout".equals(action))limiter.authentication(request.getRemoteAddr());
         byte[] bytes=request.getInputStream().readNBytes(GameJsonCodec.MAX_BYTES+1);
         if(bytes.length>GameJsonCodec.MAX_BYTES) return json(GameJsonCodec.error(-2,"请求过长"));
         var data=codec.read(new String(bytes,StandardCharsets.UTF_8));

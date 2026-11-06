@@ -25,6 +25,7 @@ import com.ruoyi.game.admin.GameAdminService;
 import com.ruoyi.game.auth.*;
 import com.ruoyi.game.persistence.mapper.*;
 import com.ruoyi.game.protocol.GameJsonCodec;
+import com.ruoyi.game.lobby.ReportService;
 
 @Testcontainers
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0"})
@@ -45,13 +46,16 @@ class GameFoundationIntegrationTest {
         properties.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));
         properties.add("spring.data.redis.password",()->REDIS_PASSWORD);
         properties.add("token.secret",SecureTokens::create);
+        properties.add("game.pii-key",SecureTokens::create);
     }
     @Autowired GuestAuthService auth;
-    @Autowired GameSessionService sessions;
+    @MockitoSpyBean GameSessionService sessions;
+    @Autowired GameLoginService login;
     @Autowired GameAdminService admin;
     @Autowired GameJsonCodec codec;
     @Autowired JdbcTemplate jdbc;
     @Autowired Environment environment;
+    @Autowired ReportService reports;
     @MockitoSpyBean LobbyMapper lobby;
     @MockitoSpyBean IdentityMapper identities;
 
@@ -74,6 +78,19 @@ class GameFoundationIntegrationTest {
         doThrow(new IllegalStateException("injected failure")).when(lobby).createKoi(anyLong(),any());
         assertThrows(IllegalStateException.class,auth::createGuest);
         tables.forEach(table->assertEquals(counts.get(table),jdbc.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class),table));
+    }
+    @Test void newGameSessionReplacesOldTokenForTheSamePlayer(){
+        GuestIdentity identity=auth.verify(auth.createGuest());
+        String old=sessions.create(identity),fresh=sessions.create(identity);
+        assertThrows(GameFailure.class,()->sessions.verify(old));
+        assertEquals(identity.uid(),sessions.verify(fresh).uid());
+    }
+    @Test void redisSessionFailureDoesNotCountAsSuccessfulLogin(){
+        GuestIdentity identity=auth.verify(auth.createGuest());
+        doThrow(new org.springframework.data.redis.RedisConnectionFailureException("injected failure")).when(sessions).create(identity);
+        assertThrows(org.springframework.data.redis.RedisConnectionFailureException.class,()->login.login(identity,"REG",null));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM player_login_daily WHERE uid=?",Integer.class,identity.uid()));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM player_login_event WHERE uid=?",Integer.class,identity.uid()));
     }
 
     @Test void parallelAdminRetriesHaveOneAuditAndOneSessionRevocation() throws Exception {
@@ -103,5 +120,26 @@ class GameFoundationIntegrationTest {
     @Test void finalRuntimeContainsOnlyDruidAsConnectionPool(){
         assertThrows(ClassNotFoundException.class,()->Class.forName("com.zaxxer.hikari.HikariDataSource"));
         assertTrue(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=TRUE",Integer.class)>=5);
+    }
+
+    @Test void anonymousReportDiscardsContactAndHidesReporterInDefaultList(){
+        GuestIdentity identity=auth.verify(auth.createGuest());
+        reports.submit(identity.uid(),new ReportService.Submission("名称违规",-1,"13800000000","test_contact","匿名测试说明"));
+        var row=jdbc.queryForMap("SELECT phone_cipher,wechat_cipher,id FROM user_report WHERE reporter_uid=?",identity.uid());
+        assertNull(row.get("phone_cipher"));assertNull(row.get("wechat_cipher"));
+        @SuppressWarnings("unchecked") var rows=(List<Map<String,Object>>)reports.list(1,"PENDING",1,200).get("rows");
+        var visible=rows.stream().filter(value->row.get("id").equals(value.get("id"))).findFirst().orElseThrow();
+        assertNull(visible.get("reporterUid"));assertEquals("匿名",visible.get("contactMask"));
+    }
+
+    @Test void reportContactIsEncryptedAndFullReadIsSeparatelyAudited(){
+        GuestIdentity identity=auth.verify(auth.createGuest());
+        reports.submit(identity.uid(),new ReportService.Submission("游戏作弊",1,"13800000000","test_contact","联系方式加密测试"));
+        var row=jdbc.queryForMap("SELECT id,phone_cipher FROM user_report WHERE reporter_uid=?",identity.uid());
+        assertTrue(((String)row.get("phone_cipher")).startsWith("v1."));
+        assertFalse(((String)row.get("phone_cipher")).contains("13800000000"));
+        assertEquals("13800000000",reports.contacts(1,(String)row.get("id"),"本地权限验收").get("telephone"));
+        String audit=jdbc.queryForObject("SELECT after_json FROM admin_audit WHERE target=? AND action='report:contact'",String.class,row.get("id"));
+        assertFalse(audit.contains("13800000000"));assertFalse(audit.contains("test_contact"));
     }
 }
