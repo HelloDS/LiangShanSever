@@ -50,6 +50,6 @@ public interface WalletReconciliationMapper {
     @Options(timeout=2) List<Map<String,Object>> details(@Param("id") String id,@Param("status") String status,@Param("offset") int offset,@Param("limit") int limit);
     @Select("<script>SELECT COUNT(*) FROM wallet_reconciliation_detail WHERE run_id=#{id}<if test='status!=null'> AND status=#{status}</if></script>")
     @Options(timeout=2) long detailsCount(@Param("id") String id,@Param("status") String status);
-    @Select("SELECT status,COUNT(*) AS total FROM wallet_reconciliation_run WHERE status NOT IN ('DONE','DONE_WITH_ISSUES') GROUP BY status")
+    @Select("SELECT status,COUNT(*) AS total FROM wallet_reconciliation_run WHERE status IN ('READY','RUNNING','FAILED','DONE_WITH_ISSUES') GROUP BY status")
     @Options(timeout=2) List<Map<String,Object>> backlog();
 }

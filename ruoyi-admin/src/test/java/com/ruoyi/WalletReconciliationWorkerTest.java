@@ -46,4 +46,25 @@ class WalletReconciliationWorkerTest {
         var worker=worker("2026-11-06T20:00:00Z");try{worker.start();assertTrue(failed.await(2,TimeUnit.SECONDS));}finally{worker.stop();}
         assertEquals(0,metrics.get("game.reconciliation.backlog.available").gauge().value());assertTrue(Double.isNaN(metrics.get("game.reconciliation.runs").tag("status","FAILED").gauge().value()));verify(jobs,never()).claim();
     }
+    @Test void persistedDifferencesRemainObservableWithoutBeingCountedAsTechnicalFailure() throws Exception {
+        when(mapper.backlog()).thenReturn(List.of(Map.of("status","DONE_WITH_ISSUES","total",2L)));CountDownLatch sampled=new CountDownLatch(1);
+        when(jobs.claim()).thenAnswer(invocation->{sampled.countDown();return null;});var worker=worker("2026-11-06T20:00:00Z");
+        try{worker.start();assertTrue(sampled.await(2,TimeUnit.SECONDS));}finally{worker.stop();}
+        assertEquals(2,metrics.get("game.reconciliation.runs").tag("status","DONE_WITH_ISSUES").gauge().value());assertEquals(0,metrics.get("game.reconciliation.failed").counter().count());
+    }
+    @Test void lateStoppedGenerationCannotScheduleAnExtraPollInRestartedWorker() throws Exception {
+        CountDownLatch firstEntered=new CountDownLatch(1),releaseOld=new CountDownLatch(1),oldExited=new CountDownLatch(1),newEntered=new CountDownLatch(1);
+        var calls=new java.util.concurrent.atomic.AtomicInteger();
+        var oldThread=new java.util.concurrent.atomic.AtomicReference<Thread>();
+        when(jobs.claim()).thenAnswer(invocation->{
+            if(calls.incrementAndGet()==1){oldThread.set(Thread.currentThread());firstEntered.countDown();boolean released=false;while(!released)try{releaseOld.await();released=true;}catch(InterruptedException ignored){/* 模拟不能由线程中断取消的数据库工作。 */}oldExited.countDown();}
+            else newEntered.countDown();return null;
+        });
+        var worker=worker("2026-11-06T20:00:00Z");
+        try{
+            worker.start();assertTrue(firstEntered.await(2,TimeUnit.SECONDS));worker.stop();worker.start();assertTrue(newEntered.await(2,TimeUnit.SECONDS));releaseOld.countDown();assertTrue(oldExited.await(2,TimeUnit.SECONDS));
+            long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(2);while((oldThread.get().isAlive()||metrics.get("game.reconciliation.scheduled").gauge().value()!=1)&&System.nanoTime()<until)Thread.sleep(1);
+            assertFalse(oldThread.get().isAlive());assertEquals(1,metrics.get("game.reconciliation.scheduled").gauge().value());assertEquals(2,calls.get());
+        }finally{releaseOld.countDown();worker.stop();}
+    }
 }

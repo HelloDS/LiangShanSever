@@ -37,18 +37,18 @@ public class WalletReconciliationWorker implements SmartLifecycle {
         this.jobs=jobs;this.mapper=mapper;this.clock=clock;dailyAt=LocalTime.of(hour,minute);
         checked=metrics.counter("game.reconciliation.checked");failed=metrics.counter("game.reconciliation.failed");duration=metrics.timer("game.reconciliation.check.duration");
         Gauge.builder("game.reconciliation.backlog.available",this,value->value.backlog==null?0:1).register(metrics);
-        for(String status:List.of("READY","RUNNING","FAILED"))Gauge.builder("game.reconciliation.runs",this,value->value.backlog==null?Double.NaN:value.backlog.getOrDefault(status,0L)).tag("status",status).register(metrics);
+        for(String status:List.of("READY","RUNNING","FAILED","DONE_WITH_ISSUES"))Gauge.builder("game.reconciliation.runs",this,value->value.backlog==null?Double.NaN:value.backlog.getOrDefault(status,0L)).tag("status",status).register(metrics);
         Gauge.builder("game.reconciliation.scheduled",this,value->value.scheduler==null?0:value.scheduler.getQueue().size()).register(metrics);
     }
     @Override public synchronized void start(){
         if(running)return;running=true;
         scheduler=new ScheduledThreadPoolExecutor(1,Thread.ofPlatform().name("wallet-reconciliation").daemon().factory(),new ThreadPoolExecutor.AbortPolicy());
-        scheduler.setRemoveOnCancelPolicy(true);scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);scheduler.execute(this::poll);
+        scheduler.setRemoveOnCancelPolicy(true);scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);scheduler.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);var generation=scheduler;scheduler.execute(()->poll(generation));
     }
-    private void poll(){
+    private void poll(ScheduledThreadPoolExecutor generation){
         long delay=5000;WalletReconciliationJobs.Lease lease=null;
         try{
-            if(!running)return;
+            if(!running||scheduler!=generation)return;
             var local=ZonedDateTime.ofInstant(clock.instant(),ZoneId.of("Asia/Shanghai"));
             if(!local.toLocalTime().isBefore(dailyAt)&&!local.toLocalDate().equals(createdDate)){
                 jobs.ensureToday("SYSTEM",null);createdDate=local.toLocalDate();
@@ -56,26 +56,27 @@ public class WalletReconciliationWorker implements SmartLifecycle {
             if(System.currentTimeMillis()>=nextSample){
                 nextSample=System.currentTimeMillis()+10_000;Map<String,Long> sample=new HashMap<>();
                 for(var row:mapper.backlog())sample.put((String)row.get("status"),((Number)row.get("total")).longValue());
-                backlog=Map.copyOf(sample);if(sample.getOrDefault("FAILED",0L)>0)warn();
+                if(scheduler==generation){backlog=Map.copyOf(sample);if(sample.getOrDefault("FAILED",0L)>0||sample.getOrDefault("DONE_WITH_ISSUES",0L)>0)warn();}
             }
             lease=jobs.claim();if(lease==null)return;
+            if(!running||scheduler!=generation){jobs.release(lease);lease=null;return;}
             long began=System.nanoTime();
-            for(int account=0;running&&account<32&&System.nanoTime()-began<1_000_000_000L;account++){
+            for(int account=0;running&&scheduler==generation&&account<32&&System.nanoTime()-began<1_000_000_000L;account++){
                 long checkBegan=System.nanoTime();WalletReconciliationJobs.Step step;
                 try{step=jobs.process(lease);}finally{duration.record(System.nanoTime()-checkBegan,TimeUnit.NANOSECONDS);}
                 if(step==WalletReconciliationJobs.Step.PROGRESSED)checked.increment();else break;
             }
             jobs.release(lease);lease=null;delay=250;
         }catch(RuntimeException failure){
-            backlog=null;failed.increment();warn();
+            if(scheduler==generation)backlog=null;failed.increment();warn();
             if(lease!=null)try{jobs.failed(lease,"CHECK_RESULT_UNKNOWN");}catch(RuntimeException ignored){/* 保留租约，后续到期接管。 */}
         }finally{
-            if(running)try{scheduler.schedule(this::poll,delay,TimeUnit.MILLISECONDS);}catch(RejectedExecutionException ignored){ }
+            if(running&&scheduler==generation)try{generation.schedule(()->poll(generation),delay,TimeUnit.MILLISECONDS);}catch(RejectedExecutionException ignored){ }
         }
     }
     private void warn(){
         long now=System.currentTimeMillis(),next=nextWarning.get();
-        if(now>=next&&nextWarning.compareAndSet(next,now+60_000))log.error("账本核对任务未完成，请检查任务状态；没有修改账户资产或记录原始异常报文");
+        if(now>=next&&nextWarning.compareAndSet(next,now+60_000))log.error("账本核对存在差异记录或未完成任务，请核查持久结果；没有自动调整账户资产或记录原始异常报文");
     }
     @Override public synchronized void stop(){
         running=false;if(scheduler!=null){scheduler.shutdown();try{if(!scheduler.awaitTermination(6,TimeUnit.SECONDS))scheduler.shutdownNow();}catch(InterruptedException failure){scheduler.shutdownNow();Thread.currentThread().interrupt();}}
