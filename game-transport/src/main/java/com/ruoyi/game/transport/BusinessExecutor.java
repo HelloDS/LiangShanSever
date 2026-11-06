@@ -9,5 +9,7 @@ public class BusinessExecutor {
     private final ThreadPoolExecutor executor = new ThreadPoolExecutor(4,16,30,TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(256),Thread.ofPlatform().name("game-business-",0).factory(),new ThreadPoolExecutor.AbortPolicy());
     public void execute(Runnable task) { executor.execute(task); }
+    public int queued(){return executor.getQueue().size();}
+    public int active(){return executor.getActiveCount();}
     @PreDestroy public void close() { executor.shutdownNow(); }
 }

@@ -25,13 +25,14 @@ public class NettyGameServer implements SmartLifecycle {
     private final OnlinePresence presence;
     private final GameJsonCodec codec;
     private final Clock clock;
+    private final GameTelemetry telemetry;
     private EventLoopGroup boss,workers;
     private Channel server;
     public NettyGameServer(@Value("${game.ws.port:8081}") int port,@Value("${game.allowed-origins}") String origins,
                            BusinessExecutor executor,GameDispatcher dispatcher,ConnectionRegistry registry,
-                           OnlinePresence presence,GameJsonCodec codec,Clock clock) {
+                           OnlinePresence presence,GameJsonCodec codec,Clock clock,GameTelemetry telemetry) {
         this.port=port;this.origins=Set.copyOf(Arrays.asList(origins.split(",")));this.executor=executor;this.dispatcher=dispatcher;
-        this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;
+        this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;this.telemetry=telemetry;
     }
     @Override public void start() {
         boss=new NioEventLoopGroup(1);workers=new NioEventLoopGroup(Math.min(4,Runtime.getRuntime().availableProcessors()));
@@ -46,7 +47,7 @@ public class NettyGameServer implements SmartLifecycle {
                                     new WebSocketServerProtocolHandler(WebSocketServerProtocolConfig.newBuilder().websocketPath("/")
                                             .maxFramePayloadLength(GameJsonCodec.MAX_BYTES).dropPongFrames(false).build()),
                                     new WebSocketFrameAggregator(GameJsonCodec.MAX_BYTES),new IdleStateHandler(90,30,0),
-                                    new GameSocketHandler(executor,dispatcher,registry,presence,codec,clock));
+                                    new GameSocketHandler(executor,dispatcher,registry,presence,codec,clock,telemetry));
                         }
                     }).bind("127.0.0.1",port).syncUninterruptibly().channel();
         } catch(RuntimeException e) {stop();throw e;}

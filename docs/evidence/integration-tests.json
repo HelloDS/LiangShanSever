@@ -1,0 +1,33 @@
+{
+  "executedAt": "2026-11-06T16:00:02.841472+00:00",
+  "suites": [
+    {
+      "suite": "com.ruoyi.game.protocol.GameJsonCodecTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.148,
+      "cases": [
+        "preservesLegacyFieldsAndValueTypes",
+        "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 14.401,
+      "cases": [
+        "authenticationStorageFailureUsesHttp503AndPreservesCredential",
+        "identityAndLoginDeduplicationSurviveLossOfRedis",
+        "finalRuntimeContainsOnlyDruidAsConnectionPool",
+        "parallelAdminRetriesHaveOneAuditAndOneSessionRevocation",
+        "lateInitializationFailureRollsBackAccountCredentialRoleAndWallet"
+      ]
+    }
+  ],
+  "result": "PASS"
+}

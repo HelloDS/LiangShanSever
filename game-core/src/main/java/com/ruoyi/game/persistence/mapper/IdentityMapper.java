@@ -56,6 +56,6 @@ public interface IdentityMapper {
     @Update("UPDATE player_role SET latitude=#{latitude},longitude=#{longitude},version=version+1 WHERE uid=#{uid}")
     int location(@Param("uid") long uid, @Param("latitude") double latitude, @Param("longitude") double longitude);
 
-    @Select("SELECT id,title,content FROM game_notice WHERE published=TRUE ORDER BY id DESC LIMIT 50")
+    @Select("SELECT id,version,title,image_link AS imageLink,click_link AS clickLink FROM game_notice WHERE published=TRUE ORDER BY id DESC LIMIT 4")
     List<Map<String,Object>> notices();
 }

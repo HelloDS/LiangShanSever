@@ -23,7 +23,7 @@ public class GameSessionService {
     public GuestIdentity verify(String token) {
         String key = key(token);
         String value = redis.opsForValue().get(key);
-        if (value == null) throw new GameFailure(-1, "会话已失效，请重新登录");
+        if (value == null) throw new GameFailure(-5, "会话已失效，请重新登录");
         var data = codec.read(value);
         GuestIdentity identity = new GuestIdentity(data.get("accountId").asLong(), data.get("credentialId").asString(),
                 data.get("uid").asLong(), data.get("sessionVersion").asLong(), data.get("test").asBoolean());

@@ -6,15 +6,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ruoyi.game.persistence.mapper.IdentityMapper;
+import com.ruoyi.game.persistence.mapper.LobbyMapper;
 
 @Service
 public class GuestAuthService {
     private final IdentityMapper mapper;
     private final Clock clock;
     private final long credentialDays;
+    private final LobbyMapper lobby;
 
-    public GuestAuthService(IdentityMapper mapper, Clock clock, @Value("${game.guest-credential-days:365}") long credentialDays) {
-        this.mapper = mapper; this.clock = clock; this.credentialDays = credentialDays;
+    public GuestAuthService(IdentityMapper mapper, LobbyMapper lobby, Clock clock, @Value("${game.guest-credential-days:365}") long credentialDays) {
+        this.mapper = mapper; this.lobby=lobby; this.clock = clock; this.credentialDays = credentialDays;
     }
 
     @Transactional
@@ -28,6 +30,7 @@ public class GuestAuthService {
         Map<String,Object> role = new HashMap<>(Map.of("accountId", accountId, "name", "游客" + accountId, "now", now));
         mapper.insertRole(role);
         mapper.insertWallets(((Number)role.get("uid")).longValue());
+        lobby.createKoi(((Number)role.get("uid")).longValue(),now);
         return token;
     }
 
@@ -47,7 +50,7 @@ public class GuestAuthService {
     public void verifySession(GuestIdentity identity) {
         Map<String,Object> row = mapper.sessionIdentity(identity.credentialId(), identity.accountId());
         verifyStatus(row);
-        if (((Number)row.get("sessionVersion")).longValue() != identity.sessionVersion()) throw new GameFailure(-1, "会话已失效，请重新登录");
+        if (((Number)row.get("sessionVersion")).longValue() != identity.sessionVersion()) throw new GameFailure(-5, "会话已失效，请重新登录");
     }
 
     @Transactional
@@ -72,9 +75,9 @@ public class GuestAuthService {
 
     private void verifyStatus(Map<String,Object> row) {
         if (row == null || !"ACTIVE".equals(row.get("credentialStatus")) || !expiry(row.get("expiresAt")).isAfter(now())) {
-            throw new GameFailure(-1, "登录凭据已失效");
+            throw new GameFailure(-5, "登录凭据已失效");
         }
-        if (!"ACTIVE".equals(row.get("status"))) throw new GameFailure(-1, "账号已停用");
+        if (!"ACTIVE".equals(row.get("status"))) throw new GameFailure(-134, "账号已停用");
     }
 
     private static LocalDateTime expiry(Object value) {

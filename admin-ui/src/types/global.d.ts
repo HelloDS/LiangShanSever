@@ -19,10 +19,6 @@ interface ImportMeta {
 // element-plus
 declare module 'element-plus'
 
-// vue
-declare module 'vue' {
-  interface ComponentInternalInstance { proxy: any }
-}
 
 // nprogress
 declare module 'nprogress' {

@@ -5,6 +5,7 @@ import java.util.Map;
 import tools.jackson.core.StreamReadConstraints;
 import tools.jackson.core.json.JsonFactory;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /** 独立、不可变的游戏协议边界，禁止使用后台响应包装和全局 mapper。 */
@@ -12,13 +13,16 @@ public final class GameJsonCodec {
     public static final int MAX_BYTES = 256 * 1024;
     private final JsonMapper mapper = JsonMapper.builder(JsonFactory.builder()
             .streamReadConstraints(StreamReadConstraints.builder().maxNestingDepth(32)
-                    .maxStringLength(MAX_BYTES).maxNumberLength(32).build()).build()).build();
+                    .maxStringLength(MAX_BYTES).maxNumberLength(32).build()).build())
+            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
 
     public JsonNode read(String json) {
         if (json == null || json.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) {
             throw new IllegalArgumentException("消息长度超限");
         }
-        JsonNode node = mapper.readTree(json);
+        JsonNode node;
+        try { node = mapper.readTree(json); }
+        catch (tools.jackson.core.JacksonException e) { throw new IllegalArgumentException("JSON 格式无效"); }
         if (node == null || !node.isObject()) throw new IllegalArgumentException("请求必须是对象");
         return node;
     }

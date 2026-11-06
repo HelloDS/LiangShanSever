@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import WebSocket from 'ws';
+import { markTest } from './test-client.mjs';
 
 const base = process.env.GAME_BASE_URL || 'http://localhost:8080';
 const env = Object.fromEntries((await readFile(new URL('../.local/local.env',import.meta.url),'utf8')).trim().split('\n').map(line=>line.split('=')));
@@ -27,8 +28,9 @@ const guest=await json('/api/auth/guest',{});assert.equal(guest.state,0);assert.
 assert.equal((await json('/api/auth/check',{token:guest.token})).state,0);check('真实游客创建及持久凭据校验');
 const first=await socket();
 const reg=await first.send('login',{api:'user',c:'reg',account:'tk_'+guest.token,plat_id:'2'});
-assert.equal(reg.state,0);assert.ok(Number.isInteger(reg.loginData.role.uid));assert.ok(Array.isArray(reg.loginData.notices));assert.ok(Array.isArray(reg.loginData.paoMaDeng));
+assert.equal(reg.state,0);assert.ok(Number.isInteger(reg.loginData.role.uid));assert.ok(reg.loginData.notices===null||typeof reg.loginData.notices==='object'&&!Array.isArray(reg.loginData.notices));assert.ok(Array.isArray(reg.loginData.paoMaDeng));
 const uid=reg.loginData.role.uid;
+markTest(uid);
 assert.equal(reg.loginData.role.card,0);assert.equal(reg.loginData.role.diamond,0);check('WS 注册与数据库真实角色/零余额');
 first.ws.send(JSON.stringify({path:'logic',reqData:{api:'role',c:'syncCard',sessionToken:reg.sessionToken}}));
 first.ws.send(JSON.stringify({path:'logic',reqData:{api:'role',c:'getRoleInfo',targetUid:uid,sessionToken:reg.sessionToken}}));

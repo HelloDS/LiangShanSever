@@ -1,0 +1,20 @@
+{
+  "allowedChanges": [
+    {
+      "file": "creator/assets/runtime/scripts/host/RestorationApp.ts",
+      "old": "    @property backendUrl = 'http://8.137.34.190';",
+      "new": "    // 原服务端地址：@property backendUrl = 'http://8.137.34.190';\n    @property backendUrl = 'http://localhost:8080';"
+    },
+    {
+      "file": "creator/assets/runtime/Restoration.scene",
+      "old": "\"backendUrl\": \"http://8.137.34.190\"",
+      "new": "\"backendUrl\": \"http://localhost:8080\"",
+      "note": "场景是严格 JSON，原值在本登记保留，不能插入注释。"
+    },
+    {
+      "file": "creator/assets/resources/entry-patches.txt",
+      "old": "    var O = window.RESTORE_BACKEND || 'http://8.137.34.190';",
+      "new": "    // 原服务端地址：var O = window.RESTORE_BACKEND || 'http://8.137.34.190';\r\n    var O = window.RESTORE_BACKEND || 'http://localhost:8080';"
+    }
+  ]
+}

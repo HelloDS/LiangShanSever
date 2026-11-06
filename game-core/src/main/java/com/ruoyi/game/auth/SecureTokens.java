@@ -15,7 +15,7 @@ public final class SecureTokens {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
     public static String hash(String value) {
-        if (value == null || !value.matches("[A-Za-z0-9_-]{43}")) throw new GameFailure(-1, "登录凭据无效");
+        if (value == null || !value.matches("[A-Za-z0-9_-]{43}")) throw new GameFailure(-5, "登录凭据无效");
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
         catch (NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
     }

@@ -6,6 +6,9 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import com.ruoyi.game.persistence.mapper.GameAdminMapper;
+import com.ruoyi.game.auth.GameFailure;
+import com.ruoyi.game.auth.GameSessionService;
 
 @Component
 public class OnlinePresence {
@@ -27,9 +30,11 @@ public class OnlinePresence {
     private final ConnectionRegistry registry;
     private final StringRedisTemplate redis;
     private final Clock clock;
+    private final GameAdminMapper players;
+    private final GameSessionService sessions;
     private volatile String status = "REBUILDING";
-    public OnlinePresence(ConnectionRegistry registry, StringRedisTemplate redis, Clock clock) {
-        this.registry=registry; this.redis=redis; this.clock=clock;
+    public OnlinePresence(ConnectionRegistry registry, StringRedisTemplate redis, Clock clock, GameAdminMapper players, GameSessionService sessions) {
+        this.registry=registry; this.redis=redis; this.clock=clock; this.players=players; this.sessions=sessions;
     }
     public void update(ConnectionRegistry.Binding binding) {
         if (!registry.current(binding)) return;
@@ -47,18 +52,30 @@ public class OnlinePresence {
     public void refresh() {
         try {
             redis.hasKey(INDEX); // Redis 无法连接时不能把空 registry 当成在线为零。
-            for (var binding : registry.all()) update(binding);
+            for (var binding : registry.all()) {
+                try {sessions.verify(binding.token());update(binding);}
+                catch(GameFailure e){registry.disconnect(binding.identity().uid());remove(binding);}
+            }
             redis.opsForZSet().removeRangeByScore(INDEX,Double.NEGATIVE_INFINITY,clock.millis());
             status="AVAILABLE";
         } catch (RuntimeException e) { status="UNAVAILABLE"; }
     }
-    public Map<String,Object> snapshot() {
-        Map<String,Object> result=new LinkedHashMap<>(); result.put("asOf",clock.instant().toString());
+    public record Sample(String dataStatus,String asOf,Set<Long> uids) { }
+    public Sample sample() {
+        String asOf=clock.instant().toString();
         try {
             Set<String> uids=redis.opsForZSet().rangeByScore(INDEX,clock.millis()+1,Double.POSITIVE_INFINITY);
-            if (!"AVAILABLE".equals(status)) { result.put("dataStatus",status); result.put("onlineCount",null); }
-            else { result.put("dataStatus","AVAILABLE"); result.put("onlineCount",uids==null?0:uids.size()); }
-        } catch (RuntimeException e) { status="UNAVAILABLE"; result.put("dataStatus",status); result.put("onlineCount",null); }
+            if (!"AVAILABLE".equals(status)) return new Sample(status,asOf,null);
+            if(uids==null||uids.isEmpty())return new Sample("AVAILABLE",asOf,Set.of());
+            if(uids.size()>10000)return new Sample("UNAVAILABLE",asOf,null);
+            Set<Long> valid=new HashSet<>(players.realPlayers(uids.stream().map(Long::parseLong).toList()));
+            return new Sample("AVAILABLE",asOf,Set.copyOf(valid));
+        } catch (RuntimeException e) { status="UNAVAILABLE"; return new Sample(status,asOf,null); }
+    }
+    public Map<String,Object> snapshot() {
+        Sample sample=sample();
+        Map<String,Object> result=new LinkedHashMap<>(); result.put("asOf",sample.asOf());
+        result.put("dataStatus",sample.dataStatus());result.put("onlineCount",sample.uids()==null?null:sample.uids().size());
         return result;
     }
 }

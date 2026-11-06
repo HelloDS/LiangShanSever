@@ -11,6 +11,6 @@ public class PublicWebSecurity {
     @Bean @Order(100)
     public SecurityFilterChain publicGameChain(HttpSecurity http) throws Exception {
         return http.csrf(csrf->csrf.disable()).sessionManagement(s->s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(r->r.requestMatchers("/api/auth/**","/cgc_server/**","/admin/**","/error").permitAll().anyRequest().denyAll()).build();
+                .authorizeHttpRequests(r->r.requestMatchers("/api/auth/**","/api/site","/api/ha","/cgc_server/**","/admin/**","/error").permitAll().anyRequest().denyAll()).build();
     }
 }

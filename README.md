@@ -34,12 +34,11 @@ Flyway 通过自己的无池 JDBC 连接迁移，运行期使用若依 Druid 数
 ## 验证
 
 ```bash
-source scripts/java-env.sh
-./mvnw test
+scripts/test.sh
 npm ci --prefix tools --ignore-scripts
 node tools/smoke.mjs
 ```
 
-smoke 创建真实的本地游客并校验 HTTP/WS/Admin，不调用旧服务器。结果只保存检查项，不写凭据、原始认证报文或密码。完整范围与实际通过项见 `docs/开发进度.md` 和 `docs/evidence/`。
+`test.sh` 使用独立 Testcontainers MySQL/Redis 验证迁移、回滚、身份恢复与并发幂等；不会清空本地运行数据库。smoke 创建真实的本地测试游客并校验 HTTP/WS/Admin，不调用旧服务器。结果只保存检查项，不写凭据、原始认证报文或密码。完整范围与实际通过项见 `docs/开发进度.md` 和 `docs/evidence/`。
 
 官方后端与前端固定提交及 MIT 来源见 `docs/upstream.json`，保留 `LICENSE-RuoYi` 与 `admin-ui/LICENSE`。已有设计文档与前端证据不代表实现已通过所有验收。

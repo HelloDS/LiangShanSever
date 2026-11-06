@@ -18,27 +18,29 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
     private final OnlinePresence presence;
     private final GameJsonCodec codec;
     private final Clock clock;
-    private final Queue<String> inbox=new ArrayDeque<>();
+    private final GameTelemetry telemetry;
+    private record Inbound(String text,long receivedNanos){ }
+    private final Queue<Inbound> inbox=new ArrayDeque<>();
     private ConnectionRegistry.Binding binding;
     private boolean busy;
     private long rateWindow;
     private int requestCount;
 
     public GameSocketHandler(BusinessExecutor executor,GameDispatcher dispatcher,ConnectionRegistry registry,
-                             OnlinePresence presence,GameJsonCodec codec,Clock clock) {
-        this.executor=executor;this.dispatcher=dispatcher;this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;
+                             OnlinePresence presence,GameJsonCodec codec,Clock clock,GameTelemetry telemetry) {
+        this.executor=executor;this.dispatcher=dispatcher;this.registry=registry;this.presence=presence;this.codec=codec;this.clock=clock;this.telemetry=telemetry;
     }
     @Override protected void channelRead0(ChannelHandlerContext ctx,WebSocketFrame frame) {
         if(binding!=null) binding.activity(clock.millis());
         if(frame instanceof PongWebSocketFrame) return;
         if(!(frame instanceof TextWebSocketFrame text)) { close(ctx,1003,"只接受 JSON 文本消息"); return; }
         if(inbox.size()>=64) { close(ctx,1013,"请求队列已满"); return; }
-        inbox.add(text.text()); drain(ctx);
+        inbox.add(new Inbound(text.text(),System.nanoTime())); drain(ctx);
     }
     private void drain(ChannelHandlerContext ctx) {
         if(busy||inbox.isEmpty()||!ctx.channel().isActive()) return;
         busy=true;
-        String input=inbox.remove();
+        Inbound input=inbox.remove();
         ConnectionRegistry.Binding previous=binding;
         long now=clock.millis();
         if(now-rateWindow>=1000) {rateWindow=now;requestCount=0;}
@@ -47,16 +49,20 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
             executor.execute(()->{
                 GameDispatcher.Result result=null;
                 String output;
+                String api="unknown",category="success";
                 try {
                     if(limited) throw new GameFailure(-2,"请求过于频繁");
-                    result=dispatcher.dispatch(codec.request(input),previous,ctx.channel());
+                    var request=codec.request(input.text());api=request.api();
+                    result=dispatcher.dispatch(request,previous,ctx.channel());
                     output=codec.write(result.ack());
-                } catch(GameFailure e) { output=codec.write(GameJsonCodec.error(e.state(),e.getMessage())); }
-                catch(IllegalArgumentException e) { output=codec.write(GameJsonCodec.error(-2,"请求参数无效")); }
-                catch(Exception e) { output=codec.write(GameJsonCodec.error(-5,"服务暂不可用，请稍后重试")); }
+                } catch(GameFailure e) { category="business_error";output=codec.write(GameJsonCodec.error(e.state(),e.getMessage())); }
+                catch(IllegalArgumentException e) { category="business_error";output=codec.write(GameJsonCodec.error(-4,"请求参数无效")); }
+                catch(Exception e) { category="unavailable";output=codec.write(GameJsonCodec.error(-5,"服务暂不可用，请稍后重试")); }
                 var completed=result;
                 String response=output;
+                String apiName=api,resultCategory=category;
                 ctx.executor().execute(()->{
+                    telemetry.complete(apiName,resultCategory,System.nanoTime()-input.receivedNanos());
                     if(completed!=null) binding=completed.binding();
                     if(ctx.channel().isActive()) {
                         if(!ctx.channel().isWritable()) {close(ctx,1013,"输出队列已满");}
@@ -66,6 +72,7 @@ public class GameSocketHandler extends SimpleChannelInboundHandler<WebSocketFram
                 });
             });
         } catch(RejectedExecutionException e) {
+            telemetry.complete("unknown","unavailable",System.nanoTime()-input.receivedNanos());
             ctx.writeAndFlush(new TextWebSocketFrame(codec.write(GameJsonCodec.error(-5,"服务繁忙，请稍后重试"))));
             busy=false; drain(ctx);
         }
