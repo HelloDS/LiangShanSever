@@ -74,3 +74,5 @@ RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobb
 默认保持 1000 个已认证连接，其中 800 个空闲、200 个活跃，执行每秒 200 次大厅查询；查询 P95 目标 300ms。仅按实际运行时长和结果保存证据，不代表斗地主动作、结算、WSS 或 24 小时稳定性通过。
 
 管理撤销通知已使用事务 outbox 和有界 worker；后台“持久任务”提供独立查询/重试权限。运行时可用 `GAME_OUTBOX_ENABLED=false` 暂停领取，已提交任务保留在 MySQL；恢复领取后按租约与原事件继续。详见 `docs/持久任务与投递边界.md`。
+
+本机 Colima 千连接测试使用 `colima start --port-forwarder grpc`。本次 SSH 转发主进程退出导致宿主端口及 Docker socket 丢失，而 VM 内服务仍正常，故切换后重新验收；没有把环境中断算作服务容量通过。转发方式见 [Lima 官方说明](https://lima-vm.io/docs/config/port/)。重启 Colima 后用 Compose 恢复原命名卷，并核验持久游客身份。

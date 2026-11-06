@@ -1,0 +1,86 @@
+{
+  "executedAt": "2026-11-06T18:23:08.044Z",
+  "scope": "本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论",
+  "base": "http://localhost:8080",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpus": 10,
+    "cpu": "Apple M1 Pro",
+    "totalMemoryBytes": 17179869184,
+    "node": "v24.19.0",
+    "java": "90133:\nOpenJDK 64-Bit Server VM version 21.0.11+10-b1163.116\nJDK 21.0.11",
+    "git": "644b550ff565b3d44df7a9874dcdafe6c964bf70",
+    "artifactSha256": "6abb67c3f1c6cb280f22cfb80282cc3b19cf7d630671f2416aa795bbe679aa18",
+    "proxy": {
+      "image": "sha256:583b7f2fce1cdb8da5ad5c39ebd3c33b98b87d493190e548bdee1fa8c619c311",
+      "ulimits": [
+        {
+          "Name": "nofile",
+          "Hard": 16384,
+          "Soft": 16384
+        }
+      ],
+      "configSha256": "0384aa45290428f8b0063f2f37debf2093e916575c5868abea47d2857fec29fe"
+    },
+    "dockerCpuMemoryVersion": "4 6197370880 29.5.2",
+    "mysqlDurability": {
+      "innodbFlushLogAtTrxCommit": 1,
+      "syncBinlog": 1,
+      "logBin": 1
+    }
+  },
+  "requested": {
+    "connections": 1000,
+    "active": 200,
+    "idle": 800,
+    "seconds": 3600,
+    "queriesPerSecond": 200,
+    "routes": [
+      {
+        "api": "role",
+        "c": "syncCard"
+      },
+      {
+        "api": "club",
+        "c": "getClubs"
+      },
+      {
+        "api": "manager",
+        "c": "getNotices"
+      },
+      {
+        "api": "cfg",
+        "c": "getGame",
+        "game_id": "6003"
+      }
+    ]
+  },
+  "measurementMs": 0,
+  "fatalDetail": "TypeError",
+  "actual": {
+    "authenticated": 1000,
+    "sent": 0,
+    "completed": 0,
+    "closed": 1000,
+    "pushes": 0,
+    "busy": 0,
+    "missed": 0,
+    "heartbeats": {
+      "receivedPings": 600,
+      "sentPongs": 600
+    },
+    "errors": {
+      "setup_or_metrics_failed": 1
+    },
+    "throughputPerSecond": 0,
+    "latencyMs": {
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "max": null
+    }
+  },
+  "samples": [],
+  "result": "FAIL"
+}

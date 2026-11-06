@@ -27,7 +27,7 @@ const javaVersion=(await run('jcmd',[serverPid,'VM.version'])).stdout.trim();
 const artifactSha256=createHash('sha256').update(await readFile(new URL('../ruoyi-admin/target/ruoyi-admin.jar',import.meta.url))).digest('hex');
 const proxy={image:(await run('docker',['inspect','--format','{{.Image}}','liangshan-nginx-1'])).stdout.trim(),
  ulimits:JSON.parse((await run('docker',['inspect','--format','{{json .HostConfig.Ulimits}}','liangshan-nginx-1'])).stdout),
- configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
+ portForwarder:process.env.LOAD_PORT_FORWARDER||'unrecorded',configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
 const engine=(await run('docker',['info','--format','{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}'])).stdout.trim();
 const mysqlDurability=sql('SELECT @@innodb_flush_log_at_trx_commit,@@sync_binlog,@@log_bin').split('\t').map(Number);
 const clients=[],latencies=[],errors={},samples=[];
@@ -75,7 +75,7 @@ async function sample(){
  const recent=latencies.slice(-1000).sort((a,b)=>a-b);
  samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,recentP95Ms:recent.length?Number(recent[Math.ceil(recent.length*.95)-1].toFixed(3)):null,metrics:Object.fromEntries(entries)});
 }
-function detail(error){return /^HTTP \/actuator\/metrics\/[A-Za-z0-9.]+: [0-9]{3}/.exec(String(error?.message))?.[0]||String(error?.name||'Error');}
+function detail(error){return /^HTTP \/actuator\/metrics\/[A-Za-z0-9.]+: [0-9]{3}/.exec(String(error?.message))?.[0]||String(error?.name||'Error')+(/[A-Z0-9_]{1,40}/.test(String(error?.cause?.code))?':'+String(error.cause.code):'');}
 let sampling=null,measurementStart=null,fatalDetail=null;
 let startedAt,endedAt,measurementMs=0,fatal=false;
 try{
