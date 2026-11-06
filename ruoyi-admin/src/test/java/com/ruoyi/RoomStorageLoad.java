@@ -55,7 +55,8 @@ public final class RoomStorageLoad {
         if(!"1".equals(System.getenv("RUN_ROOM_STORAGE_LOAD")))throw new IllegalStateException("需要显式启用隔离房间负载");
         int seconds=parameter("ROOM_LOAD_SECONDS",900,10,3600),rate=parameter("ROOM_LOAD_RATE",200,1,200),rooms=parameter("ROOM_LOAD_ROOMS",200,3,400);
         int adminReaders=parameter("ROOM_LOAD_ADMIN_READERS",0,0,10);if(adminReaders!=0&&adminReaders!=10)throw new IllegalArgumentException("后台混合读取仅支持 0 或 10 会话");
-        String loadAdminPassword=adminReaders==0?"":SecureTokens.create();
+        // 管理登录密码上限 20；随机 token 为 43 字符，不能直接用作密码。
+        String loadAdminPassword=adminReaders==0?"":SecureTokens.create().substring(0,20);
         String reportName=System.getenv().getOrDefault("ROOM_LOAD_REPORT","room-storage-load.json");
         if(!reportName.matches("room-storage-load(?:-[a-z0-9-]+)?\\.json"))throw new IllegalArgumentException("报告名称无效");
         Path output=Path.of("docs/evidence",reportName);if(Files.exists(output))throw new IllegalStateException("保留既有结果，请使用新的报告名称");

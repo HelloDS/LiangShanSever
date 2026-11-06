@@ -46,7 +46,7 @@ if(proxyProbe.headers.get('x-liangshan-proxy')==='host-native'){
  dockerContext,portForwarder,configSha256:createHash('sha256').update(await readFile(new URL('../deploy/nginx.conf',import.meta.url))).digest('hex')};
 const engine=(await run('docker',['info','--format','{{.NCPU}} {{.MemTotal}} {{.ServerVersion}}'])).stdout.trim();
 const mysqlDurability=sql('SELECT @@innodb_flush_log_at_trx_commit,@@sync_binlog,@@log_bin').split('\t').map(Number);
-const clients=[],latencies=[],errors={},samples=[],socketFailures=[],connectionLatencies=[];
+const clients=[],latencies=[],errors={},samples=[],socketFailures=[],metricFailures=[],connectionLatencies=[];
 let phase='connecting',sent=0,completed=0,pushes=0,closed=0,busy=0,missed=0,pings=0,pongs=0;
 let stopped=false;process.once('SIGINT',()=>{stopped=true;});process.once('SIGTERM',()=>{stopped=true;});
 const fail=code=>{errors[code]=(errors[code]||0)+1;};
@@ -83,11 +83,13 @@ function request(client,path,reqData){
 const metricNames=['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.reply.pending','game.reply.active','game.reply.queue','game.push.pending','jvm.memory.used','process.cpu.usage'];
 async function sample(){
  const entries=[];for(let offset=0;offset<metricNames.length;offset+=8)entries.push(...await Promise.all(metricNames.slice(offset,offset+8).map(async name=>{
+  const began=performance.now();try{
   const response=await fetch(base+'/actuator/metrics/'+name,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(3000)});
   assert.equal(response.status,200,`HTTP /actuator/metrics/${name}: ${response.status}`);
   const result=await response.json();
   if(!Array.isArray(result.measurements))throw Error('指标结构无效');
   return [name,result.measurements.map(row=>({statistic:row.statistic,value:row.value}))];
+  }catch(error){if(metricFailures.length<20)metricFailures.push({name,at:new Date().toISOString(),elapsedMs:Number((performance.now()-began).toFixed(3)),detail:detail(error)});throw error;}
  })));
  const recent=latencies.slice(-1000).sort((a,b)=>a-b);
  samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,recentP95Ms:recent.length?Number(recent[Math.ceil(recent.length*.95)-1].toFixed(3)):null,metrics:Object.fromEntries(entries)});
@@ -144,7 +146,7 @@ const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅�
  environment:{platform:os.platform(),arch:os.arch(),cpus:os.cpus().length,cpu:os.cpus()[0]?.model,totalMemoryBytes:os.totalmem(),node:process.version,
  java:javaVersion,git:buildCommit,artifactSha256,proxy,dockerCpuMemoryVersion:engine,mysqlDurability:{innodbFlushLogAtTrxCommit:mysqlDurability[0],syncBinlog:mysqlDurability[1],logBin:mysqlDurability[2]}},
  requested:{connections:count,active,idle:count-active,seconds,queriesPerSecond:rate,routes},startedAt,endedAt,measurementMs:Number(measurementMs.toFixed(3)),
- fatalDetail,socketFailures,hostCompetition:process.env.HOST_LOAD_COMPETITION||'none',connectionLatencyMs:{p50:connectPercentile(.5),p95:connectPercentile(.95),max:connectPercentile(1)},actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
+ fatalDetail,socketFailures,metricFailures,hostCompetition:process.env.HOST_LOAD_COMPETITION||'none',connectionLatencyMs:{p50:connectPercentile(.5),p95:connectPercentile(.95),max:connectPercentile(1)},actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
  result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
 await writeFile(reportFile,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
