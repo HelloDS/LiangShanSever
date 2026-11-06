@@ -5,7 +5,7 @@ import {guest,markTest,sql,adminLogin,api,base} from './test-client.mjs';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('此测试只允许专用本地环境');
 if(process.env.RUN_ORGANIZATION_FIXTURES!=='1')throw Error('必须显式设置 RUN_ORGANIZATION_FIXTURES=1；此测试会建立标记为测试的既有圈夹具，不验收创建费用');
 const checks=[],clients=[];let id;
-const owner=await guest(),a=await guest(),b=await guest();clients.push(owner,a,b);for(const p of clients)markTest(p.uid);
+const owner=await guest({test:true}),a=await guest({test:true}),b=await guest({test:true});clients.push(owner,a,b);for(const p of clients)markTest(p.uid);
 const token=await adminLogin(),name='验收'+randomUUID().replaceAll('-','').slice(0,5);
 const frames=[];owner.client.ws.on('message',raw=>frames.push(JSON.parse(raw)));
 const wait=async(predicate)=>{for(let n=0;n<100;n++){if(predicate())return;await new Promise(r=>setTimeout(r,10));}throw Error('等待推送超时');};

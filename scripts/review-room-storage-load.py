@@ -25,6 +25,14 @@ require(requested['seconds'] >= 3600 and result['measurementMs'] >= 3600000, '�
 require(requested['rooms'] == 200 and requested['players'] == 600 and requested['commitsPerSecond'] == 200, '不是本组既定负载')
 require(actual['sent'] == actual['completed'] >= requested['seconds'] * 200 * .99, '完成数量不足或存在未确认提交')
 require(all(actual[name] == 0 for name in ['failed', 'busy', 'missed']), '存在错误、忙碌跳过或漏发')
+admin_sessions = requested.get('adminSessions', 0)
+require(admin_sessions in [0, 10], '后台会话数不符合本组设定')
+if admin_sessions:
+    admin = result.get('adminReads', {})
+    require(admin.get('sessions') == 10 and admin.get('intervalSeconds') == 10, '未保存十会话真实 HTTP 读取记录')
+    require(admin.get('sent') == admin.get('completed') and admin.get('completed', 0) >= 10 * (requested['seconds'] // 10 - 1), '后台读取数量不足')
+    require(all(admin.get(key, -1) == 0 for key in ['failed', 'busy', 'pending']), '后台读取失败、跳过或未排空')
+    require(admin.get('latencyMs', {}).get('p95', 999999) <= 300, '后台读取 P95 超出预算')
 require(actual['played'] + actual['passed'] + actual['testRedeals'] == actual['completed'], '动作分类数量不守恒')
 require(actual['latencyMs']['p95'] <= 300, '内部持久确认 P95 超出 300ms')
 require(result['sampleFailures'] == 0 and result['maxObservedOutboxLagSeconds'] <= 10, '采样失败或 outbox 超出预算')
@@ -82,6 +90,8 @@ markdown = f'''# 内部房间持久写入一小时复核
 测量开始：{result['measurementStartedAt']}；结束：{result['measurementEndedAt']}。单调时钟测量 {result['measurementMs']/60000:.3f} 分钟。
 
 200 个内部房间、600 个持久测试身份，每秒目标 200 次状态提交。已确定地主的牌局通过合法单张/过牌推进，结束后按测试规则轮换地主并保存新发牌结果。每次动作都经过房间邮箱、真实 MySQL 事务、提交确认与状态安装；不含 WS、叫分、费用或积分结算。
+
+本组后台会话数：{admin_sessions}。若启用十会话，使用隔离库真实管理员的十个独立 JWT，经 HTTP 权限链每十秒查询真实房间、指定玩家及看板；不包含圈在线排序或异步导出，不能当成方案完整混合负载通过。实际后台统计见原始结果 adminReads。
 
 | 项目 | 实际结果 |
 | --- | --- |

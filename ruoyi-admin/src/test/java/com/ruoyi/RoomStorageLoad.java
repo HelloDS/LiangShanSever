@@ -54,13 +54,15 @@ public final class RoomStorageLoad {
     public static void main(String[] args) throws Exception {
         if(!"1".equals(System.getenv("RUN_ROOM_STORAGE_LOAD")))throw new IllegalStateException("需要显式启用隔离房间负载");
         int seconds=parameter("ROOM_LOAD_SECONDS",900,10,3600),rate=parameter("ROOM_LOAD_RATE",200,1,200),rooms=parameter("ROOM_LOAD_ROOMS",200,3,400);
+        int adminReaders=parameter("ROOM_LOAD_ADMIN_READERS",0,0,10);if(adminReaders!=0&&adminReaders!=10)throw new IllegalArgumentException("后台混合读取仅支持 0 或 10 会话");
+        String loadAdminPassword=adminReaders==0?"":SecureTokens.create();
         String reportName=System.getenv().getOrDefault("ROOM_LOAD_REPORT","room-storage-load.json");
         if(!reportName.matches("room-storage-load(?:-[a-z0-9-]+)?\\.json"))throw new IllegalArgumentException("报告名称无效");
         Path output=Path.of("docs/evidence",reportName);if(Files.exists(output))throw new IllegalStateException("保留既有结果，请使用新的报告名称");
         System.setProperty("spring.devtools.restart.enabled","false");
         Map<String,Object> report=new LinkedHashMap<>();report.put("startedAt",Instant.now().toString());
         report.put("scope","隔离 MySQL/Redis 的内部 6003 单张/过牌及测试换局持久提交；没有 WS、叫分、收费、积分结算或生产容量结论");
-        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10));
+        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10,"adminSessions",adminReaders));
         report.put("sourceCommit",System.getenv().getOrDefault("ROOM_LOAD_GIT","unrecorded"));report.put("snapshotSha256",System.getenv().getOrDefault("ROOM_LOAD_SNAPSHOT_SHA256","unrecorded"));
         report.put("flightRecordingEnabled","1".equals(System.getenv("ROOM_LOAD_JFR")));
         long hostMemory=ManagementFactory.getOperatingSystemMXBean() instanceof com.sun.management.OperatingSystemMXBean os?os.getTotalMemorySize():-1;
@@ -72,19 +74,20 @@ public final class RoomStorageLoad {
             Map<String,Object> properties=new HashMap<>();
             properties.put("spring.datasource.druid.master.url",mysql.getJdbcUrl());properties.put("spring.datasource.druid.master.username",mysql.getUsername());properties.put("spring.datasource.druid.master.password",mysql.getPassword());
             properties.put("spring.data.redis.host",redis.getHost());properties.put("spring.data.redis.port",redis.getMappedPort(6379));properties.put("spring.data.redis.password",redisPassword);
-            properties.put("token.secret",SecureTokens.create());properties.put("game.pii-key",SecureTokens.create());properties.put("game.ws.port",0);properties.put("server.port",0);properties.put("ADMIN_INITIAL_PASSWORD","");properties.put("game.outbox.worker-enabled",true);
+            properties.put("token.secret",SecureTokens.create());properties.put("game.pii-key",SecureTokens.create());properties.put("game.ws.port",0);properties.put("server.port",0);properties.put("ADMIN_INITIAL_PASSWORD",loadAdminPassword);properties.put("game.outbox.worker-enabled",true);
             properties.put("game.reconciliation.worker-enabled",false);
+            properties.put("game.online-history.enabled",false);
             var environment=new StandardServletEnvironment();environment.getPropertySources().addFirst(new MapPropertySource("isolated-room-load",properties));
             var application=new SpringApplication(RuoYiApplication.class);application.setEnvironment(environment);
             try(var context=application.run()){
-                pass=execute(context,mysql,seconds,rate,rooms,report);
+                pass=execute(context,mysql,seconds,rate,rooms,report,adminReaders,loadAdminPassword);
             }
         }catch(Exception failure){report.put("failureClass",failure.getClass().getSimpleName());System.err.println("隔离负载失败："+failure.getClass().getSimpleName());}
         report.put("endedAt",Instant.now().toString());report.put("result",pass?"PASS":"FAIL");
         Files.createDirectories(output.getParent());Files.writeString(output,new GameJsonCodec().write(report)+"\n");System.out.println("房间持久负载 "+(pass?"PASS":"FAIL")+"，报告："+output);
         if(!pass)System.exit(1);
     }
-    private static boolean execute(ConfigurableApplicationContext context,MySQLContainer mysql,int seconds,int rate,int rooms,Map<String,Object> report) throws Exception {
+    private static boolean execute(ConfigurableApplicationContext context,MySQLContainer mysql,int seconds,int rate,int rooms,Map<String,Object> report,int adminReaders,String loadAdminPassword) throws Exception {
         var jdbc=context.getBean(JdbcTemplate.class);var auth=context.getBean(GuestAuthService.class);var journal=context.getBean(RoomJournal.class);var outbox=context.getBean(OutboxStore.class);var metrics=context.getBean(MeterRegistry.class);
         var codec=new LandlordPlayCodec(context.getBean(GameJsonCodec.class));var engine=new LandlordPlayEngine();
         if(!"room_load".equals(jdbc.queryForObject("SELECT DATABASE()",String.class)))throw new IllegalStateException("拒绝连接非隔离数据库");
@@ -127,11 +130,18 @@ public final class RoomStorageLoad {
             var warmup=new Stats(15*rate);window(boxes,actors,15,rate,warmup);await(actors,30);report.put("warmup",warmup.report());
             report.put("eventsBeforeMeasurement",count(jdbc,"SELECT COUNT(*) FROM room_event"));
             var stats=new Stats(seconds*rate);List<Map<String,Object>> samples=Collections.synchronizedList(new ArrayList<>());AtomicLong sampleFailures=new AtomicLong();
+            String day=Instant.now().atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().toString();
+            RoomLoadAdminReaders adminReads=adminReaders==0?null:new RoomLoadAdminReaders(adminReaders,Integer.parseInt(context.getEnvironment().getProperty("local.server.port")),loadAdminPassword,day,actors.getFirst().state.state().players().getFirst(),rooms,()->"room_load".equals(jdbc.queryForObject("SELECT DATABASE()",String.class)));
             var sampler=Executors.newSingleThreadScheduledExecutor(Thread.ofPlatform().name("room-load-sample").daemon().factory());
-            sampler.scheduleWithFixedDelay(()->{try{samples.add(sample(boxes,outbox,metrics,stats));}catch(RuntimeException failure){sampleFailures.incrementAndGet();}},0,5,TimeUnit.SECONDS);
+            sampler.scheduleWithFixedDelay(()->{try{
+                var observed=sample(boxes,outbox,metrics,stats);samples.add(observed);
+                System.out.println("消费采样：READY="+observed.get("outboxReady")+"，CLAIMED="+observed.get("outboxClaimed")+"，最老="+observed.get("oldestSeconds")+" 秒，确认="+observed.get("completed"));
+            }catch(RuntimeException failure){sampleFailures.incrementAndGet();System.out.println("消费采样未完成："+failure.getClass().getSimpleName());}},0,5,TimeUnit.SECONDS);
             report.put("measurementStartedAt",Instant.now().toString());
-            try{window(boxes,actors,seconds,rate,stats);await(actors,30);}
-            finally{sampler.shutdown();sampler.awaitTermination(5,TimeUnit.SECONDS);}
+            try{if(adminReads!=null)adminReads.start();window(boxes,actors,seconds,rate,stats);await(actors,30);}
+            finally{sampler.shutdown();sampler.awaitTermination(5,TimeUnit.SECONDS);if(adminReads!=null)adminReads.stop();}
+            boolean adminPass=adminReads==null||adminReads.passed(seconds);
+            if(adminReads!=null){report.put("adminReads",adminReads.report());adminReads.close();}
             report.put("measurementEndedAt",Instant.now().toString());report.put("measurementMs",stats.elapsedNanos/1e6);report.put("actual",stats.report());report.put("slowCommitCount",stats.slowCount.get());report.put("slowCommitSamples",List.copyOf(stats.slow));report.put("samples",List.copyOf(samples));report.put("sampleFailures",sampleFailures.get());
             double maxLag=samples.stream().mapToDouble(sample->((Number)sample.get("oldestSeconds")).doubleValue()).max().orElse(Double.POSITIVE_INFINITY);
             report.put("maxObservedOutboxLagSeconds",Double.isFinite(maxLag)?maxLag:null);
@@ -166,7 +176,7 @@ public final class RoomStorageLoad {
             }
             report.put("recoverySamples",recoveryTimes);
             long[] measured=Arrays.copyOf(stats.latency,stats.completed.get());Arrays.sort(measured);
-            return stats.failed.get()==0&&stats.busy.get()==0&&stats.missed.get()==0&&stats.completed.get()==stats.sent.get()&&stats.completed.get()>=seconds*rate*.99&&stats.elapsedNanos>=seconds*1_000_000_000L
+            return adminPass&&stats.failed.get()==0&&stats.busy.get()==0&&stats.missed.get()==0&&stats.completed.get()==stats.sent.get()&&stats.completed.get()>=seconds*rate*.99&&stats.elapsedNanos>=seconds*1_000_000_000L
                     &&drained&&maxLag<=10&&sampleFailures.get()==0&&backlog.ready()==0&&backlog.claimed()==0&&backlog.dead()==0&&outboxCounters.get("failed")==0&&outboxCounters.get("lease.lost")==0&&outboxCounters.get("poll.failed")==0&&events==done&&done==receipts&&receipts==projected&&count(jdbc,"SELECT COUNT(*) FROM wallet_transaction")==0&&warmup.failed.get()==0&&percentile(measured,.95)<=300;
         }
     }

@@ -19,7 +19,7 @@ for(const [pool,maximum] of [['general',16],['room',8]]){
  const metric=await api('/actuator/metrics/game.sql.maximum?tag=pool:'+pool,undefined,token);assert.equal(metric.measurements[0].value,maximum);
 }
 check('部署后的普通与房间 Druid 池容量分别为 16 与 8');
-const player=await guest();markTest(player.uid);
+const player=await guest({test:true});markTest(player.uid);
 try{
  assert.equal((await api(path,undefined,player.session)).code,401);
  assert.equal((await player.send('room','createRoom',{game_id:'6003',createData:{cardType:4,playNumber:6,aa:true,groupid:0}})).state,-2);

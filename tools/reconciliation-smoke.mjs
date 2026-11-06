@@ -28,7 +28,7 @@ for(const row of [...detail.rows,...matched.data.rows])for(const field of ['expe
 check('资产数值与主体编号以精确字符串输出，时间带明确时区');
 for(const path of ['/game-admin/reconciliation?start=2026-01-01&end=2026-03-01',`/game-admin/reconciliation?start=${today}&end=${today}&status=BOGUS`,`/game-admin/reconciliation?start=${today}&end=${today}&pageSize=201`])assert.equal((await api(path,undefined,token)).code,400);
 check('日期、状态及分页边界由服务端拒绝');
-const player=await guest();markTest(player.uid);
+const player=await guest({test:true});markTest(player.uid);
 try{assert.equal((await api(`/game-admin/reconciliation?start=${today}&end=${today}`,undefined,player.session)).code,401);check('游戏会话不能读取平台财务核对');}finally{player.client.close();}
 assert.equal(sql('SELECT COALESCE(SUM(balance+frozen),0) FROM wallet_account'),before.balance);assert.equal(sql('SELECT COUNT(*) FROM wallet_transaction'),before.transactions);assert.equal(sql('SELECT COUNT(*) FROM wallet_ledger'),before.ledger);
 assert.equal(sql('SELECT COALESCE(SUM(balance+frozen),0) FROM club_wallet_account'),before.clubBalance);assert.equal(sql('SELECT COALESCE(SUM(balance),0) FROM wallet_system_account'),before.systemBalance);

@@ -4,7 +4,7 @@ import {once} from 'node:events';
 import {base,api,adminLogin,guest,markTest,sql,socket} from './test-client.mjs';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('仅允许本地持久任务验收');
 const checks=[],check=name=>{checks.push(name);console.log('通过：'+name);};
-const admin=await adminLogin(),player=await guest();markTest(player.uid);
+const admin=await adminLogin(),player=await guest({test:true});markTest(player.uid);
 const closing=once(player.client.ws,'close'),key=crypto.randomUUID();
 const first=await api(`/game-admin/players/${player.uid}/kick`,{reason:'本地持久撤销通知验收'},admin,{'Idempotency-Key':key});
 assert.equal(first.code,200);await closing;

@@ -7,7 +7,7 @@ import {api,adminLogin,guest,socket,markTest,sql,base} from './test-client.mjs';
 const checks=[];const check=name=>{checks.push(name);console.log('通过：'+name);};
 const admin=await adminLogin();
 const before=await api('/game-admin/dashboard',undefined,admin);assert.equal(before.code,200);assert.equal(before.data.online.dataStatus,'AVAILABLE');check('真实数据库统计和在线状态可查询');
-const player=await guest();markTest(player.uid);
+const player=await guest({test:true});markTest(player.uid);
 assert.equal(player.reg.loginData.m_id,null);assert.equal(player.reg.loginData.role.proxy,0);assert.equal(player.reg.loginData.role.koi,'default');
 assert.equal((await player.send('game','returnGame')).room,null);check('新游客无比赛/房间，保留原代理与锦鲤入口条件');
 const listing=await api('/game-admin/players?uid='+player.uid,undefined,admin);assert.equal(listing.code,200);assert.equal(listing.total,1);assert.equal(listing.rows[0].uid,String(player.uid));

@@ -1,6 +1,6 @@
 /** 本机真实 WS 大厅负载；不代表牌局动作、TLS 或结算容量。 */
 import assert from 'node:assert/strict';
-import {readFile,writeFile} from 'node:fs/promises';
+import {readFile,writeFile,access} from 'node:fs/promises';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import os from 'node:os';
@@ -15,6 +15,10 @@ assert.ok(Number.isInteger(count)&&count>=1&&count<=1500);
 assert.ok(Number.isInteger(active)&&active>=1&&active<=count);
 assert.ok(Number.isInteger(seconds)&&seconds>=10&&seconds<=3600);
 assert.ok(Number.isInteger(rate)&&rate>=1&&rate<=500);
+const reportName=process.env.LOAD_REPORT||'lobby-load.json';
+assert.match(reportName,/^lobby-load(?:-[a-z0-9-]+)?\.json$/,'报告名称无效');
+const reportFile=new URL('../docs/evidence/'+reportName,import.meta.url);
+try{await access(reportFile);throw Error('保留既有负载结果，请设置新的 LOAD_REPORT 名称');}catch(error){if(error.code!=='ENOENT')throw error;}
 const fixtures=(await readFile(new URL('../.local/load-guests.jsonl',import.meta.url),'utf8')).trim().split('\n').map(line=>{try{return JSON.parse(line);}catch{throw Error('测试凭据文件格式损坏');}}).slice(0,count);
 assert.equal(fixtures.length,count);
 for(const row of fixtures)assert.ok(Number.isSafeInteger(row.uid)&&/^[A-Za-z0-9_-]{43}$/.test(row.token),'测试凭据格式无效');
@@ -66,15 +70,15 @@ function request(client,path,reqData){
   client.ws.send(JSON.stringify({path,reqData}),error=>{if(error&&client.pending===waiter){clearTimeout(waiter.timer);client.pending=null;reject(Error('write'));}});
  });
 }
-const metricNames=['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.push.pending','jvm.memory.used','process.cpu.usage'];
+const metricNames=['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.reply.pending','game.reply.active','game.reply.queue','game.push.pending','jvm.memory.used','process.cpu.usage'];
 async function sample(){
- const entries=await Promise.all(metricNames.map(async name=>{
+ const entries=[];for(let offset=0;offset<metricNames.length;offset+=8)entries.push(...await Promise.all(metricNames.slice(offset,offset+8).map(async name=>{
   const response=await fetch(base+'/actuator/metrics/'+name,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(3000)});
   assert.equal(response.status,200,`HTTP /actuator/metrics/${name}: ${response.status}`);
   const result=await response.json();
   if(!Array.isArray(result.measurements))throw Error('指标结构无效');
   return [name,result.measurements.map(row=>({statistic:row.statistic,value:row.value}))];
- }));
+ })));
  const recent=latencies.slice(-1000).sort((a,b)=>a-b);
  samples.push({at:new Date().toISOString(),phase,sent,completed,closed,pings,pongs,recentP95Ms:recent.length?Number(recent[Math.ceil(recent.length*.95)-1].toFixed(3)):null,metrics:Object.fromEntries(entries)});
 }
@@ -127,6 +131,6 @@ const result={executedAt:new Date().toISOString(),scope:'本机明文 WS 大厅�
  fatalDetail,actual:{authenticated:clients.filter(client=>client.session).length,sent,completed,closed,pushes,busy,missed,heartbeats:{receivedPings:pings,sentPongs:pongs},errors,throughputPerSecond:measurementMs?Number((completed*1000/measurementMs).toFixed(3)):0,
  latencyMs:{p50:percentile(.5),p95:percentile(.95),p99:percentile(.99),max:percentile(1)}},samples,
  result:pongs===pings&&(seconds<30||pings>=count-active)&&samples.every(sample=>sample.metrics['game.authenticated.connections'][0]?.value>=count)&&percentile(.95)!==null&&percentile(.95)<=300&&completed>=seconds*rate*.99&&!fatal&&!stopped&&closed===0&&totalErrors===0&&busy===0&&missed===0&&completed===sent&&clients.length===count&&measurementMs>=seconds*1000?'PASS':'FAIL'};
-await writeFile(new URL('../docs/evidence/lobby-load.json',import.meta.url),JSON.stringify(result,null,2)+'\n');
+await writeFile(reportFile,JSON.stringify(result,null,2)+'\n',{flag:'wx'});
 console.log(JSON.stringify({result:result.result,...result.actual,samples:samples.length}));
 if(result.result!=='PASS')process.exitCode=1;

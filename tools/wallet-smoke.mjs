@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {guest,markTest,adminLogin,api,sql,base} from './test-client.mjs';
-const checks=[],player=await guest();markTest(player.uid);
+const checks=[],player=await guest({test:true});markTest(player.uid);
 try{
  const token=await adminLogin(),today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date()),path=`/game-admin/wallets/PERSONAL/${player.uid}/card`;
  const ledger=await api(path+`?start=${today}&end=${today}`,undefined,token);assert.equal(ledger.code,200);assert.deepEqual(ledger.account,{available:'0',frozen:'0',version:'0'});assert.equal(ledger.total,0);checks.push('真实零余额账户与空账本，不注入展示资金');

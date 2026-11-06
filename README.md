@@ -68,8 +68,12 @@ RUN_ORGANIZATION_FIXTURES=1 node tools/club-smoke.mjs
 ```bash
 RUN_LOAD_FIXTURES=1 node tools/prepare-load.mjs 1000
 source scripts/java-env.sh
+export LOAD_REPORT=lobby-load-local-run-1.json
 RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobby-load.mjs
+/opt/homebrew/opt/node@24/bin/node tools/review-lobby-load.mjs
 ```
+
+报告名称须符合 lobby-load[-小写字母数字连字符].json，每次使用未存在的新名称；不会覆盖已保存证据。完整一小时通过后才可运行复核脚本。
 
 默认保持 1000 个已认证连接，其中 800 个空闲、200 个活跃，执行每秒 200 次大厅查询；查询 P95 目标 300ms。仅按实际运行时长和结果保存证据，不代表斗地主动作、结算、WSS 或 24 小时稳定性通过。
 

@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {api,adminLogin,guest,markTest,sql,base} from './test-client.mjs';
 const checks=[];const check=name=>{checks.push(name);console.log('通过：'+name)};
-const admin=await adminLogin(),player=await guest();markTest(player.uid);
+const admin=await adminLogin(),player=await guest({test:true});markTest(player.uid);
 const anonymous={type:'名称违规',contact_way:-1,tel:'13800000000',wechat:'local_fixture',detail:'本地匿名举报验收',uid:1};
 assert.equal((await player.send('inform','addInformInfo',anonymous)).state,0);
 const anonymousId=sql(`SELECT id FROM user_report WHERE reporter_uid=${player.uid} ORDER BY created_at DESC LIMIT 1`);assert.match(anonymousId,/^[a-f0-9-]{36}$/);
