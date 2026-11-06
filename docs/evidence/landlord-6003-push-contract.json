@@ -1,0 +1,110 @@
+{
+  "generatedAt": "2026-11-06T20:37:07.709185+00:00",
+  "scope": "原 6003 推送消费者字段审计；局部投影源码已编写待测试，没有注册网络路由",
+  "sources": [
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/game-root/index.ts",
+      "sha256": "e934bca588192c66f192b7e5ed2143cea0e4cea45a9ef8a65547e5c3c2c8efe2"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/message-parser/parser-contract.ts",
+      "sha256": "bb82eeb7fa0cde66fa7cf3835788f6320979fdb81f296ab0b221c1941bd9aef5"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/message-parser/parser-play.ts",
+      "sha256": "8f2a50a20b7642e935fcc10cb75460e120c4f2d4626eb7c978aec107af467893"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/message-parser/parser-turns.ts",
+      "sha256": "1a3b460a9445cb0bf5e63f62a9871f652f34a9aa3bc87e998f1d4e270c9b7ce7"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/message-parser/parser-finish.ts",
+      "sha256": "2b7512d5359d15308b7ee02cafcd9ed2867ad4fa2770b55034c1d3db775e7af5"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/message-parser/parser-sounds.ts",
+      "sha256": "9fd9fc75605a2a78cb624727d1437d7c12736a26165cabd8119428367e06f267"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/table-view/table-actions.ts",
+      "sha256": "f22ecfa393b746a65187907b833be99fe6b52718a960779739dd426a800ab0ac"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/table-view/table-buttons.ts",
+      "sha256": "0dcca8bc902947c560d9be90c5ef910e7e918938d0d20889c3f6f9ac8d7aeb5f"
+    },
+    {
+      "path": "creator/assets/runtime/scripts/games/landlord/role-head/head-cards.ts",
+      "sha256": "3e219773da6b3d9dd0da84276c9199007652f33aa1cb8a05c0854695a23173b2"
+    }
+  ],
+  "facts": [
+    {
+      "grade": "E",
+      "id": "room-seat-property",
+      "fact": "准备动作读取 room.players 的属性 3，随后按属性枚举参与者。"
+    },
+    {
+      "grade": "D",
+      "id": "one-based-seat-adapter",
+      "fact": "三人房间输出键为 1、2、3 的对象，值为相应持久座位的 UID，避免人数不足分支。"
+    },
+    {
+      "grade": "E",
+      "id": "null-leading-target",
+      "fact": "出牌按钮把 outCards!=null 且无本人键视为需要压制；空对象不等同于无目标。"
+    },
+    {
+      "grade": "D",
+      "id": "null-target-adapter",
+      "fact": "无活动目标输出 null；活动目标输出单一出牌者 UID 到实体牌数组的对象。"
+    },
+    {
+      "grade": "E",
+      "id": "play-game-replacement",
+      "fact": "chupai 有 game 时替换游戏；否则仅更新 currentUid 和 perUid=sender。改变 outCards/cardsType 不能只靠不存在的平铺处理分支。"
+    },
+    {
+      "grade": "E",
+      "id": "pass-game-ignored",
+      "fact": "buchu 读取 currentUid、sender、可选 cardsInfo，不替换 message.game。"
+    },
+    {
+      "grade": "E",
+      "id": "per-viewer-cards",
+      "fact": "initGame/startGame/score/chupai 可以用 message.cardsInfo 覆盖 game.cardsInfo，支持每个观看者的独立手牌视图。"
+    },
+    {
+      "grade": "E",
+      "id": "auto-array",
+      "fact": "auto 从 message.game.autoList 读取 UID 数组，只更新发送者本人按钮；不能套用其他玩法的字典。"
+    },
+    {
+      "grade": "E",
+      "id": "ready-uid",
+      "fact": "ready 消费 message.uid 并写 game.ready[uid]=1，不是只消费 sender。"
+    },
+    {
+      "grade": "E",
+      "id": "finished-hands",
+      "fact": "标准结束余牌展示读取 game.cards[uid]，不能仅提供 cardsInfo。"
+    },
+    {
+      "grade": "E",
+      "id": "finished-money",
+      "fact": "标准结果按 game.money[self] 与之前 money[self] 比较；终局分支读取 currentCount/maxCount 和 isSpring，缺少真实计分不得发布零分 GameOver。"
+    },
+    {
+      "grade": "E",
+      "id": "two-finish-paths",
+      "fact": "末手可由 chupai.endData 延迟进入 onGameOver，也有独立 GameOver 处理；两条入口存在不能证明应双重投递。"
+    }
+  ],
+  "unconfirmed": [
+    "完整终局推送时序与去重",
+    "currentCount 在终局的精确递增时点",
+    "经确认的 money/currentMoney/倍数/春天/封顶",
+    "自然三浏览器多局与重连验收"
+  ]
+}
