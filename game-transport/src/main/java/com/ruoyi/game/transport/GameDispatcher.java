@@ -101,6 +101,8 @@ public class GameDispatcher implements GameRequestDispatcher {
             case "role/getZhanji" -> Map.of("state",0,"zhanji",List.of());
             case "activity/getActivitys" -> Map.of("state",0,"activitys",List.of());
             case "activity/getActivityOpenType" -> Map.of("state",0,"status",Map.of());
+            // 大厅初始化会查询入口状态；查询成功不代表开放实物奖励。
+            case "freephone/getStatus" -> Map.of("state",0,"status",0);
             case "koi/getInfo" -> lobby.koi(uid);
             case "activity/incrActivityVisit" -> {lobby.visit(uid,GameJsonCodec.text(data,"activityId",48));yield Map.of("state",0);}
             case "cfg/getGame" -> lobby.gameConfiguration(GameJsonCodec.text(data,"game_id",4));
