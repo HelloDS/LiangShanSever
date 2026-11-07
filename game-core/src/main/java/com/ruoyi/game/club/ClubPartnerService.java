@@ -53,17 +53,22 @@ public class ClubPartnerService {
     public Map<String,Object> partnerPage(long actor,long club,String date,int page,Map<String,String> sort,boolean include) {
         access(actor,club,false);
         if(!manager(actor,club))throw denied();
-        var all=profiles(club,date(date));
+        var day=date(date);
+        var all=profiles(club,day);
+        Map<Long,long[]> totals=new HashMap<>();
+        for(var stats:daily(club,day)) {
+            long target=number(stats,"partnerUid");
+            if(!include && number(stats,"uid")==target)continue;
+            var total=totals.computeIfAbsent(target,ignored->new long[2]);
+            total[0]=Math.addExact(total[0],number(stats,"games"));
+            total[1]=Math.addExact(total[1],number(stats,"score"));
+        }
         var rows=new ArrayList<Map<String,Object>>();
         for(var row:all)if(number(row,"is_partner")==1) {
             var result=new LinkedHashMap<>(row);
-            long target=number(row,"uid"),games=0,score=0;
-            for(var member:teamProfiles(club,target,date(date),include)) {
-                games=Math.addExact(games,number(member,"game_number"));
-                score=Math.addExact(score,number(member,"score"));
-            }
-            result.put("game_number",games);
-            result.put("score",score);
+            var total=totals.getOrDefault(number(row,"uid"),new long[2]);
+            result.put("game_number",total[0]);
+            result.put("score",total[1]);
             rows.add(result);
         }
         sort(rows,sort);
@@ -187,7 +192,15 @@ public class ClubPartnerService {
         var start=day.atStartOfDay(ZONE).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         var rows=new ArrayList<Map<String,Object>>();
         for(var row:partners.logs(club,target,start,start.plusDays(1))) {
-            String text="操作人 "+row.get("actor")+" "+row.get("action")+" "+Objects.toString(row.get("target"),"");
+            String action=switch(Objects.toString(row.get("action"),"")) {
+                case "PARTNER_ADD" -> "添加合伙人";
+                case "PARTNER_REMOVE" -> "解除合作";
+                case "PARTNER_BIND" -> "调配成员";
+                case "PARTNER_UNBIND" -> "解除成员绑定";
+                case "PARTNER_AUTH" -> "修改审批权限";
+                default -> "修改合伙人资料";
+            };
+            String text="操作人 "+row.get("actor")+" "+action+" "+Objects.toString(row.get("target"),"");
             rows.add(Map.of("log",text,"time",time(row.get("time"))));
         }
         return page(rows,page,6);
@@ -199,6 +212,7 @@ public class ClubPartnerService {
             var sum=new HashMap<>(left);
             sum.put("games",Math.addExact(number(left,"games"),number(right,"games")));
             sum.put("score",Math.addExact(number(left,"score"),number(right,"score")));
+            if(time(right.get("gameAt")).compareTo(time(left.get("gameAt")))>0)sum.put("gameAt",right.get("gameAt"));
             return sum;
         });
         var result=new ArrayList<Map<String,Object>>();

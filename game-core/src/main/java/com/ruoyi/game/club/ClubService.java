@@ -49,7 +49,7 @@ public class ClubService {
     }
 
     public record Actor(long id,boolean admin){public static Actor player(long uid){return new Actor(uid,false);}public static Actor operator(long id){return new Actor(id,true);}}
-    public record Notification(List<Long> recipients,Map<String,Object> packet){public Notification{recipients=List.copyOf(recipients);packet=Map.copyOf(packet);}}
+    public record Notification(List<Long> recipients,Map<String,Object> packet){public Notification{recipients=List.copyOf(recipients);packet=Collections.unmodifiableMap(new LinkedHashMap<>(packet));}}
     public record Change(List<Notification> notifications){ }
     private Change notify(long id,List<Long> recipients,String command){return new Change(List.of(new Notification(List.copyOf(recipients),Map.of("cmd",command,"club_id",id))));}
     private Change silent(){return new Change(List.of());}
@@ -299,7 +299,7 @@ public class ClubService {
         }else{
             if(targetRole==null)throw new GameFailure(-41,"玩家已不在圈内");
             mayRemove(actor,actorRole,target,targetRole);
-            if(decision==1){removePartnerMembership(id,target);mapper.leave(id,target);mapper.count(id,-1,now());}
+            if(decision==1){requireNoRoom(id,target);removePartnerMembership(id,target);mapper.leave(id,target);mapper.count(id,-1,now());}
         }
         if(mapper.review(id,target,kind,decision==1?"APPROVED":"REJECTED",actor.id(),actor.admin()?"ADMIN":"PLAYER",now())!=1)throw new IllegalStateException("申请状态并发变化");
         String prefix="JOIN".equals(kind)?"apply":"applyLeave";
@@ -312,6 +312,7 @@ public class ClubService {
     public Change kick(Actor actor,long id,long target){
         var club=active(id,true);String actorRole=authorize(actor,id,false),targetRole=member(id,target);
         mayRemove(actor,actorRole,target,targetRole);
+        requireNoRoom(id,target);
         removePartnerMembership(id,target);
         if(mapper.leave(id,target)!=1)throw new GameFailure(-41,"玩家已不在圈内");
         mapper.count(id,-1,now());
@@ -320,6 +321,7 @@ public class ClubService {
         mapper.message(target,id,(String)club.get("name"),"kick",now());event(id,actor,target,"KICK",Map.of("previousRole",targetRole));
         return notify(id,List.of(target),"club_kick");
     }
+    private void requireNoRoom(long club,long uid){if(mapper.occupiedRoom(club,uid))throw new GameFailure(-10,"成员仍在圈内房间，请结束或离开房间后重试");}
     @Transactional public Change manager(long actor,long id,long target,boolean enabled){return manager(Actor.player(actor),id,target,enabled);}
     @Transactional
     public Change manager(Actor actor,long id,long target,boolean enabled){

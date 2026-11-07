@@ -1,0 +1,23 @@
+{
+  "startedAt": "2026-11-07T04:44:55.747Z",
+  "transport": "original-websocket",
+  "game": "6003",
+  "rounds": 6,
+  "actions": 372,
+  "club": 100006,
+  "players": [
+    101055,
+    101056,
+    101057
+  ],
+  "roomCode": "100000",
+  "roomId": "bca9010d-9e97-4307-a8fc-c8d1dd65bcf1",
+  "recordId": 1,
+  "feeTransactions": 1,
+  "cardCost": 3,
+  "circleFinalCards": 97,
+  "partnerRecords": 1,
+  "movieRounds": 6,
+  "finishedAt": "2026-11-07T04:45:16.574Z",
+  "status": "PASS"
+}

@@ -32,6 +32,11 @@ public final class GameJsonCodec {
         read(json);
         return mapper.readValue(json,new tools.jackson.core.type.TypeReference<Map<String,Object>>() { });
     }
+    /** 有版本的内部状态 DTO，复用游戏协议的大小与深度约束。 */
+    public <T> T value(String json,Class<T> type) {
+        read(json);
+        return mapper.readValue(json,type);
+    }
 
     /** 内部摘要专用；不改变线上协议序列化。保留大整数和十进制精度，递归排序对象键。 */
     public String canonicalObject(String json) {

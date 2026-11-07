@@ -82,6 +82,19 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
         if(actor==null||actor.closed||actor.snapshot.ownerEpoch()!=handle.ownerEpoch())throw new RoomRejected("NOT_OWNED");
         return actor.snapshot;
     }
+    /** 由业务适配器释放已关闭的房间，在所属分片上拒绝剩余排队命令。 */
+    public void retireClosed(Handle handle) {
+        Shard shard=shard(handle.roomId());Actor actor=shard.actors.get(handle.roomId());
+        if(actor==null || actor.snapshot.ownerEpoch()!=handle.ownerEpoch() || !"CLOSED".equals(actor.snapshot.phase()) || !actor.retiring.compareAndSet(false,true))return;
+        boolean queued=shard.normal.offer(()->{
+            if(actor.commit!=null){actor.retiring.set(false);return;}
+            actor.closed=true;
+            if(shard.actors.remove(handle.roomId(),actor))shard.roomSlots.release();
+            while(!actor.waiting.isEmpty())finish(actor.waiting.remove(),null,"ROOM_CLOSED");
+        });
+        if(!queued)actor.retiring.set(false);
+        else LockSupport.unpark(shard.thread);
+    }
     public int pendingCommands(){return shards.stream().mapToInt(shard->config.commandsPerShard()-shard.commands.availablePermits()).sum();}
     public int pendingCompletions(){return shards.stream().mapToInt(shard->shard.control.size()).sum();}
     public int pendingIo(){return io.getQueue().size();}
@@ -191,6 +204,7 @@ public final class RoomMailboxes<S,C,E> implements AutoCloseable {
         final Queue<Request> waiting=new ArrayDeque<>();
         final Queue<Runnable> notices=new ConcurrentLinkedQueue<>();final AtomicBoolean notifying=new AtomicBoolean();
         volatile RoomSnapshot<S> snapshot;volatile boolean closed;Commit commit;
+        final AtomicBoolean retiring=new AtomicBoolean();
         Actor(Shard shard,RoomSnapshot<S> snapshot,Engine<S,C,E> engine){this.shard=shard;this.snapshot=snapshot;this.engine=engine;}
     }
     private final class Request{

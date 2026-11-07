@@ -95,6 +95,64 @@ class GameFoundationIntegrationTest {
     @Autowired com.ruoyi.game.admin.OnlineHistoryService onlineHistory;
     @MockitoSpyBean OnlineHistoryMapper onlineHistoryMapper;
     @Autowired com.ruoyi.game.room.RoomExports roomExports;
+    @Autowired LiveRoomService liveRooms;
+    @Autowired LiveRoomMapper liveRoomMapper;
+    @Autowired LiveRoomMovies liveMovies;
+
+    @Test void publicCircleRoomPlaysSixRoundsChargesOnceAndPublishesActualPartnerRecords() throws Exception {
+        var owner=auth.verify(auth.createGuest());var a=auth.verify(auth.createGuest());var b=auth.verify(auth.createGuest());
+        wallets.post(new WalletPosting(Kind.REWARD,"room_fund:"+owner.uid(),"fixture-v1","player/"+owner.uid(),List.of(
+                new Entry(new Account(OwnerType.PERSONAL,owner.uid(),Currency.CARD),500,0),
+                new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-500,0))));
+        var created=(Map<?,?>)clubs.create(owner.uid(),"房"+UUID.randomUUID().toString().substring(0,6)).get("club");
+        long club=((Number)created.get("id")).longValue();
+        for(var actor:List.of(a,b)){clubs.apply(actor.uid(),club,"JOIN");clubs.review(owner.uid(),club,actor.uid(),"JOIN",1);}
+        clubPartners.add(owner.uid(),club,List.of(a.uid()));clubPartners.bind(owner.uid(),club,a.uid(),List.of(b.uid()),false);
+        var options=Map.<String,Object>of("playNumber",6,"cardType",4,"aa",false,"club_id",club);
+        String operation=UUID.randomUUID().toString();
+        var first=liveRooms.create(owner,"6003",options,operation);
+        String code=(String)((Map<?,?>)first.ack().get("room")).get("id");
+        var replay=liveRooms.create(owner,"6003",options,operation);
+        assertEquals(code,((Map<?,?>)replay.ack().get("room")).get("id"));assertTrue(replay.notifications().isEmpty());
+        String id=(String)liveRoomMapper.byCode(code).get("roomId");
+        var actors=Map.of(owner.uid(),owner,a.uid(),a,b.uid(),b);
+        for(var actor:actors.values())liveRooms.join(actor,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
+        assertThrows(GameFailure.class,()->clubs.disband(owner.uid(),club));
+        assertThrows(GameFailure.class,()->clubs.kick(owner.uid(),club,b.uid()));
+        for(int round=1;round<=6;round++) {
+            for(var actor:actors.values())liveRooms.action(actor,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            var state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+            liveRooms.action(actors.get(state.round().currentUid()),new LandlordAction.Bid(3)).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            int count=0;
+            while(true) {
+                state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+                if(!"PLAYING".equals(state.round().phase()))break;
+                long uid=state.round().play().currentUid();
+                LandlordAction action;
+                if(state.round().play().target()!=null)action=new LandlordAction.Pass();
+                else {
+                    var cards=List.of(state.round().play().hands().get(uid).getFirst());
+                    action=new LandlordAction.Play(cards,LandlordPatterns.classifyAs(cards,1).orElseThrow());
+                }
+                liveRooms.action(actors.get(uid),action).toCompletableFuture().get(10,TimeUnit.SECONDS);
+                assertTrue(++count<200);
+            }
+        }
+        assertEquals("CLOSED",liveRoomMapper.byId(id).get("status"));
+        assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM player_room_binding WHERE room_id=?",Long.class,id));
+        assertEquals(97,jdbc.queryForObject("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",Long.class,club));
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Long.class,"room:"+id+":fee"));
+        assertEquals(6,jdbc.queryForObject("SELECT round_count FROM club_game_record WHERE room_id=?",Integer.class,id));
+        assertEquals(0,jdbc.queryForObject("SELECT SUM(s.score) FROM club_game_score s JOIN club_game_record g ON g.id=s.record_id WHERE g.room_id=?",Long.class,id));
+        assertEquals(a.uid(),jdbc.queryForObject("SELECT s.partner_uid FROM club_game_score s JOIN club_game_record g ON g.id=s.record_id WHERE g.room_id=? AND s.uid=?",Long.class,id,b.uid()));
+        String today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+        assertEquals(1,((List<?>)clubRecords.club(owner.uid(),club,today,true).get("zhanjis")).size());
+        assertEquals(1L,clubRecords.member(a.uid(),club,a.uid(),b.uid(),today,1).get("total"));
+        assertEquals("MATCH",wallets.reconcile(new Account(OwnerType.CLUB,club,Currency.CARD)).get("status"));
+        var movie=(Map<?,?>)liveMovies.movie(owner.uid(),id).get("movie");
+        assertEquals(6,((List<?>)movie.get("data")).size());
+        assertThrows(GameFailure.class,()->liveMovies.movie(auth.verify(auth.createGuest()).uid(),id));
+    }
 
     @Test void confirmedStarterAssetsAreIssuedOnceAndRegistrationRollbackIsAtomic(){
         var starterAuth=new GuestAuthService(identities,lobby,java.time.Clock.systemUTC(),wallets,365,true);
@@ -929,6 +987,50 @@ class GameFoundationIntegrationTest {
             return id;
         }
         private void join(long owner,long id,long uid){clubs.apply(uid,id,"JOIN");clubs.review(owner,id,uid,"JOIN",1);}
+        @Test void automaticRoomsReplenishOnceAndFailedStartKeepsWalletAndReadyStateAtomic() throws Exception {
+            var owner=auth.verify(auth.createGuest());var a=auth.verify(auth.createGuest());var b=auth.verify(auth.createGuest());
+            long club=existingClub(owner.uid(),10,3);
+            join(owner.uid(),club,a.uid());join(owner.uid(),club,b.uid());
+            var options=Map.<String,Object>of("playNumber",6,"cardType",4,"aa",false);
+            assertThrows(GameFailure.class,()->liveRooms.configure(a.uid(),club,"6003",options));
+            liveRooms.configure(owner.uid(),club,"6003",options);liveRooms.automatic(owner.uid(),club,true);
+            try(var pool=Executors.newFixedThreadPool(4)) {
+                var results=new ArrayList<Future<?>>();
+                for(int i=0;i<6;i++)results.add(pool.submit(()->liveRooms.automatic(owner.uid(),club,true)));
+                for(var result:results)result.get(10,TimeUnit.SECONDS);
+            }
+            assertEquals(1,number("SELECT COUNT(*) FROM room_record WHERE club_id=? AND status<>'CLOSED'",club));
+            String code=(String)liveRooms.circleList(owner.uid(),club).ack().get("default_room");
+            for(var actor:List.of(owner,a,b))liveRooms.join(actor,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            liveRooms.replenish();
+            assertEquals(2,number("SELECT COUNT(*) FROM room_record WHERE club_id=? AND status<>'CLOSED'",club));
+            liveRooms.automatic(owner.uid(),club,false);
+            String id=(String)liveRoomMapper.byCode(code).get("roomId");
+            liveRooms.action(owner,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            liveRooms.action(a,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertThrows(ExecutionException.class,()->liveRooms.action(b,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS));
+            var waiting=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+            assertEquals("WAITING",waiting.round().phase());assertEquals(2,waiting.round().ready().size());
+            assertEquals(0,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?","room:"+id+":fee"));
+            wallets.post(new WalletPosting(Kind.REWARD,"auto_room_fund:"+owner.uid(),"fixture-v1","player/"+owner.uid(),List.of(
+                    new Entry(new Account(OwnerType.PERSONAL,owner.uid(),Currency.CARD),10,0),
+                    new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-10,0))));
+            clubs.deposit(owner.uid(),club,10,0,UUID.randomUUID().toString());
+            liveRooms.action(b,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertEquals(7,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",club));
+            assertThrows(ExecutionException.class,()->liveRooms.close(owner,code).toCompletableFuture().get(10,TimeUnit.SECONDS));
+            liveRooms.vote(owner,1).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            liveRooms.vote(a,0).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertNull(codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class).vote());
+            for(var actor:List.of(owner,a,b))liveRooms.vote(actor,1).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertEquals("CLOSED",liveRoomMapper.byId(id).get("status"));
+            assertEquals(0,number("SELECT COUNT(*) FROM club_game_record WHERE room_id=?",id));
+            assertEquals(7,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",club));
+            String empty=jdbc.queryForObject("SELECT room_code FROM room_record WHERE club_id=? AND status='WAITING'",String.class,club);
+            liveRooms.close(owner,empty).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            clubs.disband(owner.uid(),club);
+        }
+
         @Test void partnerMembershipAndDelegatedReviewStayWithinTheCircle(){
             long owner=player(),partner=player(),otherPartner=player(),member=player(),outsider=player(),applicant=player();
             long id=existingClub(owner,10,3);

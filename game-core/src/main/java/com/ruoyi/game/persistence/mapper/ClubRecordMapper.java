@@ -6,6 +6,15 @@ import java.util.Map;
 import org.apache.ibatis.annotations.*;
 
 public interface ClubRecordMapper {
+    @Select("SELECT id FROM club_game_record WHERE room_id=#{room}")
+    Long roomRecord(String room);
+
+    @Insert("INSERT INTO club_game_record(room_id,club_id,game_id,room_code,round_count,record_json,finished_at) VALUES(#{room},#{club},'6003',#{code},#{rounds},#{record},#{now})")
+    @Options(useGeneratedKeys=true,keyProperty="id")
+    int insert(Map<String,Object> values);
+
+    @Insert("INSERT INTO club_game_score(record_id,uid,partner_uid,score) VALUES(#{record},#{uid},#{partner},#{score})")
+    int score(@Param("record") long record,@Param("uid") long uid,@Param("partner") long partner,@Param("score") long score);
     @Select("<script>SELECT g.id,g.room_id AS roomId,g.game_id AS gameId,g.room_code AS roomCode,g.round_count AS rounds,g.record_json AS record,g.finished_at AS finishedAt FROM club_game_record g WHERE g.club_id=#{club} AND g.finished_at&gt;=#{start} AND g.finished_at&lt;#{end}<if test='uid != null'> AND EXISTS(SELECT 1 FROM club_game_score s WHERE s.record_id=g.id AND s.uid=#{uid})</if> ORDER BY g.finished_at DESC,g.id DESC LIMIT 100</script>")
     List<Map<String,Object>> clubRecords(@Param("club") long club,@Param("uid") Long uid,
             @Param("start") LocalDateTime start,@Param("end") LocalDateTime end);

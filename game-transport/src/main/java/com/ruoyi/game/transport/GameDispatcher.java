@@ -25,17 +25,22 @@ public class GameDispatcher implements GameRequestDispatcher {
     private final ClubWireRouter clubs;
     private final PersonalEconomyService economy;
     private final PartnerWireRouter partners;
+    private final RoomWireRouter rooms;
     public GameDispatcher(GuestAuthService auth, GameSessionService sessions, PlayerService players,
-                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login,ClubWireRouter clubs,PersonalEconomyService economy,PartnerWireRouter partners) {
+                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login,ClubWireRouter clubs,PersonalEconomyService economy,PartnerWireRouter partners,RoomWireRouter rooms) {
         this.auth=auth; this.sessions=sessions; this.players=players; this.registry=registry; this.online=online;this.lobby=lobby;this.limiter=limiter;
         this.reports=reports;this.login=login;this.clubs=clubs;this.economy=economy;this.partners=partners;
+        this.rooms=rooms;
     }
     public record Result(Map<String,Object> ack,ConnectionRegistry.Binding binding,List<com.ruoyi.game.club.ClubService.Notification> notifications) {
         public Result{ack=Collections.unmodifiableMap(new LinkedHashMap<>(ack));notifications=List.copyOf(notifications);}
         public Result(Map<String,Object> ack,ConnectionRegistry.Binding binding){this(ack,binding,List.of());}
     }
     @Override public java.util.concurrent.CompletionStage<Result> dispatchAsync(WireRequest request,ConnectionRegistry.Binding binding,Channel channel){
-        // 当前大厅/圈接口同步执行于业务池。未来房间适配直接返回邮箱阶段，不阻塞业务线程。
+        if(!"login".equals(request.path()) && rooms.supports(request)) {
+            GuestIdentity identity=authenticated(request,binding);
+            return rooms.dispatch(request,identity).thenApply(reply->new Result(reply.ack(),binding,reply.notifications()));
+        }
         return java.util.concurrent.CompletableFuture.completedFuture(dispatch(request,binding,channel));
     }
     public Result dispatch(WireRequest request, ConnectionRegistry.Binding binding, Channel channel) {
@@ -66,11 +71,7 @@ public class GameDispatcher implements GameRequestDispatcher {
             }
             throw new GameFailure(-2,"登录操作不可用");
         }
-        String token=GameJsonCodec.text(request.data(),"sessionToken",43);
-        if (!registry.current(binding) || !binding.token().equals(token)) throw new GameFailure(-5,"连接未认证或已被替换");
-        GuestIdentity identity=sessions.verify(token);
-        if (identity.uid()!=binding.identity().uid()) throw new GameFailure(-5,"会话身份不匹配");
-        limiter.account(identity.uid());
+        GuestIdentity identity=authenticated(request,binding);
         if(partners.supports(request)){
             var reply=partners.dispatch(request,identity.uid());return new Result(reply.ack(),binding,reply.notifications());
         }
@@ -78,6 +79,13 @@ public class GameDispatcher implements GameRequestDispatcher {
             var reply=clubs.dispatch(request,identity.uid());return new Result(reply.ack(),binding,reply.notifications());
         }
         return new Result(logic(request,identity.uid()),binding);
+    }
+    private GuestIdentity authenticated(WireRequest request,ConnectionRegistry.Binding binding) {
+        String token=GameJsonCodec.text(request.data(),"sessionToken",43);
+        if(!registry.current(binding) || !binding.token().equals(token))throw new GameFailure(-5,"连接未认证或已被替换");
+        GuestIdentity identity=sessions.verify(token);
+        if(identity.uid()!=binding.identity().uid())throw new GameFailure(-5,"会话身份不匹配");
+        limiter.account(identity.uid());return identity;
     }
     private Map<String,Object> logic(WireRequest req,long uid) {
         JsonNode data=req.data();
@@ -91,8 +99,8 @@ public class GameDispatcher implements GameRequestDispatcher {
             case "role/getRoles" -> {
                 JsonNode uids=data.get("uids");
                 if(uids==null||!uids.isArray()||uids.size()>200) throw new GameFailure(-2,"玩家列表无效");
-                List<Map<String,Object>> roles=new ArrayList<>();
-                for(JsonNode id:uids) roles.add(players.publicRole(uid(id)));
+                Map<String,Object> roles=new LinkedHashMap<>();
+                for(JsonNode id:uids){long target=uid(id);roles.put(Long.toString(target),players.publicRole(target));}
                 yield Map.of("state",0,"roles",roles);
             }
             case "role/syncPos" -> {

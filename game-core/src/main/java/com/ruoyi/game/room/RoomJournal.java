@@ -9,6 +9,7 @@ import com.ruoyi.game.auth.*;
 import com.ruoyi.game.economy.*;
 import com.ruoyi.game.outbox.OutboxStore;
 import com.ruoyi.game.persistence.mapper.RoomJournalMapper;
+import com.ruoyi.game.persistence.mapper.ClubMapper;
 import com.ruoyi.game.protocol.GameJsonCodec;
 import com.ruoyi.game.room.RoomPersistence.Decision;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,9 +26,13 @@ public class RoomJournal {
     private final WalletPostingService wallets;
     private final OutboxStore outbox;
     private final Clock clock;
+    private final LiveRoomFinalizer finalizer;
+    private final ClubMapper clubs;
     public RoomJournal(RoomTransactions transactions,RoomJournalMapper mapper,GameJsonCodec codec,GuestAuthService auth,
-            WalletPostingService wallets,OutboxStore outbox,Clock clock){
+            WalletPostingService wallets,OutboxStore outbox,Clock clock,LiveRoomFinalizer finalizer,ClubMapper clubs){
         this.transactions=transactions;this.mapper=mapper;this.codec=codec;this.auth=auth;this.wallets=wallets;this.outbox=outbox;this.clock=clock;
+        this.finalizer=finalizer;
+        this.clubs=clubs;
     }
     private record Encoded(String beforeHash,String afterHash,String payload,String snapshot,String requestHash,LocalDateTime occurred){ }
     private Encoded encode(RoomJournalCommand command){
@@ -66,6 +71,15 @@ public class RoomJournal {
         if("CLOSED".equals(runtime.get("status")))return Decision.NOT_COMMITTED;
         if(command.eventKind().startsWith("TEST_")&&!Boolean.TRUE.equals(runtime.get("isTest")))throw new IllegalArgumentException("测试事件不能写入正式房间");
         if(command.actor()!=null)auth.verifySession(command.actor());
+        if(LiveRoomEngine.VERSION.equals(command.engineVersion()) && runtime.get("clubId") instanceof Number club && command.actor()!=null) {
+            var circle=clubs.lock(club.longValue());
+            String role=clubs.memberRole(club.longValue(),command.actor().uid());
+            if(circle==null || !"ACTIVE".equals(circle.get("status")) || role==null)throw new GameFailure(-90,"亲友圈成员身份已经改变");
+            if("CLOSE".equals(command.eventKind()) && !Set.of("OWNER","MANAGER").contains(role))throw new GameFailure(-90,"没有房间管理权限");
+            if(!command.postings().isEmpty())for(long uid:mapper.participants(room)) {
+                if(clubs.memberRole(club.longValue(),uid)==null || clubs.activePlayer(uid)!=1)throw new GameFailure(-90,"参与者状态已经改变");
+            }
+        }
         validatePostings(command,runtime);
         LocalDateTime now=now();
         if(command.seatChange()!=null)seat(command,runtime,now);
@@ -82,7 +96,7 @@ public class RoomJournal {
         // 大多数出牌仍为 PLAYING，不为每个动作重复写同一条后台元数据。
         // 阶段真的改变时必须确认写入，避免日志已前进而列表仍显示旧状态。
         if(!status.equals(runtime.get("status"))&&mapper.status(room,status,now)!=1)throw new IllegalStateException("房间状态写入未确认");
-        if("CLOSED".equals(status)){mapper.releasePlayers(room);if(mapper.releaseCode(room)!=1)throw new IllegalStateException("活跃房号释放异常");}
+        if("CLOSED".equals(status)){finalizer.closing(command,now);mapper.releasePlayers(room);if(mapper.releaseCode(room)!=1)throw new IllegalStateException("活跃房号释放异常");}
         outbox.roomCommitted(room,candidate.version(),command.ruleVersion(),command.occurredAt());
         return Decision.COMMITTED;
     }

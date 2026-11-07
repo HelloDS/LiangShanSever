@@ -5,6 +5,8 @@ import java.util.*;
 import org.apache.ibatis.annotations.*;
 
 public interface ClubMapper {
+    @Select("SELECT EXISTS(SELECT 1 FROM player_room_binding b JOIN room_record r ON r.room_id=b.room_id WHERE b.uid=#{uid} AND r.club_id=#{club})")
+    boolean occupiedRoom(@Param("club") long club,@Param("uid") long uid);
     String COLUMNS="c.id,c.name,c.owner_uid AS owner,c.status,c.member_count AS current_mem,c.max_members AS max_mem,c.max_managers AS maxManagers,c.only_manager_open_room AS onlyManagerOpenRoom,c.version,c.created_at AS createdAt,c.updated_at AS updatedAt,COALESCE(w.balance,0) AS card,COALESCE(d.balance,0) AS diamond";
     String JOINS=" FROM club c LEFT JOIN club_wallet_account w ON w.club_id=c.id AND w.currency='card' LEFT JOIN club_wallet_account d ON d.club_id=c.id AND d.currency='diamond' ";
     @Select("SELECT "+COLUMNS+JOINS+"WHERE c.id=#{id}") Map<String,Object> club(long id);
