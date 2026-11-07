@@ -76,7 +76,8 @@ public class GameDispatcher implements GameRequestDispatcher {
     private Map<String,Object> logic(WireRequest req,long uid) {
         JsonNode data=req.data();
         return switch(req.api()+"/"+req.command()) {
-            case "role/exchangeCard","role/exchangeDiamond","club/transferDiamond","club/transferToClub","club/exchangeCard","club/exchangeDiamond","cfg/getExchangeRate" -> throw new GameFailure(-18,"兑换或划转规则尚未确认，暂不可执行");
+            case "cfg/getExchangeRate","role/exchangeCard","role/exchangeDiamond" -> throw new GameFailure(-18,"已确认 1 钻石兑换 10 房卡，旧兑换页算法与订单恢复流程尚待适配");
+            case "club/transferDiamond","club/transferToClub","club/exchangeCard","club/exchangeDiamond" -> throw new GameFailure(-18,"圈资金授权与订单恢复流程尚未确认，暂不可执行");
             case "role/syncCard" -> { var role=players.ownRole(uid); yield Map.of("state",0,"card",role.get("card"),"diamond",role.get("diamond")); }
             case "role/getRoleInfo" -> Map.of("state",0,"role",players.publicRole(uid(data,"targetUid")));
             case "role/getRoles" -> {
