@@ -1,24 +1,25 @@
 {
-  "startedAt": "2026-11-07T05:01:06.952Z",
+  "startedAt": "2026-11-07T05:45:14.584Z",
   "transport": "original-websocket",
   "game": "6003",
   "rounds": 6,
   "actions": 372,
-  "club": 100007,
+  "club": 100010,
   "players": [
-    101058,
-    101059,
-    101060
+    101067,
+    101068,
+    101069
   ],
-  "roomCode": "100001",
-  "roomId": "6a535bfc-0eca-425d-845a-92db6d896794",
-  "recordId": 2,
+  "roomCode": "100007",
+  "waitingSeatKick": true,
+  "roomId": "502ff3f8-4570-430c-95b5-fcd4085a1a44",
+  "recordId": 4,
   "monotonicRevisions": true,
   "feeTransactions": 1,
   "cardCost": 3,
   "circleFinalCards": 97,
   "partnerRecords": 1,
   "movieRounds": 6,
-  "finishedAt": "2026-11-07T05:01:27.915Z",
+  "finishedAt": "2026-11-07T05:45:36.650Z",
   "status": "PASS"
 }

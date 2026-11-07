@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-07",
+  "serverCommit": "ef5355e",
+  "clientCommit": "e820e8a4",
+  "java": {
+    "command": "scripts/test.sh",
+    "passed": 233,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "byModule": {
+      "game-protocol": 3,
+      "game-core": 66,
+      "game-transport": 26,
+      "ruoyi-admin": 138
+    }
+  },
+  "browser": {
+    "preview": "http://127.0.0.1:7456/",
+    "builtWeb": false,
+    "testPlayerUid": 101049,
+    "testClubId": 100005,
+    "completedRooms": ["100004", "100008", "100009"],
+    "completedRounds": 3,
+    "clubRoomFeeTransactions": 3,
+    "renameFeeTransactions": 1,
+    "closedClubCards": 191,
+    "closedClubDiamonds": 10,
+    "ownerCardsAfterDisband": 650,
+    "ownerDiamondsAfterDisband": 90,
+    "result": "DISBANDED"
+  },
+  "remainingScope": [
+    "其他十种 Creator 圈内玩法尚未接入",
+    "建设中的体力、石材和开采按用户要求暂缓",
+    "外部支付和邀请分享渠道未做端到端验收",
+    "旧 GamePanel 和 6009 跨局夹具在改动前基线也缺少运行所需的房间事件环境"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "status": "PASS",
   "scope": "Creator 打包源文件字面路由核对，动态路由与实际浏览器行为单独验收",
-  "buildingScope": "用户暂缓体力、石材和开采，建设页面及其中备注入口保持隐藏",
+  "buildingScope": "用户暂缓体力、石材和开采，成员备注单独接入成员管理入口",
   "roomGameScope": "当前实际牌局接入 6003，其他玩法单独列为待接入",
   "modules": [
     {
@@ -293,7 +293,7 @@
         },
         {
           "route": "club/setClubMemComment",
-          "classification": "随建设页面暂缓"
+          "classification": "已有路由实现，行为验收另见证据"
         }
       ]
     },
