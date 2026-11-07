@@ -33,6 +33,9 @@ public interface OutboxMapper {
 
     @Update("UPDATE outbox_event SET status='DONE',completed_at=#{now},lease_token=NULL,lease_until=NULL,last_error_code=NULL WHERE id=#{id} AND status='CLAIMED' AND lease_token=#{token}")
     int complete(@Param("id") String id,@Param("token") String token,@Param("now") LocalDateTime now);
+    @Select("SELECT id FROM outbox_event WHERE id=#{id} AND status='CLAIMED' AND lease_token=#{token} FOR UPDATE")
+    @Options(timeout=2)
+    String lockOwned(@Param("id") String id,@Param("token") String token);
 
     @Update("UPDATE outbox_event SET status=#{status},retry_at=#{retry},lease_token=NULL,lease_until=NULL,last_error_code=#{code} WHERE id=#{id} AND status='CLAIMED' AND lease_token=#{token}")
     int fail(@Param("id") String id,@Param("token") String token,@Param("status") String status,@Param("retry") LocalDateTime retry,@Param("code") String code);

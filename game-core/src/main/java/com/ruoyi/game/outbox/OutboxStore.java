@@ -55,6 +55,8 @@ public class OutboxStore {
     }
     @Transactional(timeout=5)
     public boolean complete(OutboxEvent event){return mapper.complete(event.id(),event.leaseToken(),now())==1;}
+    @Transactional(propagation=Propagation.MANDATORY)
+    public boolean lockOwned(OutboxEvent event){return mapper.lockOwned(event.id(),event.leaseToken())!=null;}
     @Transactional(timeout=5)
     public boolean failed(OutboxEvent event,String code){
         if(code==null||!code.matches("[A-Z_]{1,64}"))throw new IllegalArgumentException("错误代码无效");

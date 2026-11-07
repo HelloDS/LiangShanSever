@@ -3,6 +3,7 @@ package com.ruoyi.game.room;
 import java.time.*;
 import java.util.*;
 import com.ruoyi.game.outbox.OutboxEvent;
+import com.ruoyi.game.outbox.OutboxStore;
 import com.ruoyi.game.persistence.mapper.RoomJournalMapper;
 import com.ruoyi.game.protocol.GameJsonCodec;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,17 @@ public class RoomEventConsumer {
     private final RoomJournalMapper mapper;
     private final GameJsonCodec codec;
     private final Clock clock;
-    public RoomEventConsumer(RoomJournalMapper mapper,GameJsonCodec codec,Clock clock){this.mapper=mapper;this.codec=codec;this.clock=clock;}
+    private final OutboxStore outbox;
+    public RoomEventConsumer(RoomJournalMapper mapper,GameJsonCodec codec,Clock clock,OutboxStore outbox){this.mapper=mapper;this.codec=codec;this.clock=clock;this.outbox=outbox;}
+    public static final class StaleLease extends RuntimeException {public StaleLease(){super("房间事件消费租约已改变");}}
+    /** DONE、收据和投影共用普通池的一笔事务；后续任一步失败均回滚。 */
+    @Transactional(timeout=5)
+    public void consumeAndComplete(OutboxEvent event){
+        // 先通过令牌锁定当前事件，失去租约的旧处理者不能先发布投影副作用。
+        if(!outbox.lockOwned(event))throw new StaleLease();
+        consume(event);
+        if(!outbox.complete(event))throw new StaleLease();
+    }
     @Transactional(timeout=5)
     public void consume(OutboxEvent event){
         if(!"ROOM_EVENT_COMMITTED".equals(event.eventType())||event.schemaVersion()!=1)throw new IllegalArgumentException("房间投影事件版本无效");

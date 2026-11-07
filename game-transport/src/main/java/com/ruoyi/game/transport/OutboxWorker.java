@@ -80,9 +80,10 @@ public class OutboxWorker implements SmartLifecycle {
     private void consume(OutboxEvent event){
         long began=System.nanoTime();
         try{
-            handle(event);
-            if(store.complete(event))completed.increment();else lostLease.increment();
-        }catch(IllegalArgumentException failure){safeFail(event,"INVALID_EVENT");}
+            if("ROOM_EVENT_COMMITTED".equals(event.eventType())){roomEvents.consumeAndComplete(event);completed.increment();}
+            else{handle(event);if(store.complete(event))completed.increment();else lostLease.increment();}
+        }catch(com.ruoyi.game.room.RoomEventConsumer.StaleLease stale){lostLease.increment();}
+        catch(IllegalArgumentException failure){safeFail(event,"INVALID_EVENT");}
         catch(RuntimeException failure){safeFail(event,"HANDLER_FAILED");}
         finally{handleTime.record(System.nanoTime()-began,TimeUnit.NANOSECONDS);slots.release();}
     }
