@@ -1,0 +1,26 @@
+{
+  "executedAt": "2026-11-07T00:34:36.771Z",
+  "scope": "显式 SQL 测试源事件，真实 worker 领取并在消费者事务持锁时 SIGKILL；不同 PID 等待原 60 秒租约到期后重领。不是公开牌局命令、数据库崩溃或提交 ACK 丢失验收。",
+  "beforeKill": {
+    "status": "CLAIMED",
+    "attempts": 1,
+    "consumerRowLockObserved": true,
+    "committedReceipts": 0,
+    "projectionCount": 0
+  },
+  "crashEvidence": {
+    "pid": 40414,
+    "signal": "SIGKILL",
+    "observedExitCode": 137,
+    "observedAt": "2026-11-07T00:33:44.557615+00:00"
+  },
+  "afterRestart": {
+    "status": "DONE",
+    "attempts": 2,
+    "committedReceipts": 1,
+    "projectionCount": 1,
+    "lastVersion": 1,
+    "walletTransactions": 0
+  },
+  "result": "PASS"
+}
