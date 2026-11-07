@@ -160,7 +160,7 @@ public class ClubService {
     public Map<String,Object> rooms(long uid,long id){
         active(id,false);String role=member(id,uid);Map<String,Object> red=new LinkedHashMap<>();
         if(manager(role)){if(mapper.applicationCount(id,"JOIN")>0)red.put("apply",1);if(mapper.applicationCount(id,"LEAVE")>0)red.put("applyLeave",1);}
-        Map<String,Object> response=new LinkedHashMap<>();response.put("state",0);response.put("list",Map.of());response.put("redPoints",red);response.put("default_room",null);return response;
+        Map<String,Object> response=new LinkedHashMap<>();response.put("state",0);response.put("list",Map.of());response.put("redPoints",red);response.put("default_room",null);response.put("automatic_room_enabled",false);return response;
     }
     @Transactional(readOnly=true)
     public Map<String,Object> defaultRoom(long uid,long id){active(id,false);member(id,uid);Map<String,Object> response=new LinkedHashMap<>();response.put("state",0);response.put("config",null);return response;}
