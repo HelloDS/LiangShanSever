@@ -12,7 +12,7 @@ public interface PartnerMapper {
     @Select("SELECT EXISTS(SELECT 1 FROM club_partner WHERE club_id=#{club} AND uid=#{uid} AND has_review_auth=TRUE)")
     boolean mayReview(@Param("club") long club,@Param("uid") long uid);
 
-    @Select("SELECT m.uid,r.name,r.head,r.sex,m.member_role AS memberRole,IF(p.uid IS NULL,0,1) AS is_partner,COALESCE(p.has_review_auth,FALSE) AS hasReviewAuth,pm.partner_uid AS partnerUid,pr.name AS partnerName FROM club_member m JOIN player_role r ON r.uid=m.uid LEFT JOIN club_partner p ON p.club_id=m.club_id AND p.uid=m.uid LEFT JOIN club_partner_member pm ON pm.club_id=m.club_id AND pm.member_uid=m.uid LEFT JOIN player_role pr ON pr.uid=pm.partner_uid WHERE m.club_id=#{club} ORDER BY m.uid")
+    @Select("SELECT m.uid,r.name,r.head,r.sex,m.member_role AS memberRole,IF(p.uid IS NULL,0,1) AS is_partner,IF(p.has_review_auth,1,0) AS hasReviewAuth,pm.partner_uid AS partnerUid,pr.name AS partnerName FROM club_member m JOIN player_role r ON r.uid=m.uid LEFT JOIN club_partner p ON p.club_id=m.club_id AND p.uid=m.uid LEFT JOIN club_partner_member pm ON pm.club_id=m.club_id AND pm.member_uid=m.uid LEFT JOIN player_role pr ON pr.uid=pm.partner_uid WHERE m.club_id=#{club} ORDER BY m.uid")
     List<Map<String,Object>> members(long club);
 
     @Insert("INSERT INTO club_partner(club_id,uid,created_by,created_at) VALUES(#{club},#{uid},#{actor},#{now})")

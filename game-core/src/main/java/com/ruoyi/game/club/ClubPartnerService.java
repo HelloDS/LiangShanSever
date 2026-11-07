@@ -227,7 +227,7 @@ public class ClubPartnerService {
             row.put("score",stats==null?0:number(stats,"score"));
             row.put("game_at",stats==null?null:time(stats.get("gameAt")));
             row.put("is_partner_member",member.get("partnerUid")==null?0:1);
-            row.put("has_review_auth",Boolean.TRUE.equals(member.get("hasReviewAuth"))?1:0);
+            row.put("has_review_auth",number(member,"hasReviewAuth")==1?1:0);
             if(member.get("partnerUid")!=null)row.put("parent_partner",Map.of("uid",member.get("partnerUid"),"name",member.get("partnerName")));
             result.add(row);
         }

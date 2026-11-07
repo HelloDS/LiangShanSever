@@ -1129,9 +1129,11 @@ class GameFoundationIntegrationTest {
             clubs.apply(applicant,id,"JOIN");
             assertThrows(GameFailure.class,()->clubs.review(partner,id,applicant,"JOIN",1));
             clubPartners.permission(owner,id,List.of(partner),false,true);
+            assertEquals(1,((Map<?,?>)clubPartners.partner(partner,id,partner).get("partner")).get("has_review_auth"));
             clubs.review(partner,id,applicant,"JOIN",1);
             assertEquals("MEMBER",jdbc.queryForObject("SELECT member_role FROM club_member WHERE club_id=? AND uid=?",String.class,id,applicant));
             clubPartners.permission(owner,id,List.of(partner),false,false);
+            assertEquals(0,((Map<?,?>)clubPartners.partner(owner,id,partner).get("partner")).get("has_review_auth"));
             clubs.apply(outsider,id,"JOIN");
             assertThrows(GameFailure.class,()->clubs.review(partner,id,outsider,"JOIN",1));
             clubs.kick(owner,id,partner);
