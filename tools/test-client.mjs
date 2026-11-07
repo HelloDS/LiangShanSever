@@ -8,7 +8,7 @@ import WebSocket from 'ws';
 export const base=process.env.GAME_BASE_URL||'http://localhost:8080';
 export const environment=Object.fromEntries((await readFile(new URL('../.local/local.env',import.meta.url),'utf8')).trim().split('\n').map(line=>line.split('=')));
 export async function api(path,body,token,extraHeaders={}) {
-  const response=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{...(body!==undefined?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...extraHeaders},body:body===undefined?undefined:JSON.stringify(body)});
+  const response=await fetch(base+path,{method:body===undefined?'GET':'POST',headers:{...(body!==undefined?{'Content-Type':'application/json'}:{}),...(token?{Authorization:'Bearer '+token}:{}),...extraHeaders},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(8000)});
   assert.equal(response.status,200,`HTTP ${path}: ${response.status}`);
   return response.json();
 }

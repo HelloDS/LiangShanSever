@@ -1,10 +1,10 @@
 {
-  "executedAt": "2026-11-06T22:32:12.583364+00:00",
+  "collectedAt": "2026-11-07T00:19:03.837180+00:00",
   "commands": [
     "pnpm typecheck (vue-tsc --noEmit)",
     "pnpm build:prod (Vite production)"
   ],
   "diagnostics": 0,
-  "scope": "全部后台源代码；V13 审计及 V14 在线分钟历史；查询失败的未知数量提示已重建并浏览器复核",
+  "scope": "全部后台源码，包含房间 CSV 导出任务、失败清理及重新鉴权下载；本记录不代表浏览器验收已完成",
   "result": "PASS"
 }

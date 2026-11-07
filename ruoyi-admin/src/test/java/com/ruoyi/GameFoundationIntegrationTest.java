@@ -36,7 +36,7 @@ import com.ruoyi.game.games.landlord.*;
 import com.ruoyi.game.room.*;
 
 @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false","game.online-history.enabled=false"})
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false","game.online-history.enabled=false","game.exports.enabled=false"})
 class GameFoundationIntegrationTest {
     private static final String DB_PASSWORD=SecureTokens.create();
     private static final String REDIS_PASSWORD=SecureTokens.create();
@@ -91,6 +91,7 @@ class GameFoundationIntegrationTest {
     @MockitoSpyBean GameAdminMapper adminMapper;
     @Autowired com.ruoyi.game.admin.OnlineHistoryService onlineHistory;
     @MockitoSpyBean OnlineHistoryMapper onlineHistoryMapper;
+    @Autowired com.ruoyi.game.room.RoomExports roomExports;
 
     @Autowired com.ruoyi.game.transport.ConnectionRegistry connections;
     @Autowired com.ruoyi.game.transport.OnlinePresence presence;
@@ -423,6 +424,126 @@ class GameFoundationIntegrationTest {
         }
     }
 
+    @Nested class RoomCsvExports {
+        private String rootStatus;
+        @BeforeEach void prepareExports(){jdbc.update("DELETE FROM room_export_job");rootStatus=jdbc.queryForObject("SELECT status FROM sys_user WHERE user_id=1",String.class);jdbc.update("UPDATE sys_user SET status='0' WHERE user_id=1");}
+        @org.junit.jupiter.api.AfterEach void restoreRoot(){jdbc.update("UPDATE sys_user SET status=? WHERE user_id=1",rootStatus);}
+        private RoomStorage.Fixture fixture(Long club){
+            var room=new RoomStorage().room();jdbc.update("UPDATE room_record SET club_id=?,created_at='2026-11-01 01:00:00' WHERE room_id=?",club,room.room());return room;
+        }
+        private RoomExports.Query query(long owner){return new RoomExports.Query(null,owner,null,null,java.time.LocalDate.of(2026,11,1),java.time.LocalDate.of(2026,11,1));}
+        private String create(long actor,RoomExports.Query query,String key){return codec.read(codec.write(roomExports.create(actor,query,"测试房间导出权限与内容",key))).path("result").path("jobId").asString();}
+        private String create(long actor,RoomExports.Query query){return create(actor,query,UUID.randomUUID().toString());}
+        private long operator(long club){
+            long id=ROOM_CODES.incrementAndGet();String name="export"+id;
+            jdbc.update("INSERT INTO sys_user(user_id,user_name,nick_name,password,status,del_flag) VALUES(?,?,?,'!DISABLED','0','0')",id,name,name);
+            jdbc.update("INSERT INTO sys_role(role_id,role_name,role_key,role_sort,status,del_flag) VALUES(?,?,?,1,'0','0')",id,name,name);
+            jdbc.update("INSERT INTO sys_user_role(user_id,role_id) VALUES(?,?)",id,id);
+            jdbc.update("INSERT INTO sys_role_menu(role_id,menu_id) VALUES(?,3008),(?,3032)",id,id);
+            jdbc.update("INSERT INTO admin_data_scope(principal_id,scope_type,scope_id) VALUES(?,'CLUB',?)",id,Long.toString(club));return id;
+        }
+        private List<Map<String,Object>> first(RoomExports.Lease lease){return roomExports.batch(lease,java.time.LocalDateTime.of(1000,1,1,0,0),"");}
+        @Test void auditedExactRetryCreatesOneTaskAndSafeMetadata(){
+            var f=fixture(null);var q=query(f.owner().uid());String key=UUID.randomUUID().toString(),id=create(1,q,key);
+            assertEquals(id,create(1,q,key));assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM room_export_job",Integer.class));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM admin_operation o JOIN admin_audit a ON a.operation_id=o.operation_id WHERE o.actor_id=1 AND o.request_key=?",Integer.class,key));
+            var metadata=roomExports.detail(1,id);assertEquals("READY",metadata.get("status"));assertFalse(metadata.containsKey("leaseToken"));assertFalse(metadata.containsKey("filterJson"));assertFalse(metadata.containsKey("scopeHash"));
+            assertThrows(IllegalArgumentException.class,()->create(1,new RoomExports.Query("123",null,null,null,q.start(),q.end()),UUID.randomUUID().toString()));
+            assertThrows(IllegalArgumentException.class,()->create(1,new RoomExports.Query(null,f.owner().uid(),null,"CLOSED",q.start(),q.end()),key));
+        }
+        @Test void ordinaryOperatorExportsOnlyItsClubAndCannotReadAnotherActorsTask(){
+            var a=fixture(90001L);fixture(90002L);fixture(null);long actor=operator(90001);String id=create(actor,query(a.owner().uid()));var lease=roomExports.claim();
+            var rows=first(lease);assertEquals(1,rows.size());assertEquals(a.room(),rows.getFirst().get("roomId"));assertEquals("90001",rows.getFirst().get("clubId"));assertFalse(rows.getFirst().containsKey("snapshotJson"));assertFalse(rows.getFirst().containsKey("cardsInfo"));
+            assertThrows(SecurityException.class,()->roomExports.detail(1,id));assertThrows(SecurityException.class,()->roomExports.download(1,id));
+        }
+        @Test void roleAndDataScopeAreRecheckedDuringGenerationAndDownload(){
+            var f=fixture(90003L);long actor=operator(90003);String id=create(actor,query(f.owner().uid()));var lease=roomExports.claim();assertEquals(1,first(lease).size());
+            jdbc.update("DELETE FROM sys_role_menu WHERE role_id=? AND menu_id=3032",actor);
+            assertThrows(SecurityException.class,()->first(lease));assertThrows(SecurityException.class,()->roomExports.download(actor,id));
+            jdbc.update("INSERT INTO sys_role_menu(role_id,menu_id) VALUES(?,3032)",actor);
+            roomExports.complete(lease,1,100);assertNotNull(roomExports.download(actor,id));
+            jdbc.update("DELETE FROM admin_data_scope WHERE principal_id=?",actor);
+            assertThrows(SecurityException.class,()->roomExports.download(actor,id));assertThrows(SecurityException.class,()->roomExports.detail(actor,id));
+        }
+        @Test void disabledAccountAndExpandedScopeCannotReuseOldArtifacts(){
+            var f=fixture(90004L);long actor=operator(90004);String id=create(actor,query(f.owner().uid()));var lease=roomExports.claim();roomExports.complete(lease,0,100);
+            jdbc.update("UPDATE sys_user SET status='1' WHERE user_id=?",actor);assertThrows(SecurityException.class,()->roomExports.download(actor,id));
+            jdbc.update("UPDATE sys_user SET status='0' WHERE user_id=?",actor);
+            jdbc.update("INSERT INTO admin_data_scope(principal_id,scope_type,scope_id) VALUES(?,'CLUB','90005')",actor);
+            assertThrows(SecurityException.class,()->roomExports.download(actor,id));
+        }
+        @Test void databaseClaimIsExclusiveAndExpiredLeaseCannotCompleteNewGeneration() throws Exception {
+            var f=fixture(null);String id=create(1,query(f.owner().uid()));
+            try(var pool=Executors.newFixedThreadPool(2)){
+                var a=pool.submit((Callable<RoomExports.Lease>)roomExports::claim);var b=pool.submit((Callable<RoomExports.Lease>)roomExports::claim);var leases=Arrays.asList(a.get(),b.get());assertEquals(1,leases.stream().filter(Objects::nonNull).count());
+                var old=leases.stream().filter(Objects::nonNull).findFirst().orElseThrow();jdbc.update("UPDATE room_export_job SET lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",id);
+                var fresh=roomExports.claim();assertNotEquals(old.token(),fresh.token());assertThrows(RoomExports.LeaseLost.class,()->roomExports.complete(old,0,100));
+                roomExports.failed(old,"GENERATE_FAILED",true);assertEquals("RUNNING",roomExports.detail(1,id).get("status"));roomExports.complete(fresh,0,100);assertEquals("DONE",roomExports.detail(1,id).get("status"));
+            }
+        }
+        @Test void retriesAndAdmissionRemainBounded(){
+            var f=fixture(null);var q=query(f.owner().uid());String first=create(1,q);create(1,q);assertThrows(IllegalArgumentException.class,()->create(1,q));
+            for(int i=0;i<3;i++){var lease=roomExports.claim();assertEquals(first,lease.id());roomExports.failed(lease,"GENERATE_FAILED",false);}
+            assertEquals("FAILED",roomExports.detail(1,first).get("status"));assertNotEquals(first,roomExports.claim().id());
+            jdbc.update("DELETE FROM room_export_job");
+            for(int i=0;i<20;i++){var id=create(1,q);var lease=roomExports.claim();assertEquals(id,lease.id());roomExports.complete(lease,0,100);}
+            assertThrows(IllegalArgumentException.class,()->create(1,q));
+        }
+        @Test void parallelCreatorsCannotOversubscribePendingCapacity() throws Exception {
+            var f=fixture(null);var q=query(f.owner().uid());var start=new CountDownLatch(1);
+            try(var pool=Executors.newFixedThreadPool(8)){
+                List<Future<Boolean>> results=new ArrayList<>();for(int i=0;i<8;i++)results.add(pool.submit(()->{start.await();try{create(1,q);return true;}catch(IllegalArgumentException full){return false;}}));
+                start.countDown();int accepted=0;for(var result:results)if(result.get(5,TimeUnit.SECONDS))accepted++;
+                assertEquals(2,accepted);assertEquals(2,jdbc.queryForObject("SELECT COUNT(*) FROM room_export_job WHERE status='READY'",Integer.class));
+            }
+        }
+        @Test void expiredDownloadsAndInvalidTaskFiltersAreRefusedWithoutBlockingQueue(){
+            var f=fixture(null);String id=create(1,query(f.owner().uid()));var lease=roomExports.claim();roomExports.complete(lease,0,100);
+            jdbc.update("UPDATE room_export_job SET expires_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",id);
+            assertThrows(IllegalArgumentException.class,()->roomExports.download(1,id));assertEquals("EXPIRED",roomExports.detail(1,id).get("status"));
+            String bad=create(1,query(f.owner().uid())),good=create(1,query(f.owner().uid()));jdbc.update("UPDATE room_export_job SET filter_json='{}' WHERE id=?",bad);
+            assertNull(roomExports.claim());assertEquals("FAILED",roomExports.detail(1,bad).get("status"));assertEquals("FILTER_INVALID",roomExports.detail(1,bad).get("lastErrorCode"));assertEquals(good,roomExports.claim().id());
+        }
+        @Test void keysetChunksDoNotSkipEqualTimestampRowsAndCutoffExcludesLaterRooms(){
+            var f=fixture(null);String hash=journal.stateHash("{}");
+            for(int i=0;i<200;i++){
+                String id=UUID.randomUUID().toString();jdbc.update("INSERT INTO room_record(room_id,room_code,game_id,owner_uid,creator_uid,options_json,rule_version,is_test,created_at) VALUES(?,?,'6003',?,?,'{}','export-fixture',TRUE,'2026-11-01 01:00:00')",id,Integer.toString(ROOM_CODES.incrementAndGet()),f.owner().uid(),f.owner().uid());
+                jdbc.update("INSERT INTO room_runtime(room_id,state_hash,snapshot_json,snapshot_hash,schema_version,engine_version,updated_at) VALUES(?,?,?, ?,1,'export-fixture',UTC_TIMESTAMP(6))",id,hash,"{}",hash);
+            }
+            String id=create(1,query(f.owner().uid()));var lease=roomExports.claim();var first=first(lease);assertEquals(200,first.size());var last=first.getLast();
+            var second=roomExports.batch(lease,(java.time.LocalDateTime)last.get("createdAt"),(String)last.get("roomId"));assertEquals(1,second.size());
+            assertEquals(201,java.util.stream.Stream.concat(first.stream(),second.stream()).map(row->row.get("roomId")).distinct().count());
+            jdbc.update("UPDATE room_record SET created_at=? WHERE room_id=?",lease.cutoff().plusSeconds(1),second.getFirst().get("roomId"));assertEquals(0,roomExports.batch(lease,(java.time.LocalDateTime)last.get("createdAt"),(String)last.get("roomId")).size());
+            assertThrows(IllegalArgumentException.class,()->roomExports.complete(lease,10001,100));assertThrows(IllegalArgumentException.class,()->roomExports.complete(lease,1,RoomExports.MAX_BYTES+1));
+        }
+        @Test void lateAuditFailureRollsBackTaskAndDoesNotConsumeAdmission(){
+            var f=fixture(null);String key=UUID.randomUUID().toString();
+            doReturn(0).when(adminMapper).auditCommand(anyString(),eq(1L),eq("room:export"),anyString(),anyString(),anyString(),anyString(),any());
+            assertThrows(IllegalStateException.class,()->create(1,query(f.owner().uid()),key));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM room_export_job",Integer.class));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM admin_operation WHERE actor_id=1 AND request_key=?",Integer.class,key));
+        }
+        @Test void realWorkerGeneratesReadablePrivateCsvAndRecordsOneCompletion(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+            var f=fixture(null);String id=create(1,query(f.owner().uid()));var files=new com.ruoyi.web.game.RoomExportFiles(directory.toRealPath().toString());var metrics=new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var worker=new com.ruoyi.web.game.RoomExportWorker(roomExports,files,java.time.Clock.systemUTC(),metrics);
+            try{worker.start();long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+                while(!"DONE".equals(roomExports.detail(1,id).get("status"))&&System.nanoTime()<deadline)Thread.sleep(25);
+                assertEquals("DONE",roomExports.detail(1,id).get("status"));
+                try(var input=files.open(roomExports.download(1,id))){String csv=new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);assertTrue(csv.contains(f.room()));assertFalse(csv.contains("snapshotJson"));assertFalse(csv.contains("guest_credential"));}
+                assertEquals(1,metrics.counter("game.exports.completed").count());assertEquals(0,metrics.counter("game.exports.failed").count());
+            }finally{worker.stop();metrics.close();}
+        }
+        @Test void revokedWorkerPermissionFailsBeforeAnyRoomContentIsPublished(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+            var f=fixture(90006L);long actor=operator(90006);String id=create(actor,query(f.owner().uid()));jdbc.update("UPDATE sys_role SET status='1' WHERE role_id=?",actor);
+            var files=new com.ruoyi.web.game.RoomExportFiles(directory.toRealPath().toString());var metrics=new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+            var worker=new com.ruoyi.web.game.RoomExportWorker(roomExports,files,java.time.Clock.systemUTC(),metrics);
+            try{worker.start();long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);
+                while(!"FAILED".equals(jdbc.queryForObject("SELECT status FROM room_export_job WHERE id=?",String.class,id))&&System.nanoTime()<deadline)Thread.sleep(25);
+                assertEquals("AUTH_CHANGED",jdbc.queryForObject("SELECT last_error_code FROM room_export_job WHERE id=?",String.class,id));
+                try(var paths=java.nio.file.Files.list(directory)){assertFalse(paths.anyMatch(path->path.getFileName().toString().endsWith(".csv")));}
+                assertThrows(SecurityException.class,()->roomExports.download(actor,id));
+            }finally{worker.stop();metrics.close();}
+        }
+    }
+
     @Nested class RoomStorage {
         private record Fixture(GuestIdentity owner,String room,com.ruoyi.game.room.RoomSnapshot<String> state){ }
         private Fixture room(){return room(auth.verify(auth.createGuest()),Integer.toString(ROOM_CODES.incrementAndGet()));}
@@ -583,6 +704,38 @@ class GameFoundationIntegrationTest {
             assertEquals(0,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",event.id()));
             assertEquals(0,number("SELECT COUNT(*) FROM room_event_projection WHERE room_id=?",fixture.room()));
         }
+        private com.ruoyi.game.outbox.OutboxEvent claimed(String id){
+            for(int batch=0;batch<100;batch++){
+                var events=outbox.claim(16);com.ruoyi.game.outbox.OutboxEvent found=null;
+                for(var event:events){if(id.equals(event.id()))found=event;else assertTrue(outbox.complete(event));}
+                if(found!=null)return found;if(events.isEmpty())break;
+            }throw new AssertionError("目标房间事件未被实际领取");
+        }
+        @Test void atomicRoomConsumerCommitsDoneReceiptAndProjectionTogether(){
+            var fixture=room();journal.commit(change(fixture,fixture.state(),1,false));var event=claimed(outbox(fixture,1).id());
+            roomEvents.consumeAndComplete(event);
+            assertEquals("DONE",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,event.id()));
+            assertEquals(1,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",event.id()));assertEquals(1,number("SELECT event_count FROM room_event_projection WHERE room_id=?",fixture.room()));
+            assertThrows(RoomEventConsumer.StaleLease.class,()->roomEvents.consumeAndComplete(event));assertEquals(1,number("SELECT event_count FROM room_event_projection WHERE room_id=?",fixture.room()));
+        }
+        @Test void lateDoneFailureRollsBackTheReceiptAndAlreadyAppliedProjection(){
+            var fixture=room();journal.commit(change(fixture,fixture.state(),1,false));var event=claimed(outbox(fixture,1).id());
+            doReturn(0).when(outboxMapper).complete(eq(event.id()),eq(event.leaseToken()),any());
+            assertThrows(RoomEventConsumer.StaleLease.class,()->roomEvents.consumeAndComplete(event));
+            assertEquals("CLAIMED",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,event.id()));
+            assertEquals(0,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",event.id()));assertEquals(0,number("SELECT COUNT(*) FROM room_event_projection WHERE room_id=?",fixture.room()));
+        }
+        @Test void staleAtomicConsumerCannotPublishBeforeTheNewLeaseHolder(){
+            var fixture=room();journal.commit(change(fixture,fixture.state(),1,false));var old=claimed(outbox(fixture,1).id());
+            jdbc.update("UPDATE outbox_event SET lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",old.id());var fresh=claimed(old.id());assertNotEquals(old.leaseToken(),fresh.leaseToken());
+            assertThrows(RoomEventConsumer.StaleLease.class,()->roomEvents.consumeAndComplete(old));assertEquals(0,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",old.id()));
+            roomEvents.consumeAndComplete(fresh);assertEquals(1,number("SELECT event_count FROM room_event_projection WHERE room_id=?",fixture.room()));assertEquals("DONE",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,old.id()));
+        }
+        @Test void atomicCompletionCanReuseReceiptWrittenByThePreviousTwoTransactionConsumer(){
+            var fixture=room();journal.commit(change(fixture,fixture.state(),1,false));var pending=outbox(fixture,1);roomEvents.consume(pending);
+            var event=claimed(pending.id());roomEvents.consumeAndComplete(event);
+            assertEquals(1,number("SELECT COUNT(*) FROM consumer_receipt WHERE event_id=?",event.id()));assertEquals(1,number("SELECT event_count FROM room_event_projection WHERE room_id=?",fixture.room()));assertEquals("DONE",jdbc.queryForObject("SELECT status FROM outbox_event WHERE id=?",String.class,event.id()));
+        }
         @Test void roomPoolCanCommitSharedWalletAndOutboxWhenGeneralPoolIsExhausted() throws Exception {
             var fixture=room();fund(fixture,100);var command=change(fixture,fixture.state(),1,false,List.of(charge(fixture,1)),null,"WAITING");
             var general=assertInstanceOf(com.alibaba.druid.pool.DruidDataSource.class,generalPool);var dedicated=assertInstanceOf(com.alibaba.druid.pool.DruidDataSource.class,roomPool);
@@ -734,6 +887,15 @@ class GameFoundationIntegrationTest {
             return id;
         }
         private void join(long owner,long id,long uid){clubs.apply(uid,id,"JOIN");clubs.review(owner,id,uid,"JOIN",1);}
+        @Test void confirmedClubCeilingLimitsLegacyCapacityAndRejectsFurtherAdmission(){
+            long owner=player(),applicant=player(),id=existingClub(owner,2000,2);
+            @SuppressWarnings("unchecked") var wire=(Map<String,Object>)clubs.get(owner,id).get("club");assertEquals(1000,((Number)wire.get("max_mem")).intValue());
+            @SuppressWarnings("unchecked") var displayed=(Map<String,Object>)clubAdmin.detail(1,id).get("club");assertEquals(1000,((Number)displayed.get("max_mem")).intValue());
+            // 隔离库的容量边界夹具；不是主运行库注入一千名玩家或完整成员容量验收。
+            jdbc.update("UPDATE club SET member_count=1000 WHERE id=?",id);clubs.apply(applicant,id,"JOIN");
+            assertEquals(-42,assertThrows(GameFailure.class,()->clubs.review(owner,id,applicant,"JOIN",1)).state());
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM club_member WHERE club_id=? AND uid=?",Integer.class,id,applicant));assertEquals(1000,jdbc.queryForObject("SELECT member_count FROM club WHERE id=?",Integer.class,id));
+        }
 
         @Test void concurrentApprovalCreatesOneMembershipAndOneEvent() throws Exception {
             long owner=player(),applicant=player(),id=existingClub(owner,10,2);clubs.apply(applicant,id,"JOIN");
@@ -976,6 +1138,23 @@ class GameFoundationIntegrationTest {
     }
 
     @Nested class WalletTransactions {
+        private void fundDiamonds(long uid,long amount){wallets.post(new WalletPosting(Kind.REWARD,"exchange_fixture:"+UUID.randomUUID(),"fixture-v1","isolated-exchange-fixture",List.of(new Entry(personal(uid,Currency.DIAMOND),amount,0),new Entry(system(Currency.DIAMOND),-amount,0))));}
+        @Test void confirmedDiamondExchangePostsExactRatioOnceForOnePersistentOrder(){
+            long uid=player();fundDiamonds(uid,5);String order=UUID.randomUUID().toString();var plan=com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,3,order);
+            var first=wallets.post(plan);var replay=wallets.post(plan);assertEquals(first.transactionId(),replay.transactionId());assertTrue(replay.replayed());assertEquals(30,balance(uid));assertEquals(2,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));
+            assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_ledger WHERE transaction_id=?",Integer.class,first.transactionId()));
+            assertThrows(IllegalArgumentException.class,()->wallets.post(com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,2,order)));
+        }
+        @Test void exchangeFailureCannotLeaveOnlyOneCurrencyChanged(){
+            long uid=player();fundDiamonds(uid,3);var plan=com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,2,UUID.randomUUID().toString());
+            doThrow(new IllegalStateException("exchange final marker failure")).when(walletMapper).posted(anyString(),anyString(),any());assertThrows(IllegalStateException.class,()->wallets.post(plan));
+            assertEquals(0,balance(uid));assertEquals(3,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Integer.class,plan.businessKey()));
+        }
+        @Test void insufficientDiamondsCannotCreateTargetCardsOrAFinishedOrder(){
+            long uid=player();var plan=com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,1,UUID.randomUUID().toString());
+            assertThrows(GameFailure.class,()->wallets.post(plan));assertEquals(0,balance(uid));assertEquals(0,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));
+            assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Integer.class,plan.businessKey()));assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_ledger WHERE owner_type='PERSONAL' AND owner_id=?",Integer.class,uid));
+        }
         private WalletPosting batchTransfer(long from,long to,String key){return new WalletPosting(Kind.TRANSFER,key,"fixture-v1","batch-validation",List.of(new Entry(new Account(OwnerType.PERSONAL,from,Currency.CARD),-1,0),new Entry(new Account(OwnerType.PERSONAL,to,Currency.CARD),1,0)));}
         @Test void batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts(){
             long uid=player();fund(uid,10);var account=personal(uid,Currency.CARD);

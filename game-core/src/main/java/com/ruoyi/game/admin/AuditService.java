@@ -56,6 +56,7 @@ public class AuditService {
             case "wallet:reconcile" -> Set.of("reportId","status");
             case "wallet:daily:run","wallet:daily:retry" -> Set.of("runId","status");
             case "outbox:retry" -> Set.of("status","attempts","manualRetries","lastErrorCode");
+            case "room:export" -> Set.of("jobId","status");
             default -> Set.of();
         };
     }

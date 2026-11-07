@@ -63,7 +63,7 @@ public final class RoomStorageLoad {
         System.setProperty("spring.devtools.restart.enabled","false");
         Map<String,Object> report=new LinkedHashMap<>();report.put("startedAt",Instant.now().toString());
         report.put("scope","隔离 MySQL/Redis 的内部 6003 单张/过牌及测试换局持久提交；没有 WS、叫分、收费、积分结算或生产容量结论");
-        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10,"adminSessions",adminReaders));
+        report.put("requested",Map.of("seconds",seconds,"commitsPerSecond",rate,"rooms",rooms,"players",rooms*3,"outboxLagBudgetSeconds",10,"adminSessions",adminReaders,"internalP95BudgetMs",50,"internalP99BudgetMs",100));
         report.put("sourceCommit",System.getenv().getOrDefault("ROOM_LOAD_GIT","unrecorded"));report.put("snapshotSha256",System.getenv().getOrDefault("ROOM_LOAD_SNAPSHOT_SHA256","unrecorded"));
         report.put("flightRecordingEnabled","1".equals(System.getenv("ROOM_LOAD_JFR")));
         report.put("hostCompetition",System.getenv().getOrDefault("HOST_LOAD_COMPETITION","none"));
@@ -79,6 +79,7 @@ public final class RoomStorageLoad {
             properties.put("token.secret",SecureTokens.create());properties.put("game.pii-key",SecureTokens.create());properties.put("game.ws.port",0);properties.put("server.port",0);properties.put("ADMIN_INITIAL_PASSWORD",loadAdminPassword);properties.put("game.outbox.worker-enabled",true);
             properties.put("game.reconciliation.worker-enabled",false);
             properties.put("game.online-history.enabled",false);
+            properties.put("game.exports.enabled",false);
             var environment=new StandardServletEnvironment();environment.getPropertySources().addFirst(new MapPropertySource("isolated-room-load",properties));
             var application=new SpringApplication(RuoYiApplication.class);application.setEnvironment(environment);
             try(var context=application.run()){
@@ -139,6 +140,7 @@ public final class RoomStorageLoad {
                 var observed=sample(boxes,outbox,metrics,stats);samples.add(observed);
                 System.out.println("消费采样：READY="+observed.get("outboxReady")+"，CLAIMED="+observed.get("outboxClaimed")+"，最老="+observed.get("oldestSeconds")+" 秒，确认="+observed.get("completed"));
             }catch(RuntimeException failure){sampleFailures.incrementAndGet();System.out.println("消费采样未完成："+failure.getClass().getSimpleName());}},0,5,TimeUnit.SECONDS);
+            report.put("mysqlStatusBeforeMeasurement",mysqlStatus(jdbc));
             report.put("measurementStartedAt",Instant.now().toString());
             try{if(adminReads!=null)adminReads.start();window(boxes,actors,seconds,rate,stats);await(actors,30);}
             finally{sampler.shutdown();sampler.awaitTermination(5,TimeUnit.SECONDS);if(adminReads!=null)adminReads.stop();}
@@ -150,6 +152,7 @@ public final class RoomStorageLoad {
             long drainStart=System.nanoTime();OutboxStore.Backlog backlog;
             do{backlog=outbox.backlog();if(backlog.ready()==0&&backlog.claimed()==0)break;Thread.sleep(250);}while(System.nanoTime()-drainStart<30_000_000_000L);
             report.put("outboxAfterDrain",Map.of("ready",backlog.ready(),"claimed",backlog.claimed(),"dead",backlog.dead(),"oldestSeconds",backlog.oldestSeconds()));
+            report.put("mysqlStatusAfterDrain",mysqlStatus(jdbc));
             Map<String,Double> outboxCounters=new LinkedHashMap<>();
             for(String name:List.of("completed","failed","lease.lost","poll.failed"))outboxCounters.put(name,metrics.get("game.outbox."+name).counter().count());
             report.put("outboxCounters",outboxCounters);
@@ -179,7 +182,7 @@ public final class RoomStorageLoad {
             report.put("recoverySamples",recoveryTimes);
             long[] measured=Arrays.copyOf(stats.latency,stats.completed.get());Arrays.sort(measured);
             return adminPass&&stats.failed.get()==0&&stats.busy.get()==0&&stats.missed.get()==0&&stats.completed.get()==stats.sent.get()&&stats.completed.get()>=seconds*rate*.99&&stats.elapsedNanos>=seconds*1_000_000_000L
-                    &&drained&&maxLag<=10&&sampleFailures.get()==0&&backlog.ready()==0&&backlog.claimed()==0&&backlog.dead()==0&&outboxCounters.get("failed")==0&&outboxCounters.get("lease.lost")==0&&outboxCounters.get("poll.failed")==0&&events==done&&done==receipts&&receipts==projected&&count(jdbc,"SELECT COUNT(*) FROM wallet_transaction")==0&&warmup.failed.get()==0&&percentile(measured,.95)<=300;
+                    &&drained&&maxLag<=10&&sampleFailures.get()==0&&backlog.ready()==0&&backlog.claimed()==0&&backlog.dead()==0&&outboxCounters.get("failed")==0&&outboxCounters.get("lease.lost")==0&&outboxCounters.get("poll.failed")==0&&events==done&&done==receipts&&receipts==projected&&count(jdbc,"SELECT COUNT(*) FROM wallet_transaction")==0&&warmup.failed.get()==0&&percentile(measured,.95)<=50&&percentile(measured,.99)<=100;
         }
     }
     private static void window(RoomMailboxes<LandlordPlayState,Command,Event> boxes,List<Actor> actors,int seconds,int rate,Stats stats){
@@ -212,6 +215,11 @@ public final class RoomStorageLoad {
     }
     private static void await(List<Actor> actors,int seconds) throws InterruptedException {
         long began=System.nanoTime();while(actors.stream().anyMatch(actor->actor.pending.get())){if(System.nanoTime()-began>seconds*1_000_000_000L)throw new IllegalStateException("房间提交没有排空");Thread.sleep(10);}
+    }
+    private static Map<String,String> mysqlStatus(JdbcTemplate jdbc){
+        Map<String,String> result=new TreeMap<>();
+        for(var row:jdbc.queryForList("SHOW GLOBAL STATUS WHERE Variable_name IN ('Com_commit','Com_rollback','Innodb_data_fsyncs','Innodb_os_log_written','Innodb_pages_written','Innodb_buffer_pool_reads','Innodb_buffer_pool_wait_free','Innodb_log_waits','Innodb_row_lock_waits')"))result.put(row.get("Variable_name").toString(),row.get("Value").toString());
+        return result;
     }
     private static Map<String,Object> sample(RoomMailboxes<?,?,?> boxes,OutboxStore outbox,MeterRegistry metrics,Stats stats){
         var backlog=outbox.backlog();var memory=ManagementFactory.getMemoryMXBean();

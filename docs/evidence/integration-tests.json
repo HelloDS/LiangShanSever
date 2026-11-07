@@ -1,5 +1,5 @@
 {
-  "executedAt": "2026-11-06T23:13:49.795954+00:00",
+  "executedAt": "2026-11-07T00:18:39.306037+00:00",
   "suites": [
     {
       "suite": "com.ruoyi.AdminBootstrapTest",
@@ -7,7 +7,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.811,
+      "seconds": 0.885,
       "cases": [
         "acceptedBoundariesOnlyInitializeTheUntouchedAdministrator",
         "omittedPasswordLeavesTheAdministratorDisabled",
@@ -31,7 +31,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.155,
+      "seconds": 0.197,
       "cases": [
         "completionAndAuditUseObservedTimeAfterTheBusinessEffect"
       ]
@@ -42,7 +42,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.772,
+      "seconds": 0.805,
       "cases": [
         "anonymousReportDiscardsContactAndHidesReporterInDefaultList",
         "authenticationStorageFailureUsesHttp503AndPreservesCredential",
@@ -75,16 +75,17 @@
     },
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest$ClubOrganization",
-      "tests": 9,
+      "tests": 10,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.889,
+      "seconds": 1.022,
       "cases": [
         "adminClubScopeAndIdempotencyPreserveOperatorIdentity",
         "adminOnlineSortMatchesMembershipAndUnavailableIsNotZero",
         "concurrentApplicantsCannotOversubscribeLastSeat",
         "concurrentApprovalCreatesOneMembershipAndOneEvent",
+        "confirmedClubCeilingLimitsLegacyCapacityAndRejectsFurtherAdmission",
         "consumerManagementFlagIncludesOwnerAndAutoBuildRemainsClosed",
         "leaveApprovalMaintainsCountsAndReadableMessages",
         "pendingJoinProfilesAreVisibleOnlyToManagers",
@@ -98,7 +99,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.971,
+      "seconds": 1.082,
       "cases": [
         "accountSnapshotStaysConsistentWhileAnotherThreadPostsMoney",
         "adminRunCommandIsIdempotentAndQueriesRemainScopedAndBounded",
@@ -119,7 +120,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 6.969,
+      "seconds": 6.861,
       "cases": [
         "appendRequiresBusinessTransactionAndStableKeyIsUnique",
         "backlogQueryUsesCoveringStatusRangesDespiteLargeCompletedHistory",
@@ -147,18 +148,43 @@
       ]
     },
     {
-      "suite": "com.ruoyi.GameFoundationIntegrationTest$RoomStorage",
-      "tests": 22,
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$RoomCsvExports",
+      "tests": 12,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.654,
+      "seconds": 2.606,
+      "cases": [
+        "auditedExactRetryCreatesOneTaskAndSafeMetadata",
+        "databaseClaimIsExclusiveAndExpiredLeaseCannotCompleteNewGeneration",
+        "disabledAccountAndExpandedScopeCannotReuseOldArtifacts",
+        "expiredDownloadsAndInvalidTaskFiltersAreRefusedWithoutBlockingQueue",
+        "keysetChunksDoNotSkipEqualTimestampRowsAndCutoffExcludesLaterRooms",
+        "lateAuditFailureRollsBackTaskAndDoesNotConsumeAdmission",
+        "ordinaryOperatorExportsOnlyItsClubAndCannotReadAnotherActorsTask",
+        "parallelCreatorsCannotOversubscribePendingCapacity",
+        "realWorkerGeneratesReadablePrivateCsvAndRecordsOneCompletion(Path)",
+        "retriesAndAdmissionRemainBounded",
+        "revokedWorkerPermissionFailsBeforeAnyRoomContentIsPublished(Path)",
+        "roleAndDataScopeAreRecheckedDuringGenerationAndDownload"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.GameFoundationIntegrationTest$RoomStorage",
+      "tests": 26,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.468,
       "cases": [
         "afterCommitExceptionCannotBeMistakenForKnownPrecommitRejection",
+        "atomicCompletionCanReuseReceiptWrittenByThePreviousTwoTransactionConsumer",
+        "atomicRoomConsumerCommitsDoneReceiptAndProjectionTogether",
         "committedButLostBoundaryResultResolvesWithoutRepeatingEffects",
         "committedRetryIsOneEventAndCheckpointAdvancesOnlyWhenRequested",
         "consumerFailureRollsBackReceiptAndProjection",
         "duplicateAndOutOfOrderConsumerDeliveryCountsEachSourceEventOnce",
+        "lateDoneFailureRollsBackTheReceiptAndAlreadyAppliedProjection",
         "lateOutboxFailureRollsBackSeatWalletEventVersionAndCheckpoint",
         "lostCommitResultKeepsMailboxOldStateUntilDatabaseConfirmation",
         "missingEventOrCorruptReplayPayloadFailsRecovery",
@@ -175,22 +201,26 @@
         "roomMetadataFiltersValidateDatesCodesAndState",
         "roomMetadataQueryHonorsClubScopeAndNeverReturnsPrivateState",
         "roomPoolCanCommitSharedWalletAndOutboxWhenGeneralPoolIsExhausted",
-        "samePlayerCannotJoinTwoRoomsConcurrently"
+        "samePlayerCannotJoinTwoRoomsConcurrently",
+        "staleAtomicConsumerCannotPublishBeforeTheNewLeaseHolder"
       ]
     },
     {
       "suite": "com.ruoyi.GameFoundationIntegrationTest$WalletTransactions",
-      "tests": 11,
+      "tests": 14,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 2.71,
+      "seconds": 2.966,
       "cases": [
         "adminLedgerHasBoundedDatesAndAuditedIdempotentReconciliation",
         "batchCommandsForTheSameAccountObservePriorUpdatesAndReplayOriginalReceipts",
+        "confirmedDiamondExchangePostsExactRatioOnceForOnePersistentOrder",
         "currenciesMustBalanceIndependentlyAndClientIntegersRemainExact",
+        "exchangeFailureCannotLeaveOnlyOneCurrencyChanged",
         "failureAtFinalPostingMarkerRollsBackAllAccountsAndEntries",
         "freezeAndReleasePreventOverspendingAndDuplicateRelease",
+        "insufficientDiamondsCannotCreateTargetCardsOrAFinishedOrder",
         "lateSecondPostingFailureRollsBackTheEntireBatch",
         "opposingBatchInputOrdersUseOneGlobalAccountLockOrder",
         "opposingTransfersUseStableAccountLockOrder",
@@ -216,12 +246,24 @@
       ]
     },
     {
+      "suite": "com.ruoyi.game.economy.DiamondCardExchangePlanTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.034,
+      "cases": [
+        "confirmedDirectionUsesExactIntegersAtNormalAndSafeBoundaries",
+        "planHasStableOrderIdentityAndSeparatelyBalancedCurrencyEntries"
+      ]
+    },
+    {
       "suite": "com.ruoyi.game.games.landlord.LandlordCardsTest",
       "tests": 8,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.003,
+      "seconds": 0.006,
       "cases": [
         "allThirteenWireTypesAreRecomputedFromPhysicalCards",
         "comparisonsUseMainGroupAndRequireSameSequenceLength",
@@ -239,7 +281,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.112,
+      "seconds": 0.114,
       "cases": [
         "exactEventFieldsRejectUnknownKeysWrongTypesAndUnknownVersions",
         "persistedEventsCanRebuildACompleteNaturallyPlayedRound",
@@ -255,7 +297,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.628,
+      "seconds": 0.64,
       "cases": [
         "actorTurnOwnershipAndPhaseAreValidatedBeforeAnyStateChange",
         "autoFlagMayChangeOutOfTurnButDoesNotPlayCardsOrChangeTurn",
@@ -274,11 +316,27 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.015,
+      "seconds": 0.018,
       "cases": [
         "originalPanelReceivesOneBasedObjectSeatsAndNullLeadingTarget",
         "publishedTargetIsTheActualPlayedCardsAndClearsAfterTwoPasses",
         "remainingHandsAreAvailableOnlyToMembersAfterNaturalCompletion"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.game.games.landlord.LandlordScoringTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.015,
+      "cases": [
+        "bombRocketAndSpringFactsAllMultiplyBeforeTheSingleSideCap",
+        "configurationChangesProduceDistinctStableRuleVersions",
+        "naturallyFinishedFarmerReverseSpringUsesBothFarmersOnTheWinningSide",
+        "naturallyFinishedLandlordSpringScoresRealNonzeroDeltas",
+        "ordinaryNaturalRoundDoesNotReceiveAnInventedSpringMultiplier",
+        "unfinishedRoundsAndMissingBidsCannotBeReportedAsSettled"
       ]
     },
     {
@@ -301,7 +359,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.007,
+      "seconds": 0.008,
       "cases": [
         "internalPlayCannotCarryAForgedPatternEither",
         "originalFlatTagsHaveExplicitTypedActions",
@@ -316,7 +374,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.068,
+      "seconds": 0.07,
       "cases": [
         "acceptsBothChannelsAndRejectsMalformedAndOversizedRequests",
         "internalCanonicalDigestKeepsPrecisionAndIgnoresObjectKeyOrder",
@@ -353,7 +411,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.172,
+      "seconds": 0.135,
       "cases": [
         "aTimerQueuedDuringCommitCannotActOnTheNextVersion",
         "capacityCancellationAndShutdownReleaseAllRegistrations",
@@ -369,7 +427,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.112,
+      "seconds": 0.147,
       "cases": [
         "byteBudgetRejectsExcessAndCanBeReusedAfterRelease",
         "concurrentReservationsNeverOvercommitBudget",
@@ -384,7 +442,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.119,
+      "seconds": 0.116,
       "cases": [
         "admittedResultHasReservedReplyCapacityEvenWhenBusinessPoolIsFull",
         "bothDeferredAndActionPushesFollowTheSingleOrdinaryAck",
@@ -403,7 +461,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.003,
+      "seconds": 0.007,
       "cases": [
         "fullConcurrencyIsAvailableBeforeQueueSaturation"
       ]
@@ -414,7 +472,7 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.015,
+      "seconds": 0.017,
       "cases": [
         "delayedCloseOfOldConnectionDoesNotRemoveNewBinding",
         "delayedRevocationCannotDisconnectFreshSessionVersion",
@@ -425,13 +483,14 @@
     },
     {
       "suite": "com.ruoyi.game.transport.OutboxWorkerTest",
-      "tests": 1,
+      "tests": 2,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.611,
+      "seconds": 0.662,
       "cases": [
-        "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion"
+        "replayAfterEffectBeforeReceiptDoesNotRevokeNewVersion",
+        "roomCompletionUsesAtomicConsumerAndStaleLeaseDoesNotFailANewOwner"
       ]
     },
     {
@@ -440,14 +499,41 @@
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "seconds": 0.112,
+      "seconds": 0.097,
       "cases": [
         "failedWriteDoesNotIncrementConfirmedObservationCounter",
         "persistsOnlyActualSampleTimeAndDefaultNonTestPopulation",
         "unavailablePopulationIsNullRatherThanZero"
       ]
+    },
+    {
+      "suite": "com.ruoyi.web.game.RoomExportFilesTest",
+      "tests": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.072,
+      "cases": [
+        "cleanupOnlyRemovesOldGeneratedFilesAndNeverFollowsLinks",
+        "csvQuotesCommasQuotesNewlinesAndNeutralizesFormulaPrefixes",
+        "generatedCsvIsPrivateHasOnlyWhitelistedColumnsAndCanBeReopened",
+        "rowAndByteLimitsDoNotExposePartialArtifacts",
+        "traversalAndSymlinkTargetsAreRejected"
+      ]
+    },
+    {
+      "suite": "com.ruoyi.web.game.RoomExportWorkerTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.108,
+      "cases": [
+        "stopDuringClaimReleasesTheLeaseWithoutStartingFileGeneration",
+        "storageFailureBeforeClaimIsVisibleAndLeavesAtMostOneScheduledPoll"
+      ]
     }
   ],
-  "total": 176,
+  "total": 212,
   "result": "PASS"
 }

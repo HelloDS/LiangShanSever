@@ -4,7 +4,7 @@ import com.ruoyi.common.core.domain.AjaxResult;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.annotation.*;
 
-@RestControllerAdvice(assignableTypes={GameAdminController.class,NoticeAdminController.class,ReportAdminController.class,ClubAdminController.class,WalletAdminController.class,OutboxAdminController.class,RoomAdminController.class,WalletReconciliationController.class,AuditController.class})
+@RestControllerAdvice(assignableTypes={GameAdminController.class,NoticeAdminController.class,ReportAdminController.class,ClubAdminController.class,WalletAdminController.class,OutboxAdminController.class,RoomAdminController.class,RoomExportController.class,WalletReconciliationController.class,AuditController.class})
 @Order(-20)
 public class GameAdminErrors {
     @ExceptionHandler(IllegalArgumentException.class)
@@ -13,6 +13,8 @@ public class GameAdminErrors {
     public AjaxResult business(com.ruoyi.game.auth.GameFailure e){return AjaxResult.error(400,e.getMessage());}
     @ExceptionHandler(com.ruoyi.game.admin.GameDataUnavailable.class)
     public org.springframework.http.ResponseEntity<AjaxResult> unavailable(com.ruoyi.game.admin.GameDataUnavailable e){return org.springframework.http.ResponseEntity.status(503).body(AjaxResult.error(503,e.getMessage()));}
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public org.springframework.http.ResponseEntity<AjaxResult> storage(org.springframework.dao.DataAccessException e){return org.springframework.http.ResponseEntity.status(503).body(AjaxResult.error(503,"数据访问暂不可用，请稍后重试"));}
     @ExceptionHandler(SecurityException.class)
     public AjaxResult forbidden(SecurityException e){return AjaxResult.error(403,e.getMessage());}
 }

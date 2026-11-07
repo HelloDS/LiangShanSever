@@ -17,18 +17,24 @@ public class RoomAdminService {
     public RoomAdminService(RoomAdminMapper mapper,Clock clock){this.mapper=mapper;this.clock=clock;}
     @Transactional(readOnly=true,timeout=3)
     public Map<String,Object> list(long actor,String code,Long owner,Long creator,String status,LocalDate start,LocalDate end,int page,int limit){
+        var filter=filter(code,owner,creator,status,start,end);
+        if(page<1||page>100000||limit<1||limit>200)throw new IllegalArgumentException("分页参数无效");
+        try{
+            requireScope(actor);
+            var rows=mapper.list(actor,code,owner,creator,status,filter.from(),filter.until(),Math.multiplyExact(page-1,limit),limit).stream().map(AdminTimes::utc).toList();
+            return Map.of("code",200,"rows",rows,"total",mapper.count(actor,code,owner,creator,status,filter.from(),filter.until()),"asOf",clock.instant().toString());
+        }catch(DataAccessException failure){throw new GameDataUnavailable("房间查询暂不可用");}
+    }
+    public record Filter(String code,Long owner,Long creator,String status,LocalDateTime from,LocalDateTime until){ }
+    /** 列表与异步导出复用同一字段、日期和编号校验。 */
+    public static Filter filter(String code,Long owner,Long creator,String status,LocalDate start,LocalDate end){
         if(code!=null&&!code.matches("[0-9]{6}"))throw new IllegalArgumentException("房号应为 6 位数字");
         if(owner!=null&&(owner<1||owner>999999999)||creator!=null&&(creator<1||creator>999999999))throw new IllegalArgumentException("玩家编号无效");
         if(status!=null&&!Set.of("WAITING","PLAYING","ROUND_FINISHED","CLOSED").contains(status))throw new IllegalArgumentException("房间状态无效");
         if(start==null||end==null||end.isBefore(start)||ChronoUnit.DAYS.between(start,end)>30||end.getYear()>9998||start.getYear()<1000)throw new IllegalArgumentException("请选择最多 31 天的有效日期范围");
-        if(page<1||page>100000||limit<1||limit>200)throw new IllegalArgumentException("分页参数无效");
         ZoneId zone=ZoneId.of("Asia/Shanghai");
         LocalDateTime from=LocalDateTime.ofInstant(start.atStartOfDay(zone).toInstant(),ZoneOffset.UTC),until=LocalDateTime.ofInstant(end.plusDays(1).atStartOfDay(zone).toInstant(),ZoneOffset.UTC);
-        try{
-            requireScope(actor);
-            var rows=mapper.list(actor,code,owner,creator,status,from,until,Math.multiplyExact(page-1,limit),limit).stream().map(AdminTimes::utc).toList();
-            return Map.of("code",200,"rows",rows,"total",mapper.count(actor,code,owner,creator,status,from,until),"asOf",clock.instant().toString());
-        }catch(DataAccessException failure){throw new GameDataUnavailable("房间查询暂不可用");}
+        return new Filter(code,owner,creator,status,from,until);
     }
     @Transactional(readOnly=true,timeout=3)
     public Map<String,Object> detail(long actor,String id){

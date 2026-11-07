@@ -93,6 +93,13 @@ management:
     health:
       show-details: never
 game:
+  landlord-scoring:
+    version: ${GAME_LANDLORD_SCORE_VERSION:local-6003-score-v1}
+    base: ${GAME_LANDLORD_SCORE_BASE:1}
+    unit-cap: ${GAME_LANDLORD_SCORE_UNIT_CAP:64}
+  exports:
+    enabled: ${GAME_EXPORTS_ENABLED:true}
+    directory: ${GAME_EXPORTS_DIRECTORY:.local/exports}
   online-history:
     enabled: ${GAME_ONLINE_HISTORY_ENABLED:true}
   pii-key: ${GAME_PII_KEY}

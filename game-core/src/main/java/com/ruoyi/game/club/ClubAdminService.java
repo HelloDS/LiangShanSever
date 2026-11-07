@@ -23,13 +23,14 @@ public class ClubAdminService {
         if(status!=null&&!Set.of("ACTIVE","SUSPENDED","DISBANDED").contains(status))throw new IllegalArgumentException("圈状态无效");
         if(!Set.of("id","members","online","created").contains(sort))throw new IllegalArgumentException("排序字段无效");
         if("online".equals(sort)&&online==null)throw new GameDataUnavailable("在线数据暂不可用，请更换排序或稍后重试");
-        var rows=mapper.list(actor,id,name,owner,status,sort,online,(page-1)*limit,limit).stream().map(AdminTimes::utc).map(row->{if(online==null)row.put("onlineCount",null);return row;}).toList();
+        var rows=mapper.list(actor,id,name,owner,status,sort,online,(page-1)*limit,limit).stream().map(AdminTimes::utc).map(row->{if(online==null)row.put("onlineCount",null);row.put("maxMembers",Math.min(((Number)row.get("maxMembers")).intValue(),com.ruoyi.game.economy.ConfirmedBusinessRules.CLUB_MEMBER_CAP));return row;}).toList();
         return Map.of("code",200,"rows",rows,"total",mapper.count(actor,id,name,owner,status),"dataStatus",dataStatus,"asOf",asOf);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> detail(long actor,long id){
         permissions.requireClub(actor,id);var club=clubs.club(id);if(club==null)throw new IllegalArgumentException("亲友圈不存在");
-        return Map.of("club",AdminTimes.utc(club),"wallets",mapper.wallets(id));
+        var displayed=AdminTimes.utc(club);displayed.put("max_mem",Math.min(((Number)displayed.get("max_mem")).intValue(),com.ruoyi.game.economy.ConfirmedBusinessRules.CLUB_MEMBER_CAP));
+        return Map.of("club",displayed,"wallets",mapper.wallets(id));
     }
     @Transactional(readOnly=true)
     public Map<String,Object> members(long actor,long id,int page,int limit,Set<Long> online){

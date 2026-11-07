@@ -108,7 +108,7 @@ public class ClubService {
             if(targetRole!=null)throw new GameFailure(-39,"玩家已在圈内");
             if(decision==1){
                 if(mapper.activePlayer(target)!=1)throw new GameFailure(-6,"玩家不存在或不可用");
-                if(number(club,"current_mem")>=number(club,"max_mem"))throw new GameFailure(-42,"圈成员已达上限");
+                if(number(club,"current_mem")>=Math.min(number(club,"max_mem"),com.ruoyi.game.economy.ConfirmedBusinessRules.CLUB_MEMBER_CAP))throw new GameFailure(-42,"圈成员已达上限");
                 mapper.join(id,target,now());mapper.count(id,1,now());
             }
         }else{
@@ -189,7 +189,7 @@ public class ClubService {
     }
     private void event(long id,long actor,Long target,String action,Map<String,Object> details){event(id,Actor.player(actor),target,action,details);}
     private void event(long id,Actor actor,Long target,String action,Map<String,Object> details){mapper.event(id,actor.id(),actor.admin()?"ADMIN":"PLAYER",target,action,codec.write(details),now());}
-    private static Map<String,Object> wireClub(Map<String,Object> row){Map<String,Object> value=new LinkedHashMap<>();for(String key:List.of("id","name","owner","current_mem","max_mem","card","diamond"))value.put(key,row.get(key));return value;}
+    private static Map<String,Object> wireClub(Map<String,Object> row){Map<String,Object> value=new LinkedHashMap<>();for(String key:List.of("id","name","owner","current_mem","max_mem","card","diamond"))value.put(key,row.get(key));value.put("max_mem",(int)Math.min(number(row,"max_mem"),com.ruoyi.game.economy.ConfirmedBusinessRules.CLUB_MEMBER_CAP));return value;}
     private static long number(Map<String,Object> row,String key){return ((Number)row.get(key)).longValue();}
     private static GameFailure bad(String message){return new GameFailure(-4,message);}
     private static String messageName(String name){return name.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace(",","，");}

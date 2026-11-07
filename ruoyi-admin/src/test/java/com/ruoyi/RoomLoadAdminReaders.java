@@ -19,6 +19,7 @@ final class RoomLoadAdminReaders implements AutoCloseable {
     private final ThreadPoolExecutor workers;
     private final ScheduledThreadPoolExecutor scheduler;
     private final AtomicLong sent=new AtomicLong(),completed=new AtomicLong(),failed=new AtomicLong(),busy=new AtomicLong();
+    private final AtomicInteger concurrent=new AtomicInteger(),peakConcurrent=new AtomicInteger();
     private final Queue<Long> latencyNanos=new ConcurrentLinkedQueue<>();
     private final int count;
     private final int rooms;
@@ -38,7 +39,8 @@ final class RoomLoadAdminReaders implements AutoCloseable {
             var packet=codec.read(response.body());if(packet.path("code").asInt()!=200||!packet.path("token").isString())throw new IllegalStateException("后台负载会话未建立");
             tokens.add(packet.path("token").asString());inFlight.add(new AtomicBoolean());
         }}catch(Exception failure){tokens.clear();http.close();throw failure;}
-        workers=new ThreadPoolExecutor(2,2,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(10),Thread.ofPlatform().name("room-load-admin-http-",0).daemon().factory(),new ThreadPoolExecutor.AbortPolicy());
+        workers=new ThreadPoolExecutor(10,10,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(10),Thread.ofPlatform().name("room-load-admin-http-",0).daemon().factory(),new ThreadPoolExecutor.AbortPolicy());
+        workers.prestartAllCoreThreads();
         scheduler=new ScheduledThreadPoolExecutor(1,Thread.ofPlatform().name("room-load-admin-tick").daemon().factory());
         scheduler.setRemoveOnCancelPolicy(true);scheduler.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
     }
@@ -46,14 +48,15 @@ final class RoomLoadAdminReaders implements AutoCloseable {
     private void tick(){
         for(int index=0;index<count&&running;index++){
             int slot=index;if(!inFlight.get(slot).compareAndSet(false,true)){busy.incrementAndGet();continue;}
-            try{workers.execute(()->query(slot));}catch(RejectedExecutionException rejection){inFlight.get(slot).set(false);if(running)failed.incrementAndGet();}
+            long began=System.nanoTime();sent.incrementAndGet();
+            try{workers.execute(()->query(slot,began));}catch(RejectedExecutionException rejection){inFlight.get(slot).set(false);failed.incrementAndGet();}
         }
     }
-    private void query(int slot){
-        sent.incrementAndGet();long began=System.nanoTime();
+    private void query(int slot,long began){
         try{
             var request=HttpRequest.newBuilder(base.resolve(paths.get(slot%paths.size()))).timeout(Duration.ofSeconds(3)).header("Authorization","Bearer "+tokens.get(slot)).GET().build();
-            var response=http.send(request,HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response;int active=concurrent.incrementAndGet();peakConcurrent.accumulateAndGet(active,Math::max);
+            try{response=http.send(request,HttpResponse.BodyHandlers.ofString());}finally{concurrent.decrementAndGet();}
             var packet=codec.read(response.body());
             if(response.statusCode()!=200||packet.path("code").asInt()!=200)throw new IllegalStateException("后台读取未完成");
             if(slot%paths.size()==0){
@@ -74,10 +77,10 @@ final class RoomLoadAdminReaders implements AutoCloseable {
     }
     Map<String,Object> report(){
         var sorted=latencyNanos.stream().mapToLong(Long::longValue).sorted().toArray();
-        Map<String,Object> result=new LinkedHashMap<>();result.put("sessions",count);result.put("intervalSeconds",10);result.put("sent",sent.get());result.put("completed",completed.get());result.put("failed",failed.get());result.put("busy",busy.get());result.put("pending",inFlight.stream().filter(AtomicBoolean::get).count());
+        Map<String,Object> result=new LinkedHashMap<>();result.put("sessions",count);result.put("httpWorkers",10);result.put("peakConcurrentQueries",peakConcurrent.get());result.put("latencyIncludesClientQueue",true);result.put("intervalSeconds",10);result.put("sent",sent.get());result.put("completed",completed.get());result.put("failed",failed.get());result.put("busy",busy.get());result.put("pending",inFlight.stream().filter(AtomicBoolean::get).count());
         result.put("latencyMs",Map.of("p50",percentile(sorted,.5),"p95",percentile(sorted,.95),"p99",percentile(sorted,.99),"max",percentile(sorted,1)));return result;
     }
-    boolean passed(int seconds){return sent.get()==completed.get()&&completed.get()>=count*Math.max(1,seconds/10-1)&&failed.get()==0&&busy.get()==0&&inFlight.stream().noneMatch(AtomicBoolean::get)&&percentile(latencyNanos.stream().mapToLong(Long::longValue).sorted().toArray(),.95)<=300;}
+    boolean passed(int seconds){return peakConcurrent.get()==10&&sent.get()==completed.get()&&completed.get()>=count*Math.max(1,seconds/10-1)&&failed.get()==0&&busy.get()==0&&inFlight.stream().noneMatch(AtomicBoolean::get)&&percentile(latencyNanos.stream().mapToLong(Long::longValue).sorted().toArray(),.95)<=300;}
     private static double percentile(long[] sorted,double fraction){return sorted.length==0?0:sorted[Math.min(sorted.length-1,(int)Math.ceil(sorted.length*fraction)-1)]/1e6;}
     @Override public void close(){stop();tokens.clear();http.close();}
 }
