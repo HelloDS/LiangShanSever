@@ -14,7 +14,7 @@ public class ClubWireRouter {
     private final ClubGameRecords records;
     public ClubWireRouter(ClubService clubs,ClubGameRecords records){this.clubs=clubs;this.records=records;}
     public record Reply(Map<String,Object> ack,List<ClubService.Notification> notifications){ }
-    private static final Set<String> ROUTES=Set.of("build/getAutoBuildConfig","club/getClubs","club/getClub","club/getClubMems","club/getRoles","club/getClubConfig","club/setClubConfig","club/apply","club/applyLeave","club/getApplyList","club/getApplyLeaveList","club/reviewApply","club/reviewApplyLeave","club/kick","club/setClubManager","club/removeClubManager","club/getClubMsgs","club/getRoomList","club/getRoomInfos","club/getClubZhanJi","club/getRoleZhanJi","room/getDefaultRoomConfig","club/getCreateNeedCard","club/createClub","club/rename","club/disbandClub","club/transferCard","club/clubUpgrade","cfg/getClubUpgradeConfig");
+    private static final Set<String> ROUTES=Set.of("club/setClubMemComment","build/getAutoBuildConfig","club/getClubs","club/getClub","club/getClubMems","club/getRoles","club/getClubConfig","club/setClubConfig","club/apply","club/applyLeave","club/getApplyList","club/getApplyLeaveList","club/reviewApply","club/reviewApplyLeave","club/kick","club/setClubManager","club/removeClubManager","club/getClubMsgs","club/getRoomList","club/getRoomInfos","club/getClubZhanJi","club/getRoleZhanJi","room/getDefaultRoomConfig","club/getCreateNeedCard","club/createClub","club/rename","club/disbandClub","club/transferCard","club/clubUpgrade","cfg/getClubUpgradeConfig");
     public boolean supports(WireRequest req){return ROUTES.contains(req.api()+"/"+req.command())
             ||Set.of("club/transferDiamond","club/transferToClub","club/exchangeDiamond","club/exchangeCard").contains(req.api()+"/"+req.command());}
     public Reply dispatch(WireRequest req,long uid){
@@ -25,7 +25,7 @@ public class ClubWireRouter {
             case "club/getClub" -> ack=clubs.get(uid,id(d,"id"));
             case "club/getCreateNeedCard" -> ack=clubs.creationCost();
             case "club/createClub" -> ack=clubs.create(uid,clubName(d));
-            case "club/rename" -> ack=clubs.rename(uid,id(d,"id"),clubName(d));
+            case "club/rename" -> ack=clubs.rename(uid,id(d,"id"),clubName(d),operation(d));
             case "club/disbandClub" -> change=clubs.disband(uid,id(d,"club_id"));
             case "cfg/getClubUpgradeConfig" -> ack=clubs.upgradeConfig();
             case "club/clubUpgrade" -> ack=clubs.upgrade(uid,id(d,"club_id"),operation(d));
@@ -34,6 +34,7 @@ public class ClubWireRouter {
             case "club/transferToClub" -> ack=clubs.deposit(uid,id(d,"club_id"),amount(d,"card"),amount(d,"diamond"),operation(d));
             case "club/exchangeCard" -> ack=clubs.exchange(uid,id(d,"club_id"),amount(d,"number"),true,operation(d));
             case "club/exchangeDiamond" -> ack=clubs.exchange(uid,id(d,"club_id"),amount(d,"number"),false,operation(d));
+            case "club/setClubMemComment" -> ack=clubs.comment(uid,id(d,"club_id"),id(d,"uid"),comment(d));
             case "club/getClubMems" -> ack=clubs.members(uid,id(d,"club_id"));
             case "club/getRoles" -> {JsonNode values=d.get("uids");if(values==null||!values.isArray()||values.size()>200)throw bad();List<Long> uids=new ArrayList<>();for(JsonNode value:values)uids.add(id(value));ack=clubs.roles(uid,id(d,"club_id"),uids);}
             case "club/getClubConfig" -> ack=clubs.config(uid,id(d,"club_id"));
@@ -69,6 +70,7 @@ public class ClubWireRouter {
     private static String clubName(JsonNode d){JsonNode value=d.path("name");if(!value.isString()||value.asString().length()>32)throw bad();return value.asString();}
     private static String operation(JsonNode d){return com.ruoyi.game.protocol.GameJsonCodec.text(d,"operationId",36);}
     private static long amount(JsonNode d,String key){JsonNode value=d.path(key);if(!value.isIntegralNumber()||!value.canConvertToLong()||value.asLong()<0||value.asLong()>com.ruoyi.game.economy.WalletPosting.MAX_CLIENT_INTEGER)throw bad();return value.asLong();}
+    private static String comment(JsonNode data){var text=data.path("comment");if(!text.isString()||text.asString().length()>32)throw bad();return text.asString();}
     private static GameFailure bad(){return new GameFailure(-4,"亲友圈请求参数无效");}
     private static String cursor(JsonNode data){var value=data.path("cursor");if(value.isMissingNode())return "";if(!value.isString()||value.asString().length()>96)throw bad();return value.asString();}
 }

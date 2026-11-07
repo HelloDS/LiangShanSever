@@ -71,12 +71,17 @@ public class RoomJournal {
         if("CLOSED".equals(runtime.get("status")))return Decision.NOT_COMMITTED;
         if(command.eventKind().startsWith("TEST_")&&!Boolean.TRUE.equals(runtime.get("isTest")))throw new IllegalArgumentException("测试事件不能写入正式房间");
         if(command.actor()!=null)auth.verifySession(command.actor());
+        if("KICK".equals(command.eventKind()) && (command.actor()==null || command.actor().uid()!=number(runtime,"ownerUid")))
+            throw new GameFailure(-90,"仅房主可移出房间座位");
         if("FORCE_CLOSE".equals(command.eventKind()) && !(runtime.get("clubId") instanceof Number))throw new GameFailure(-90,"强制解散仅用于亲友圈房间");
         if(LiveRoomEngine.VERSION.equals(command.engineVersion()) && runtime.get("clubId") instanceof Number club && command.actor()!=null) {
             var circle=clubs.lock(club.longValue());
             String role=clubs.memberRole(club.longValue(),command.actor().uid());
             if(circle==null || !"ACTIVE".equals(circle.get("status")) || role==null)throw new GameFailure(-90,"亲友圈成员身份已经改变");
-            if(Set.of("CLOSE","FORCE_CLOSE").contains(command.eventKind()) && !Set.of("OWNER","MANAGER").contains(role))throw new GameFailure(-90,"没有房间管理权限");
+            boolean manager=Set.of("OWNER","MANAGER").contains(role);
+            if("FORCE_CLOSE".equals(command.eventKind()) && !manager
+                    || "CLOSE".equals(command.eventKind()) && !manager && command.actor().uid()!=number(runtime,"ownerUid"))
+                throw new GameFailure(-90,"没有房间管理权限");
             if(!command.postings().isEmpty())for(long uid:mapper.participants(room)) {
                 if(clubs.memberRole(club.longValue(),uid)==null || clubs.activePlayer(uid)!=1)throw new GameFailure(-90,"参与者状态已经改变");
             }

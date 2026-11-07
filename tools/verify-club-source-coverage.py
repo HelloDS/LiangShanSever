@@ -37,7 +37,7 @@ for name in ("club", "clubpartner", "clubbuild", "diamond"):
     for route in routes:
         if route == "build/getAutoBuildConfig":
             status = "关闭资源状态查询已实现"
-        elif route.startswith("build/") or route == "club/setClubMemComment":
+        elif route.startswith("build/"):
             status = "随建设页面暂缓"
         elif route in implemented:
             status = "已有路由实现，行为验收另见证据"
@@ -50,7 +50,7 @@ for name in ("club", "clubpartner", "clubbuild", "diamond"):
 report = {
     "status": "PASS" if not missing else "FAIL",
     "scope": "Creator 打包源文件字面路由核对，动态路由与实际浏览器行为单独验收",
-    "buildingScope": "用户暂缓体力、石材和开采，建设页面及其中备注入口保持隐藏",
+    "buildingScope": "用户暂缓体力、石材和开采，成员备注单独接入成员管理入口",
     "roomGameScope": "当前实际牌局接入 6003，其他玩法单独列为待接入",
     "modules": modules,
     "missingRoutes": sorted(missing),

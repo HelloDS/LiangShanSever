@@ -1,0 +1,1 @@
+ALTER TABLE club_member ADD COLUMN member_comment VARCHAR(16) NOT NULL DEFAULT '';

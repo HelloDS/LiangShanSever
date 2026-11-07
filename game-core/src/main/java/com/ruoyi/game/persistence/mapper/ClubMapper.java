@@ -35,9 +35,15 @@ public interface ClubMapper {
     int disband(@Param("id") long id,@Param("now") LocalDateTime now);
     @Update("UPDATE club_application SET status='REJECTED',reviewed_by=#{actor},reviewed_by_type='PLAYER',reviewed_at=#{now} WHERE club_id=#{id} AND status='PENDING'")
     int closeApplications(@Param("id") long id,@Param("actor") long actor,@Param("now") LocalDateTime now);
-    @Select("SELECT id,name,owner_uid AS owner,status,member_count AS current_mem,max_members AS max_mem,max_managers AS maxManagers,version FROM club WHERE id=#{id} FOR UPDATE") Map<String,Object> lock(long id);
+    @Select("SELECT id,name,owner_uid AS owner,status,member_count AS current_mem,max_members AS max_mem,max_managers AS maxManagers,only_manager_open_room AS onlyManagerOpenRoom,version FROM club WHERE id=#{id} FOR UPDATE") Map<String,Object> lock(long id);
     @Select("SELECT "+COLUMNS+JOINS+"JOIN club_member m ON m.club_id=c.id WHERE m.uid=#{uid} AND c.status='ACTIVE' ORDER BY c.id") List<Map<String,Object>> mine(long uid);
     @Select("SELECT member_role FROM club_member WHERE club_id=#{id} AND uid=#{uid}") String memberRole(@Param("id") long id,@Param("uid") long uid);
+    @Select("SELECT member_comment FROM club_member WHERE club_id=#{id} AND uid=#{uid}")
+    String memberComment(@Param("id") long id,@Param("uid") long uid);
+    @Select("SELECT member_role AS role,member_comment AS comment FROM club_member WHERE club_id=#{id} AND uid=#{uid}")
+    Map<String,Object> memberDetails(@Param("id") long id,@Param("uid") long uid);
+    @Update("UPDATE club_member SET member_comment=#{comment} WHERE club_id=#{id} AND uid=#{uid}")
+    int updateMemberComment(@Param("id") long id,@Param("uid") long uid,@Param("comment") String comment);
     @Select("SELECT uid FROM club_member WHERE club_id=#{id} ORDER BY CASE member_role WHEN 'OWNER' THEN 0 WHEN 'MANAGER' THEN 1 ELSE 2 END,joined_at,uid") List<Long> members(long id);
     @Select("SELECT COUNT(*) FROM club_member WHERE club_id=#{id} AND member_role='MANAGER'") int managers(long id);
     @Insert("INSERT INTO club_member(club_id,uid,member_role,joined_at) VALUES(#{id},#{uid},'MEMBER',#{now})") int join(@Param("id") long id,@Param("uid") long uid,@Param("now") LocalDateTime now);

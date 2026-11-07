@@ -30,7 +30,8 @@ class LiveRoomEngineTest {
                         action instanceof LandlordAction.Ready ? LandlordDeck.deal() : null,
                         now,
                         0,
-                        false);
+                        false,
+                        0);
         var change = engine.apply(snapshot, command);
         fees += change.event().postings().size();
         snapshot =
@@ -107,6 +108,9 @@ class LiveRoomEngineTest {
             apply(103, new LandlordAction.Ready());
             apply(101, new LandlordAction.Ready());
             assertEquals("BIDDING", state().round().phase());
+            assertEquals(
+                    true,
+                    ((Map<?, ?>) LiveRoomProjection.room(state()).get("data")).get("isStart"));
             assertEquals(17, ((List<?>) LiveRoomProjection.cards(state(), 101).get("101")).size());
             assertEquals(17, LiveRoomProjection.cards(state(), 101).get("102"));
             assertFalse(LiveRoomProjection.cards(state(), 101).containsKey("dizhuCards"));

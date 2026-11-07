@@ -119,6 +119,11 @@ class GameFoundationIntegrationTest {
         for(var actor:actors.values())liveRooms.join(actor,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
         assertThrows(GameFailure.class,()->clubs.disband(owner.uid(),club));
         assertThrows(GameFailure.class,()->clubs.kick(owner.uid(),club,b.uid()));
+        assertThrows(GameFailure.class,()->liveRooms.kick(a,b.uid()));
+        var removal=liveRooms.kick(owner,b.uid()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+        assertNull(liveRoomMapper.binding(b.uid()));
+        assertTrue(removal.notifications().stream().anyMatch(n->"kick".equals(n.packet().get("cmd"))));
+        liveRooms.join(b,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
         for(int round=1;round<=6;round++) {
             for(var actor:actors.values())liveRooms.action(actor,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
             var state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
@@ -1037,14 +1042,29 @@ class GameFoundationIntegrationTest {
             join(owner.uid(),club,a.uid());join(owner.uid(),club,b.uid());
             var options=Map.<String,Object>of("playNumber",6,"cardType",4,"aa",false);
             assertThrows(GameFailure.class,()->liveRooms.configure(a.uid(),club,"6003",options));
-            liveRooms.configure(owner.uid(),club,"6003",options);liveRooms.automatic(owner.uid(),club,true);
+            var manualOptions=Map.<String,Object>of("playNumber",6,"cardType",4,"aa",false,"club_id",club);
+            clubs.config(owner.uid(),club,true);
+            assertThrows(GameFailure.class,()->liveRooms.create(a,"6003",manualOptions,UUID.randomUUID().toString()));
+            clubs.config(owner.uid(),club,false);
+            var manual=liveRooms.create(a,"6003",manualOptions,UUID.randomUUID().toString());
+            liveRooms.close(a,(String)((Map<?,?>)manual.ack().get("room")).get("id")).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            clubs.config(owner.uid(),club,true);
+            liveRooms.configure(owner.uid(),club,"6003",options);
+            String code=(String)liveRooms.circleList(owner.uid(),club).ack().get("default_room");
+            assertNotNull(code);
+            liveRooms.configure(owner.uid(),club,"6003",Map.of("playNumber",12,"cardType",4,"aa",false));
+            String twelve=(String)liveRooms.circleList(owner.uid(),club).ack().get("default_room");
+            assertNotNull(twelve);
+            assertNotEquals(code,twelve);
+            liveRooms.configure(owner.uid(),club,"6003",options);
+            assertEquals(code,liveRooms.circleList(owner.uid(),club).ack().get("default_room"));
+            liveRooms.close(owner,twelve).toCompletableFuture().get(10,TimeUnit.SECONDS);
             try(var pool=Executors.newFixedThreadPool(4)) {
                 var results=new ArrayList<Future<?>>();
                 for(int i=0;i<6;i++)results.add(pool.submit(()->liveRooms.automatic(owner.uid(),club,true)));
                 for(var result:results)result.get(10,TimeUnit.SECONDS);
             }
             assertEquals(1,number("SELECT COUNT(*) FROM room_record WHERE club_id=? AND status<>'CLOSED'",club));
-            String code=(String)liveRooms.circleList(owner.uid(),club).ack().get("default_room");
             for(var actor:List.of(owner,a,b))liveRooms.join(actor,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
             liveRooms.replenish();
             assertEquals(2,number("SELECT COUNT(*) FROM room_record WHERE club_id=? AND status<>'CLOSED'",club));
@@ -1073,6 +1093,25 @@ class GameFoundationIntegrationTest {
             String empty=jdbc.queryForObject("SELECT room_code FROM room_record WHERE club_id=? AND status='WAITING'",String.class,club);
             liveRooms.close(owner,empty).toCompletableFuture().get(10,TimeUnit.SECONDS);
             clubs.disband(owner.uid(),club);
+        }
+
+        @Test void memberCommentsUseCreatorLimitManagerScopeAndIdempotentUpdates() {
+            long owner=player(),member=player(),assistant=player(),outsider=player(),club=existingClub(owner,10,3);
+            join(owner,club,member);join(owner,club,assistant);clubs.manager(owner,club,assistant,true);
+            assertThrows(GameFailure.class,()->clubs.comment(member,club,member,"普通成员不能改"));
+            assertThrows(GameFailure.class,()->clubs.comment(outsider,club,member,"跨圈不能改"));
+            assertThrows(GameFailure.class,()->clubs.comment(owner,club,outsider,"目标不在本圈"));
+            clubs.comment(owner,club,member," 联调备注 ");clubs.comment(owner,club,member,"联调备注");
+            assertEquals(1,number("SELECT COUNT(*) FROM club_event WHERE club_id=? AND action='MEMBER_COMMENT'",club));
+            var role=(Map<?,?>)((Map<?,?>)clubs.roles(member,club,List.of(member)).get("roles")).get(Long.toString(member));
+            assertEquals("联调备注",role.get("comment"));
+            clubs.comment(assistant,club,member,"e\u0301".repeat(16));
+            assertEquals("é".repeat(16),jdbc.queryForObject("SELECT member_comment FROM club_member WHERE club_id=? AND uid=?",String.class,club,member));
+            assertThrows(GameFailure.class,()->clubs.comment(owner,club,member,"长".repeat(17)));
+            assertThrows(GameFailure.class,()->clubs.comment(owner,club,member,"备注\n换行"));
+            clubs.comment(assistant,club,member,"");
+            assertEquals("",jdbc.queryForObject("SELECT member_comment FROM club_member WHERE club_id=? AND uid=?",String.class,club,member));
+            clubs.disband(owner,club);assertThrows(GameFailure.class,()->clubs.comment(owner,club,member,"已关闭"));
         }
 
         @Test void partnerMembershipAndDelegatedReviewStayWithinTheCircle(){
@@ -1263,8 +1302,13 @@ class GameFoundationIntegrationTest {
             assertEquals(100,circle.get("max_mem"));
             assertEquals(900L,((Number)created.get("card")).longValue());
             String newName="改"+UUID.randomUUID().toString().substring(0,6);
-            assertEquals(-41,assertThrows(GameFailure.class,()->clubs.rename(outsider,id,newName)).state());
-            clubs.rename(owner,id,newName);
+            String renameOperation=UUID.randomUUID().toString();
+            assertEquals(-41,assertThrows(GameFailure.class,()->clubs.rename(outsider,id,newName,renameOperation)).state());
+            clubs.rename(owner,id,newName,renameOperation);
+            clubs.rename(owner,id,newName,renameOperation);
+            clubs.rename(owner,id,newName,UUID.randomUUID().toString());
+            assertEquals(-4,assertThrows(GameFailure.class,()->clubs.rename(owner,id,initial,renameOperation)).state());
+            assertEquals(1,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key LIKE ?","club_rename:"+id+":%"));
             assertEquals(newName,((Map<?,?>)clubs.create(owner,initial).get("club")).get("name"));
             assertEquals(1,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?","club_creation:"+id));
             assertEquals(-90,assertThrows(GameFailure.class,()->clubs.disband(outsider,id)).state());
@@ -1274,7 +1318,7 @@ class GameFoundationIntegrationTest {
             assertEquals("DISBANDED",jdbc.queryForObject("SELECT status FROM club WHERE id=?",String.class,id));
             assertEquals("REJECTED",jdbc.queryForObject("SELECT status FROM club_application WHERE club_id=? AND uid=?",String.class,id,outsider));
             assertEquals(100,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
-            assertEquals(900,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",owner));
+            assertEquals(850,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",owner));
             assertEquals(1,number("SELECT COUNT(*) FROM club_event WHERE club_id=? AND action='DISBAND'",id));
             assertEquals(-38,assertThrows(GameFailure.class,()->clubs.create(owner,initial)).state());
         }

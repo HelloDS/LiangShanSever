@@ -60,11 +60,16 @@ public interface LiveRoomMapper {
     int runtime(Map<String, Object> row);
 
     @Select(
-            "SELECT r.room_id AS roomId,r.room_code AS code,r.status,r.is_default AS"
-                + " isDefault,(SELECT COUNT(*) FROM player_room_binding b WHERE"
-                + " b.room_id=r.room_id) AS players FROM room_record r WHERE r.club_id=#{club} AND"
+            "SELECT r.room_code AS code,r.status FROM room_record r WHERE r.club_id=#{club} AND"
                 + " r.status<>'CLOSED' ORDER BY r.created_at,r.room_id")
     List<Map<String, Object>> circleRooms(long club);
+
+    String DEFAULT_WAITING="r.is_default=TRUE AND r.status='WAITING' AND r.options_json=d.create_data "
+            +"AND (SELECT COUNT(*) FROM player_room_binding b WHERE b.room_id=r.room_id)<3";
+
+    @Select("SELECT r.room_id AS roomId,r.room_code AS code FROM club_default_room d JOIN room_record r ON r.club_id=d.club_id "
+            +"WHERE d.club_id=#{club} AND d.auto_create=TRUE AND "+DEFAULT_WAITING+" ORDER BY r.created_at,r.room_id LIMIT 1")
+    Map<String,Object> availableDefault(long club);
 
     @Select(
             "SELECT club_id AS club,game_id AS gameId,CAST(create_data AS CHAR) AS"
@@ -74,8 +79,8 @@ public interface LiveRoomMapper {
     @Insert(
             "INSERT INTO"
                 + " club_default_room(club_id,game_id,create_data,auto_create,updated_by,updated_at)"
-                + " VALUES(#{club},'6003',#{options},FALSE,#{actor},#{now}) ON DUPLICATE KEY UPDATE"
-                + " game_id=VALUES(game_id),create_data=VALUES(create_data),updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)")
+                + " VALUES(#{club},'6003',#{options},TRUE,#{actor},#{now}) ON DUPLICATE KEY UPDATE"
+                + " game_id=VALUES(game_id),create_data=VALUES(create_data),auto_create=TRUE,updated_by=VALUES(updated_by),updated_at=VALUES(updated_at)")
     int configure(
             @Param("club") long club,
             @Param("options") String options,
@@ -94,7 +99,8 @@ public interface LiveRoomMapper {
 
     @Select(
             "SELECT d.club_id FROM club_default_room d JOIN club c ON c.id=d.club_id WHERE"
-                    + " d.auto_create=TRUE AND c.status='ACTIVE' ORDER BY d.club_id LIMIT 1000")
+                    + " d.auto_create=TRUE AND c.status='ACTIVE' AND NOT EXISTS(SELECT 1 FROM room_record r WHERE r.club_id=d.club_id AND "
+                    + DEFAULT_WAITING +") ORDER BY d.club_id LIMIT 1000")
     List<Long> automaticClubs();
 
     @Select(

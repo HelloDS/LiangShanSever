@@ -23,6 +23,7 @@ public class RoomWireRouter {
                     "room/createRoom",
                     "room/joinRoom",
                     "room/leaveRoom",
+                    "room/kick",
                     "room/disbandRoom",
                     "room/forceDisbandRoom",
                     "room/gameMessage",
@@ -94,6 +95,7 @@ public class RoomWireRouter {
             case "room/leaveRoom" -> {
                 return rooms.leave(actor);
             }
+            case "room/kick" -> {return rooms.kick(actor,id(data,"targetUid"));}
             case "room/disbandRoom" -> {
                 return rooms.close(
                         actor, data.hasNonNull("room_id") ? code(data, "room_id") : null);

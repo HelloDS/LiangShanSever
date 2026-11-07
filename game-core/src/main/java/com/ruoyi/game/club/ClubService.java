@@ -88,19 +88,26 @@ public class ClubService {
     }
 
     @Transactional(timeout=5)
-    public Map<String,Object> rename(long uid,long id,String requestedName) {
+    public Map<String,Object> rename(long uid,long id,String requestedName,String operation) {
         var club=active(id,true);
         owner(id,uid);
         String name=clubName(requestedName);
         String previous=(String)club.get("name");
-        if(!name.equals(previous)) {
+        operations.execute(uid,operation,Map.of("kind","clubRename","club",id,"name",name),()->{
+            if(name.equals(previous))return Map.of("state",0);
             try {
                 mapper.rename(id,name,now());
             } catch (DuplicateKeyException duplicate) {
                 throw new GameFailure(-36,"亲友圈名字重复");
             }
+            long fee=ConfirmedBusinessRules.CLUB_RENAME_CARDS;
+            wallets.post(new WalletPosting(WalletPosting.Kind.CONSUMPTION,"club_rename:"+id+":"+operation,
+                    ConfirmedBusinessRules.CLUB_LIFECYCLE_VERSION,"club/"+id,List.of(
+                    new WalletPosting.Entry(new WalletPosting.Account(PERSONAL,uid,CARD),-fee,0),
+                    new WalletPosting.Entry(new WalletPosting.Account(SYSTEM,0,CARD),fee,0))));
             event(id,uid,null,"RENAME",Map.of("before",previous,"after",name));
-        }
+            return Map.of("state",0);
+        });
         return clubAndWallet(uid,mapper.club(id));
     }
 
@@ -220,18 +227,32 @@ public class ClubService {
         active(id,false);String caller=member(id,uid);if(targets.size()>200)throw bad("一次最多查询 200 名成员");
         Map<String,Object> roles=new LinkedHashMap<>();
         for(long target:targets){
-            String role=mapper.memberRole(id,target);
+            var membership=mapper.memberDetails(id,target);
+            String role=membership==null?null:(String)membership.get("role");
             if(role==null&&(!manager(caller)||!"PENDING".equals(mapper.application(id,target,"JOIN"))))throw new GameFailure(-90,"目标不在本圈授权范围");
             Map<String,Object> value=new LinkedHashMap<>(players.publicRole(target));
             value.put("club_level","OWNER".equals(role)?0:"MANAGER".equals(role)?1:2);
             var stats=records.memberStats(id,target);
             value.put("game_number",stats.get("games"));
             value.put("game_at",stats.get("gameAt")==null?null:time(stats.get("gameAt")));
-            // 建设和合伙人未启用，旧版踢出提示仍读取这三个字段。
+            value.put("comment",membership==null?"":membership.get("comment"));
+            // 资源暂缓，保留原成员消费者要求的零资源字段。
             value.put("strength",0);value.put("ore",0);value.put("is_partner",partners.exists(id,target)?1:0);
             roles.put(Long.toString(target),value);
         }
         return Map.of("state",0,"roles",roles);
+    }
+    @Transactional
+    public Map<String,Object> comment(long actor,long id,long target,String text) {
+        active(id,true);manage(id,actor);member(id,target);
+        if(text==null)throw bad("成员备注无效");
+        String comment=Normalizer.normalize(text.strip(),Normalizer.Form.NFC);
+        if(comment.length()>16 || comment.codePoints().anyMatch(c->Character.isISOControl(c) || c>=0xD800 && c<=0xDFFF))throw bad("备注最多16个字，不能包含控制字符");
+        if(!comment.equals(mapper.memberComment(id,target))) {
+            if(mapper.updateMemberComment(id,target,comment)!=1)throw new IllegalStateException("成员备注未保存");
+            event(id,actor,target,"MEMBER_COMMENT",Map.of("comment",comment));
+        }
+        return Map.of("state",0,"comment",comment);
     }
     @Transactional(readOnly=true)
     public Map<String,Object> config(long uid,long id){
@@ -331,7 +352,7 @@ public class ClubService {
         if(enabled){
             Object maximum=club.get("maxManagers");
             int limit=maximum==null?ConfirmedBusinessRules.CLUB_MANAGER_CAP:Math.min(((Number)maximum).intValue(),ConfirmedBusinessRules.CLUB_MANAGER_CAP);
-            if(mapper.managers(id)>=limit)throw new GameFailure(-90,"管理员数量已达本圈配置上限");
+            if(mapper.managers(id)>=limit)throw new GameFailure(-90,"本圈最多可设置 "+limit+" 名助理");
         }
         mapper.role(id,target,desired);event(id,actor,target,"SET_ROLE",Map.of("before",targetRole,"after",desired));
         return new Change(List.of(new Notification(mapper.members(id),Map.of("cmd","clubManagerChange","club_id",id,"member",Map.of("uid",target,"level",enabled?1:2)))));

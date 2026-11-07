@@ -5,7 +5,7 @@ import java.util.*;
 import org.apache.ibatis.annotations.*;
 
 public interface RoomJournalMapper {
-    @Select("SELECT t.owner_epoch AS ownerEpoch,t.owner_node AS ownerNode,t.version,t.round_no AS roundNo,t.phase,t.state_hash AS stateHash,t.snapshot_seq AS snapshotSeq,t.snapshot_round AS snapshotRound,t.snapshot_phase AS snapshotPhase,CAST(t.snapshot_json AS CHAR) AS snapshotJson,t.snapshot_hash AS snapshotHash,t.schema_version AS schemaVersion,t.engine_version AS engineVersion,r.rule_version AS ruleVersion,r.game_id AS gameId,r.status,r.is_test AS isTest,r.club_id AS clubId,r.payer_uid AS payerUid FROM room_runtime t JOIN room_record r ON r.room_id=t.room_id WHERE t.room_id=#{id} FOR UPDATE")
+    @Select("SELECT t.owner_epoch AS ownerEpoch,t.owner_node AS ownerNode,t.version,t.round_no AS roundNo,t.phase,t.state_hash AS stateHash,t.snapshot_seq AS snapshotSeq,t.snapshot_round AS snapshotRound,t.snapshot_phase AS snapshotPhase,CAST(t.snapshot_json AS CHAR) AS snapshotJson,t.snapshot_hash AS snapshotHash,t.schema_version AS schemaVersion,t.engine_version AS engineVersion,r.rule_version AS ruleVersion,r.game_id AS gameId,r.status,r.is_test AS isTest,r.club_id AS clubId,r.owner_uid AS ownerUid,r.payer_uid AS payerUid FROM room_runtime t JOIN room_record r ON r.room_id=t.room_id WHERE t.room_id=#{id} FOR UPDATE")
     @Options(timeout=5)
     Map<String,Object> lock(String id);
 

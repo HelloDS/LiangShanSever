@@ -23,7 +23,15 @@ public final class LiveRoomProjection {
         result.put("club_id", details.club());
         result.put("currentRound", state.round().number());
         result.put("totalRound", details.maxRounds());
-        result.put("data", Map.of("game_id", "6003", "cd", details.options()));
+        result.put(
+                "data",
+                Map.of(
+                        "game_id",
+                        "6003",
+                        "cd",
+                        details.options(),
+                        "isStart",
+                        state.round().number() > 0));
         return result;
     }
 

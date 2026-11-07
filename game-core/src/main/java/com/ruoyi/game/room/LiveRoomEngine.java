@@ -28,7 +28,8 @@ public final class LiveRoomEngine
             LandlordDeck.Deal deal,
             long now,
             int vote,
-            boolean authorized) {
+            boolean authorized,
+            long targetUid) {
         public Command {
             role = Map.copyOf(role);
             partners = Map.copyOf(partners);
@@ -92,24 +93,28 @@ public final class LiveRoomEngine
                                 RoomJournalCommand.SeatAction.JOIN, uid, index);
                 tag = "joinRoom";
             }
-            case "LEAVE" -> {
-                requirePlayer(state, uid);
+            case "LEAVE", "KICK" -> {
+                boolean kick = "KICK".equals(command.kind());
+                long target = kick ? command.targetUid() : uid;
+                if (kick && (uid != state.details().owner() || uid == target))
+                    throw rejected("FORBIDDEN");
+                requirePlayer(state, target);
                 if (!"WAITING".equals(round.phase()) || round.number() > 0)
                     throw rejected("GAME_ALREADY_STARTED");
                 int index =
                         state.seats().players().entrySet().stream()
-                                .filter(e -> e.getValue() == command.uid())
+                                .filter(e -> e.getValue() == target)
                                 .map(Map.Entry::getKey)
                                 .findFirst()
                                 .orElseThrow();
                 var players = new TreeMap<>(state.seats().players());
                 players.remove(index);
                 var roles = new LinkedHashMap<>(state.seats().roles());
-                roles.remove(uid);
+                roles.remove(target);
                 var ready = new HashSet<>(round.ready());
-                ready.remove(uid);
+                ready.remove(target);
                 var totals = new LinkedHashMap<>(state.totals());
-                totals.remove(uid);
+                totals.remove(target);
                 var waiting =
                         new Round(
                                 0,
@@ -134,8 +139,13 @@ public final class LiveRoomEngine
                                 state.revision());
                 seat =
                         new RoomJournalCommand.SeatChange(
-                                RoomJournalCommand.SeatAction.LEAVE, uid, index);
+                                kick
+                                        ? RoomJournalCommand.SeatAction.KICK
+                                        : RoomJournalCommand.SeatAction.LEAVE,
+                                target,
+                                index);
                 tag = "leaveRoom";
+                uid = target;
             }
             case "CLOSE", "FORCE_CLOSE" -> {
                 if (!command.authorized()) throw rejected("FORBIDDEN");

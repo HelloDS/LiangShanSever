@@ -1,6 +1,6 @@
 package com.ruoyi.game.economy;
 
-/** 2026-11-07 用户明确给定的本项目规则，不是原站反推值。 */
+/** 2026-11-07 用户确认的规则及授权按 Creator 选定的默认值。 */
 public final class ConfirmedBusinessRules {
     private ConfirmedBusinessRules(){ }
     public static final String VERSION="user-rules-20261107-v1";
@@ -11,6 +11,7 @@ public final class ConfirmedBusinessRules {
     public static final int CLUB_UPGRADE_MEMBERS=100;
     public static final long CLUB_UPGRADE_CARDS=100;
     public static final long CLUB_CREATION_CARDS=100;
+    public static final long CLUB_RENAME_CARDS=50;
     public static final long STARTER_CARDS=1000;
     public static final long STARTER_DIAMONDS=100;
     public static final String CLUB_LIFECYCLE_VERSION="club-rules-20261107-v1";

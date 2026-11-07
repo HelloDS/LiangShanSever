@@ -186,9 +186,13 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                                                 mapper.config(club)
                                                                         .get("autoCreate")))
                                                     throw new GameFailure(-18, "默认自动开房尚未开启");
-                                                var existing = availableDefault(club);
+                                                var existing = mapper.availableDefault(club);
                                                 if (existing != null)
-                                                    return Map.of("state", 0, "roomId", existing);
+                                                    return Map.of(
+                                                            "state",
+                                                            0,
+                                                            "roomId",
+                                                            existing.get("roomId"));
                                             }
                                             boolean seated = club == null || !manager;
                                             if (seated && mapper.binding(actor.uid()) != null)
@@ -355,7 +359,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         boolean authorized = current.details().owner() == actor.uid();
         if (current.details().club() != null) {
             access(actor.uid(), current.details().club(), false, false);
-            authorized = manager(actor.uid(), current.details().club());
+            authorized = authorized || manager(actor.uid(), current.details().club());
         }
         return submit(id, command(actor, "CLOSE", null, Map.of(), Map.of(), 0, authorized))
                 .thenApply(
@@ -363,6 +367,35 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                 new Reply(
                                         Map.of("state", 0, "role", players.ownRole(actor.uid())),
                                         changed(state, "disbandRoom", actor.uid())));
+    }
+
+    public CompletionStage<Reply> kick(GuestIdentity actor, long target) {
+        String id = bound(actor.uid());
+        if (state(own(id)).details().owner() != actor.uid() || target == actor.uid())
+            throw denied();
+        var command =
+                new LiveRoomEngine.Command(
+                        actor,
+                        "KICK",
+                        null,
+                        Map.of(),
+                        Map.of(),
+                        null,
+                        clock.millis(),
+                        0,
+                        false,
+                        target);
+        return submit(id, command)
+                .thenApply(
+                        next -> {
+                            var notices = new ArrayList<>(changed(next, "leaveRoom", target));
+                            var packet = new LinkedHashMap<String, Object>();
+                            packet.put("cmd", "kick");
+                            packet.put("sender", actor.uid());
+                            stamp(packet, next);
+                            notices.add(new Notification(List.of(target), packet));
+                            return new Reply(Map.of("state", 0), notices);
+                        });
     }
 
     public CompletionStage<Reply> action(GuestIdentity actor, LandlordAction action) {
@@ -498,12 +531,18 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         transactions.execute(
                 () -> {
                     access(actor, club, true, true);
-                    mapper.configure(club, codec.write(config), actor, now());
-                    clubs.event(
-                            club, actor, "PLAYER", null, "ROOM_CONFIG", codec.write(config), now());
+                    String options = codec.write(config);
+                    var previous = mapper.config(club);
+                    if (previous != null
+                            && Boolean.TRUE.equals(previous.get("autoCreate"))
+                            && codec.canonicalObject((String) previous.get("options"))
+                                    .equals(codec.canonicalObject(options))) return null;
+                    mapper.configure(club, options, actor, now());
+                    clubs.event(club, actor, "PLAYER", null, "ROOM_CONFIG", options, now());
                     return null;
                 });
-        return defaultConfig(actor, club);
+        replenish(club);
+        return notifyDefaultConfig(actor, club);
     }
 
     public Reply automatic(long actor, long club, boolean enabled) {
@@ -523,20 +562,31 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                     return null;
                 });
         if (enabled) replenish(club);
-        return defaultConfig(actor, club);
+        return notifyDefaultConfig(actor, club);
+    }
+
+    private Reply notifyDefaultConfig(long actor, long club) {
+        var reply = defaultConfig(actor, club);
+        return new Reply(
+                reply.ack(),
+                List.of(
+                        new Notification(
+                                clubs.members(club),
+                                Map.of(
+                                        "cmd",
+                                        "defaultRoomConfigChange",
+                                        "config",
+                                        reply.ack().get("config")))));
     }
 
     public Reply circleList(long actor, long club) {
         access(actor, club, false, false);
         var list = new LinkedHashMap<String, Object>();
-        String defaultCode = null;
         for (var row : mapper.circleRooms(club)) {
             list.put((String) row.get("code"), "WAITING".equals(row.get("status")) ? 1 : 2);
-            if (Boolean.TRUE.equals(row.get("isDefault"))
-                    && "WAITING".equals(row.get("status"))
-                    && ((Number) row.get("players")).intValue() < 3)
-                defaultCode = (String) row.get("code");
         }
+        var currentDefault = mapper.availableDefault(club);
+        String defaultCode = currentDefault == null ? null : (String) currentDefault.get("code");
         var red = new LinkedHashMap<String, Object>();
         if (manager(actor, club)) {
             if (clubs.applicationCount(club, "JOIN") > 0) red.put("apply", 1);
@@ -621,7 +671,8 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                 action instanceof LandlordAction.Ready ? LandlordDeck.deal() : null,
                 clock.millis(),
                 vote,
-                authorized);
+                authorized,
+                0);
     }
 
     private CompletionStage<LiveRoomState> submit(String id, LiveRoomEngine.Command command) {
@@ -653,6 +704,13 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         boolean game =
                 Set.of("ready", "startGame", "score", "chupai", "buchu", "auto").contains(tag);
         for (long uid : state.seats().ordered()) {
+            if ("startGame".equals(tag)) {
+                var started = new LinkedHashMap<String, Object>();
+                started.put("cmd", "gameStart");
+                started.put("room", LiveRoomProjection.room(state));
+                stamp(started, state);
+                notices.add(new Notification(List.of(uid), started));
+            }
             if ("forceDisbandRoom".equals(tag)) {
                 var closing = new LinkedHashMap<String, Object>();
                 closing.put("cmd", "disbandRoom");
@@ -708,13 +766,19 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         packet.put("tag", tag);
         packet.put("sender", sender);
         packet.put("uid", sender);
-        packet.put("game", LiveRoomProjection.game(state, viewer));
-        packet.put("cardsInfo", LiveRoomProjection.cards(state, viewer));
-        packet.put("card", LiveRoomProjection.cards(state, viewer).get(Long.toString(viewer)));
+        var game = LiveRoomProjection.game(state, viewer);
+        if ("BIDDING".equals(state.round().phase()) || "PLAYING".equals(state.round().phase()))
+            game.put(
+                    "turnSeconds",
+                    Math.max(0, (state.round().dueAt() - clock.millis() + 999) / 1000));
+        packet.put("game", game);
+        var cards = LiveRoomProjection.cards(state, viewer);
+        packet.put("cardsInfo", cards);
+        packet.put("card", cards.get(Long.toString(viewer)));
         packet.put("currentUid", state.round().currentUid());
         packet.put("scoreInfo", state.round().bids());
         if ("chupai".equals(tag) && state.round().play() != null && state.round().play().finished())
-            packet.put("endData", Map.of("game", LiveRoomProjection.game(state, viewer)));
+            packet.put("endData", Map.of("game", game, "room_key", state.details().roomKey()));
         return packet;
     }
 
@@ -740,8 +804,8 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
     private List<Notification> circleNotice(LiveRoomState state, String cmd, long sender) {
         Long club = state.details().club();
         if (club == null) return List.of();
-        String defaultId = availableDefault(club);
-        String defaultCode = defaultId == null ? null : (String) mapper.byId(defaultId).get("code");
+        var currentDefault = mapper.availableDefault(club);
+        String defaultCode = currentDefault == null ? null : (String) currentDefault.get("code");
         var packet = new LinkedHashMap<String, Object>();
         packet.put("cmd", cmd);
         stamp(packet, state);
@@ -761,18 +825,6 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         packet.put("room_revision", state.revision());
     }
 
-    private String availableDefault(long club) {
-        return mapper.circleRooms(club).stream()
-                .filter(
-                        row ->
-                                Boolean.TRUE.equals(row.get("isDefault"))
-                                        && "WAITING".equals(row.get("status"))
-                                        && ((Number) row.get("players")).intValue() < 3)
-                .map(row -> (String) row.get("roomId"))
-                .findFirst()
-                .orElse(null);
-    }
-
     private Map<String, Object> defaultOptions(long club) {
         return codec.object((String) mapper.config(club).get("options"));
     }
@@ -787,7 +839,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                     || !"ACTIVE".equals(circle.get("status"))
                                     || config == null
                                     || !Boolean.TRUE.equals(config.get("autoCreate"))
-                                    || availableDefault(club) != null) return null;
+                                    || mapper.availableDefault(club) != null) return null;
                             long owner = ((Number) circle.get("owner")).longValue();
                             if (clubs.activePlayer(owner) != 1) return null;
                             return insert(

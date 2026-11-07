@@ -122,10 +122,11 @@ public class LiveRoomMovies {
                                 play.target().cards().stream().map(card -> card.wire()).toList(),
                                 "cardType",
                                 play.target().pattern().type().wire()));
-                if (play.finished())
-                    current.put(
-                            "game",
-                            LiveRoomProjection.game(state, state.seats().ordered().getFirst()));
+                if (play.finished()) {
+                    var game = LiveRoomProjection.game(state, state.seats().ordered().getFirst());
+                    game.put("currentCount", state.round().number());
+                    current.put("game", game);
+                }
             }
             if ("buchu".equals(tag)) actions.add(Map.of("type", 3, "uid", sender));
         }

@@ -27,6 +27,11 @@ try {
     const latest=new Map(),revisions=new Map();
     for(const person of people)person.client.ws.on('message',raw=>{const packet=JSON.parse(raw);if(packet.cmd==='gameMessage')latest.set(person.uid,packet);});
     for(const person of people)assert.equal((await person.send('room','joinRoom',{room_id:code})).state,0);
+    assert.equal((await a.send('room','kick',{targetUid:b.uid})).state,-90);
+    assert.equal((await owner.send('room','kick',{targetUid:b.uid})).state,0);
+    assert.equal(sql(`SELECT COUNT(*) FROM player_room_binding WHERE uid=${b.uid}`),'0');
+    assert.equal((await b.send('room','joinRoom',{room_id:code})).state,0);
+    report.waitingSeatKick=true;
     for(const person of people)assert.equal((await person.send('game','checkGameCreate')).state,0);
     async function action(person,fields) {
         const waiting=people.map(target=>new Promise((resolve,reject)=>{
@@ -49,6 +54,7 @@ try {
         for(const person of people)await action(person,{tag:'ready'});
         let game=latest.get(owner.uid).game;
         assert.equal(game.currentState,1);
+        assert.ok(game.turnSeconds>=29&&game.turnSeconds<=30);
         await action(people.find(person=>person.uid===game.currentUid),{tag:'score',score:3});
         let count=0;
         while(true) {
@@ -75,7 +81,10 @@ try {
     const record=history.zhanjis[0];assert.equal(record.playNumber,6);report.recordId=record.record_id;
     const team=await a.send('partner','getClubMemberGameRecords',{club_id:club,partner_uid:a.uid,member_uid:b.uid,date,page:1});assert.equal(team.state,0);assert.equal(team.total,1);
     const movie=await owner.send('movie','getMovie',{movie_id:room});assert.equal(movie.state,0);assert.equal(movie.movie.data.length,6);
-    for(const round of movie.movie.data)assert.ok(round.opreate.length>0&&round.game&&round.cards);
+    movie.movie.data.forEach((round,index)=>{
+        assert.ok(round.opreate.length>0&&round.cards);
+        assert.equal(round.game.currentCount,index+1);
+    });
     assert.equal((await owner.send('club','disbandClub',{club_id:club})).state,0);
     report.monotonicRevisions=true;report.feeTransactions=1;report.cardCost=3;report.circleFinalCards=97;report.partnerRecords=1;report.movieRounds=6;report.finishedAt=new Date().toISOString();report.status='PASS';
     await writeFile('docs/evidence/club-full-20261107/room-wire.json',JSON.stringify(report,null,2)+'\n');
