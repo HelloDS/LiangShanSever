@@ -79,7 +79,9 @@ public class RoomJournal {
         if(mapper.advance(values)!=1)throw new IllegalStateException("房间版本写入冲突");
         if(command.checkpoint()&&mapper.checkpoint(values)!=1)throw new IllegalStateException("房间检查点写入冲突");
         String status=switch(candidate.phase()){case "WAITING","READY"->"WAITING";case "ROUND_FINISHED"->"ROUND_FINISHED";case "CLOSED"->"CLOSED";default->"PLAYING";};
-        mapper.status(room,status,now);
+        // 大多数出牌仍为 PLAYING，不为每个动作重复写同一条后台元数据。
+        // 阶段真的改变时必须确认写入，避免日志已前进而列表仍显示旧状态。
+        if(!status.equals(runtime.get("status"))&&mapper.status(room,status,now)!=1)throw new IllegalStateException("房间状态写入未确认");
         if("CLOSED".equals(status)){mapper.releasePlayers(room);if(mapper.releaseCode(room)!=1)throw new IllegalStateException("活跃房号释放异常");}
         outbox.roomCommitted(room,candidate.version(),command.ruleVersion(),command.occurredAt());
         return Decision.COMMITTED;

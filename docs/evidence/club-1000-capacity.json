@@ -1,0 +1,18 @@
+{
+  "executedAt": "2026-11-07T00:37:36.375514+00:00",
+  "sourceTest": "oneThousandActualMembersRemainConsistentWhenEightApplicantsRaceForLastSeat",
+  "seconds": 265.092,
+  "scope": "独立 Testcontainers MySQL/Redis，998 名普通成员逐个真实申请和审批，加圈主为 999；8 人并发审批争夺最后一个位置。不是主运行库或千连接负载。",
+  "checks": {
+    "beforeMembers": 999,
+    "concurrentApplicants": 8,
+    "newlyAdmitted": 1,
+    "finalMemberRows": 1000,
+    "finalMemberCount": 1000,
+    "approvedApplications": 999,
+    "pendingApplications": 7,
+    "reviewEvents": 999,
+    "successMessages": 999
+  },
+  "result": "PASS"
+}

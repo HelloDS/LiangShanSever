@@ -657,6 +657,28 @@ class GameFoundationIntegrationTest {
             for(int i=0;i<2;i++)assertEquals(2,com.ruoyi.game.room.RoomReplay.recover(recovery,replayCodec(),Integer::sum,journal::stateHash).state());
             assertEquals(98,balance(fixture));assertEquals(ledger,number("SELECT COUNT(*) FROM wallet_ledger"));assertEquals(outbox,outboxes(fixture));assertEquals(2,events(fixture));
         }
+        @Test void unchangedRoomStatusDoesNotWriteMetadataForEveryAction(){
+            var fixture=room();
+            var waiting=change(fixture,fixture.state(),1,false);assertEquals(RoomPersistence.Decision.COMMITTED,journal.commit(waiting));
+            verify(roomJournalMapper,never()).status(eq(fixture.room()),anyString(),any());
+            var playing=change(fixture,waiting.candidate(),2,false,List.of(),null,"PLAYING");
+            assertEquals(RoomPersistence.Decision.COMMITTED,journal.commit(playing));
+            var next=change(fixture,playing.candidate(),3,false,List.of(),null,"PLAYING");
+            assertEquals(RoomPersistence.Decision.COMMITTED,journal.commit(next));
+            verify(roomJournalMapper,times(1)).status(eq(fixture.room()),eq("PLAYING"),any());
+            assertEquals("PLAYING",jdbc.queryForObject("SELECT status FROM room_record WHERE room_id=?",String.class,fixture.room()));
+            assertEquals(3,events(fixture));assertEquals(3,outboxes(fixture));
+        }
+        @Test void unconfirmedPhaseTransitionRollsBackEventWalletAndOutbox(){
+            var fixture=room();fund(fixture,100);
+            var command=change(fixture,fixture.state(),1,false,List.of(charge(fixture,2)),null,"PLAYING");
+            doReturn(0).when(roomJournalMapper).status(eq(fixture.room()),eq("PLAYING"),any());
+            assertThrows(IllegalStateException.class,()->journal.commit(command));
+            assertEquals(RoomPersistence.Decision.NOT_COMMITTED,journal.resolve(command));
+            assertEquals(0,events(fixture));assertEquals(0,outboxes(fixture));assertEquals(100,balance(fixture));
+            assertEquals(0,number("SELECT version FROM room_runtime WHERE room_id=?",fixture.room()));
+            assertEquals("WAITING",jdbc.queryForObject("SELECT status FROM room_record WHERE room_id=?",String.class,fixture.room()));
+        }
         @Test void newOwnerEpochFencesOldWriterAndUnknownEngineDoesNotAcquireOwner(){
             var fixture=room();var old=change(fixture,fixture.state(),1,false);
             long epoch=number("SELECT owner_epoch FROM room_runtime WHERE room_id=?",fixture.room());
@@ -878,6 +900,7 @@ class GameFoundationIntegrationTest {
 
     @Nested class ClubOrganization {
         private long player(){return auth.verify(auth.createGuest()).uid();}
+        private long number(String sql,Object... args){return jdbc.queryForObject(sql,Long.class,args);}
         /** 仅隔离测试库的已知组织，非生产初始化、非演示成员；加入均走申请事务。 */
         private long existingClub(long owner,int capacity,Integer managers){
             jdbc.update("INSERT INTO club(name,owner_uid,max_members,max_managers,is_test,created_at,updated_at) VALUES(?,?,?,?,TRUE,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",UUID.randomUUID().toString().substring(0,8),owner,capacity,managers);
@@ -895,6 +918,34 @@ class GameFoundationIntegrationTest {
             jdbc.update("UPDATE club SET member_count=1000 WHERE id=?",id);clubs.apply(applicant,id,"JOIN");
             assertEquals(-42,assertThrows(GameFailure.class,()->clubs.review(owner,id,applicant,"JOIN",1)).state());
             assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM club_member WHERE club_id=? AND uid=?",Integer.class,id,applicant));assertEquals(1000,jdbc.queryForObject("SELECT member_count FROM club WHERE id=?",Integer.class,id));
+        }
+
+        @Test void oneThousandActualMembersRemainConsistentWhenEightApplicantsRaceForLastSeat() throws Exception {
+            long owner=player(),id=existingClub(owner,2000,2);
+            // 普通成员逐个走真实申请/审批，不用改 member_count 构造满员结果。
+            for(int index=0;index<998;index++)join(owner,id,player());
+            assertEquals(999,number("SELECT COUNT(*) FROM club_member WHERE club_id=?",id));
+            assertEquals(999,number("SELECT member_count FROM club WHERE id=?",id));
+            List<Long> applicants=new ArrayList<>();
+            for(int index=0;index<8;index++){long uid=player();clubs.apply(uid,id,"JOIN");applicants.add(uid);}
+            var ready=new CountDownLatch(8);var start=new CountDownLatch(1);
+            try(ExecutorService workers=Executors.newFixedThreadPool(8)){
+                List<Future<Integer>> results=new ArrayList<>();
+                for(long uid:applicants)results.add(workers.submit(()->{
+                    ready.countDown();assertTrue(start.await(10,TimeUnit.SECONDS));
+                    try{clubs.review(owner,id,uid,"JOIN",1);return 1;}
+                    catch(GameFailure rejected){assertEquals(-42,rejected.state());return 0;}
+                }));
+                assertTrue(ready.await(10,TimeUnit.SECONDS));start.countDown();
+                int admitted=0;for(var result:results)admitted+=result.get(20,TimeUnit.SECONDS);
+                assertEquals(1,admitted);
+            }
+            assertEquals(1000,number("SELECT COUNT(*) FROM club_member WHERE club_id=?",id));
+            assertEquals(1000,number("SELECT member_count FROM club WHERE id=?",id));
+            assertEquals(999,number("SELECT COUNT(*) FROM club_application WHERE club_id=? AND kind='JOIN' AND status='APPROVED'",id));
+            assertEquals(7,number("SELECT COUNT(*) FROM club_application WHERE club_id=? AND kind='JOIN' AND status='PENDING'",id));
+            assertEquals(999,number("SELECT COUNT(*) FROM club_event WHERE club_id=? AND action='REVIEW_JOIN'",id));
+            assertEquals(999,number("SELECT COUNT(*) FROM club_message WHERE club_id=? AND kind='applySuc'",id));
         }
 
         @Test void concurrentApprovalCreatesOneMembershipAndOneEvent() throws Exception {
