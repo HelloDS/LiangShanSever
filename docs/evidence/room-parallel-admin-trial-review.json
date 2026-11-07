@@ -1,0 +1,33 @@
+{
+  "reviewedAt": "2026-11-07T00:23:16.139733+00:00",
+  "sourceReport": "room-storage-load-parallel-admin-trial.json",
+  "result": "FAIL",
+  "measurementMs": 120001.494083,
+  "httpWorkers": 10,
+  "peakConcurrentQueries": 10,
+  "adminReadP95Ms": 139.598375,
+  "internalP95Ms": 61.8055,
+  "internalP99Ms": 157.450292,
+  "reason": "内部确认超过 P95 50ms / P99 100ms 目标；十路 HTTP 读取及状态对齐通过，不代表整个负载通过",
+  "maxObservedOutboxLagSeconds": 0.453,
+  "persistentTotals": {
+    "outboxDone": 27198,
+    "projectedEvents": 27198,
+    "consumerReceipts": 27198,
+    "walletTransactions": 0,
+    "events": 27198
+  },
+  "mysqlStatusDeltaMeasurementAndDrain": {
+    "Com_commit": 51157,
+    "Com_rollback": 0,
+    "Innodb_buffer_pool_reads": 0,
+    "Innodb_buffer_pool_wait_free": 0,
+    "Innodb_data_fsyncs": 119840,
+    "Innodb_log_waits": 0,
+    "Innodb_os_log_written": 255535104,
+    "Innodb_pages_written": 137378,
+    "Innodb_row_lock_waits": 0
+  },
+  "scope": "两分钟内部机械动作与十路 HTTP 读取；无 WS 牌局、叫分、收费、积分结算或 CSV 生成负载",
+  "provenanceNote": "sourceCommit 记录冻结时仓库 HEAD f90c297；编译包含随后提交 5f8d16f 的兑换拒绝提示文字。冻结摘要和运行 JAR 摘要标识实际产物，未在测量中修改。"
+}
