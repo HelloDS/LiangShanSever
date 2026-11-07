@@ -6,6 +6,7 @@ import {promisify} from 'node:util';
 import os from 'node:os';
 import {createHash} from 'node:crypto';
 import WebSocket from 'ws';
+import {runtimeArtifact} from './runtime-artifact.mjs';
 import {base,adminLogin,api,sql} from './test-client.mjs';
 
 if(process.env.RUN_LOBBY_LOAD!=='1'||!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('仅允许显式启用的本地大厅负载');
@@ -28,7 +29,9 @@ const serverPid=(await readFile(new URL('../.local/server.pid',import.meta.url),
 assert.ok(/^[0-9]+$/.test(serverPid));
 const buildCommit=(await run('git',['rev-parse','HEAD'])).stdout.trim();
 const javaVersion=(await run('jcmd',[serverPid,'VM.version'])).stdout.trim();
-const artifactSha256=createHash('sha256').update(await readFile(new URL('../ruoyi-admin/target/ruoyi-admin.jar',import.meta.url))).digest('hex');
+const runningArtifact=await runtimeArtifact();assert.equal(String(runningArtifact.pid),serverPid);
+const artifactSha256=createHash('sha256').update(await readFile(runningArtifact.url)).digest('hex');
+if(runningArtifact.sha256)assert.equal(artifactSha256,runningArtifact.sha256);
 const dockerContext=(await run('docker',['context','show'])).stdout.trim();
 let portForwarder='unrecorded';
 if(dockerContext==='colima'){try{portForwarder=/^portForwarder:\s*(ssh|grpc|none)\s*$/m.exec(await readFile(os.homedir()+'/.colima/default/colima.yaml','utf8'))?.[1]||'unrecorded';}catch{}}

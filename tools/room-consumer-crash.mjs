@@ -5,6 +5,7 @@ import {readFile,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
 import {base,guest,sql} from './test-client.mjs';
+import {runtimeArtifact} from './runtime-artifact.mjs';
 
 if(process.env.RUN_ROOM_CONSUMER_CRASH!=='1'||!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('仅允许显式启用的本地消费故障验收');
 const stateFile=new URL('../.local/room-consumer-crash-state.json',import.meta.url);
@@ -16,7 +17,8 @@ const count=query=>Number(sql(query));
 const pid=Number((await readFile(new URL('../.local/server.pid',import.meta.url),'utf8')).trim());
 assert.ok(Number.isSafeInteger(pid)&&pid>1);
 if(mode==='prepare-and-kill'){
- assert.match(execFileSync('ps',['-p',String(pid),'-o','command='],{encoding:'utf8'}).trim(),/^java -jar ruoyi-admin\/target\/ruoyi-admin\.jar$/);
+ const runningArtifact=await runtimeArtifact();assert.equal(runningArtifact.pid,pid);
+ assert.equal(execFileSync('ps',['-p',String(pid),'-o','command='],{encoding:'utf8'}).trim(),`java -jar ${runningArtifact.relativePath}`);
  const player=await guest({test:true});player.client.close();
  const room=crypto.randomUUID(),event=crypto.randomUUID(),rule='consumer-crash-fixture-v1';
  const before=digest('{"value":0}'),after=digest('{"value":1}');

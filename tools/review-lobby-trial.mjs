@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,access} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {base,adminLogin,api} from './test-client.mjs';
+import {runtimeArtifact} from './runtime-artifact.mjs';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw Error('仅允许本地短测复核');
 const name=process.argv[2];assert.match(name||'',/^lobby-load-[a-z0-9-]+\.json$/);
 const output=new URL('../docs/evidence/'+name.replace('lobby-load-','lobby-trial-review-'),import.meta.url);
@@ -11,7 +12,8 @@ const report=JSON.parse(await readFile(new URL('../docs/evidence/'+name,import.m
 assert.equal(report.result,'PASS','原负载未通过，不能生成通过复核');
 assert.equal(report.requested.connections,1000);assert.ok(report.requested.seconds>=10&&report.requested.seconds<3600);
 assert.ok(report.measurementMs>=report.requested.seconds*1000);
-const artifact=createHash('sha256').update(await readFile(new URL('../ruoyi-admin/target/ruoyi-admin.jar',import.meta.url))).digest('hex');
+const runningArtifact=await runtimeArtifact();
+const artifact=createHash('sha256').update(await readFile(runningArtifact.url)).digest('hex');
 assert.equal(artifact,report.environment.artifactSha256,'测量后的运行 JAR 摘要已改变');
 const names=['game.accepted.connections','game.authenticated.connections','game.inbound.bytes','game.business.queue','game.business.active','game.reply.pending','game.reply.active','game.reply.queue','game.push.pending'];
 const token=await adminLogin();let drain;
