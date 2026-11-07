@@ -1,0 +1,108 @@
+{
+  "executedAt": "2026-11-07T02:56:37.963Z",
+  "preview": "http://localhost:7456/",
+  "service": "http://localhost:8080",
+  "usedOriginalChromeTab": true,
+  "builtWeb": false,
+  "runtime": {
+    "pid": 62202,
+    "sha256": "78ac062660f0f5a607b97a709e8bc827c517b3d7eb05b467f02340f27d81fe41",
+    "health": "UP",
+    "javaSource": "caf3769",
+    "clientSource": "3010d21f",
+    "adminLoginHttp": 200
+  },
+  "browser": {
+    "lobby": {
+      "uid": 101033,
+      "restoredAfterRestart": true,
+      "card": 0,
+      "diamond": 0,
+      "settings": true,
+      "support": "客服微信:暂未设置"
+    },
+    "notice": {
+      "id": 2,
+      "version": 1,
+      "adminPreviewAndPublish": true,
+      "gameImageHttp": 200,
+      "unpublished": true,
+      "gameEmptyAfterReload": true
+    },
+    "anonymousReport": {
+      "id": "a8d590a6-b982-4ff8-bbf7-7177633201ca",
+      "state": "PROCESSED",
+      "contactsStored": false,
+      "processingAuditRows": 1
+    },
+    "club": {
+      "id": 100004,
+      "maxMembers": 1000,
+      "memberCounts": [
+        1,
+        2,
+        3,
+        2,
+        1
+      ],
+      "assistantSetAndRemoved": true,
+      "kickPrompt": [
+        0,
+        0
+      ],
+      "clubAssets": 0,
+      "automaticRoomEnabled": false
+    },
+    "landlord": {
+      "gameId": "6003",
+      "selectableRounds": [
+        6,
+        12
+      ],
+      "history": "EMPTY",
+      "submittedRoomCreate": false
+    },
+    "roomExport": {
+      "jobId": "a48d6c5f-7a8c-4abc-b772-4b7e2013eb7f",
+      "roomCode": "690003",
+      "rows": 1,
+      "columns": 12,
+      "bytes": 262,
+      "sha256": "650810573e3c0c8faa9d94991129cafa7855a315699fc9ef9cbd8d714429d12a",
+      "browserDownloaded": true,
+      "result": "PASS"
+    }
+  },
+  "verification": {
+    "fullMavenBeforeFinalClubPatch": {
+      "tests": 218,
+      "result": "PASS"
+    },
+    "targetedWire": 4,
+    "targetedMemberIntegration": 1,
+    "smoke": {
+      "admin": 14,
+      "audit": 5,
+      "online-history": 4,
+      "outbox": 6,
+      "reconciliation": 6,
+      "report": 6,
+      "transport": 4,
+      "wallet": 5
+    },
+    "exportStillDownloadsAfterRestart": true
+  },
+  "cleanup": {
+    "noticeUnpublished": true,
+    "clubSuspended": true,
+    "clubApplicantTokensRevoked": true,
+    "roomFixtureRemoved": true,
+    "originalGuestTestFlagRestored": true
+  },
+  "scopeExcluded": [
+    "公开房间/三人联机/叫分/费用/积分结算",
+    "兑换和亲友圈资金功能",
+    "公网 WSS 和容量重测"
+  ],
+  "result": "PASS_WITHIN_IMPLEMENTED_SCOPE"
+}

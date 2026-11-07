@@ -1,0 +1,20 @@
+{
+  "executedAt": "2026-11-07T02:45:02.112Z",
+  "base": "http://localhost:8080",
+  "date": "2026-11-07",
+  "newObservations": [
+    {
+      "sampleMinute": "2026-11-07T02:45:00Z",
+      "observedAt": "2026-11-07T02:45:00.004663Z",
+      "dataStatus": "AVAILABLE",
+      "onlineCount": 0
+    }
+  ],
+  "checks": [
+    "真实 worker 在分钟边界产生持久观察，没有脚本补写历史",
+    "采样含真实时间与有效状态，未知人数明确为 null",
+    "未来日期查询由服务端拒绝",
+    "游戏会话不能读取后台在线历史"
+  ],
+  "result": "PASS"
+}

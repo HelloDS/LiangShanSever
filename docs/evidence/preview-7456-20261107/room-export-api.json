@@ -1,0 +1,11 @@
+{
+  "executedAt": "2026-11-07T02:45:49.742Z",
+  "scope": "实际后台 HTTP 创建、worker 生成、API 下载；显式测试元数据",
+  "jobId": "cd4971eb-3d02-4f42-b905-36ded5650691",
+  "roomId": "c7f073e8-ac0f-431c-9e7c-1a061b907948",
+  "roomCode": "690003",
+  "rowCount": 1,
+  "bytes": 262,
+  "sha256": "650810573e3c0c8faa9d94991129cafa7855a315699fc9ef9cbd8d714429d12a",
+  "result": "PASS"
+}
