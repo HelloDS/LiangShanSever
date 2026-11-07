@@ -36,7 +36,7 @@
         <el-table-column label="文件行数" width="100"><template #default="{row}">{{ row.status==='DONE'||row.status==='EXPIRED'?row.rowCount:'—' }}</template></el-table-column>
         <el-table-column label="到期时间" min-width="180"><template #default="{row}">{{ row.expiresAt?gameTime(row.expiresAt):'—' }}</template></el-table-column>
         <el-table-column label="失败原因" min-width="160"><template #default="{row}">{{ exportErrorLabel(row.lastErrorCode) }}</template></el-table-column>
-        <el-table-column label="操作" width="90"><template #default="{row}"><el-button v-if="row.status==='DONE'" link type="primary" :loading="downloading===row.id" @click="downloadExport(row.id)">下载</el-button></template></el-table-column>
+        <el-table-column label="操作" width="90" fixed="right"><template #default="{row}"><el-button v-if="row.status==='DONE'" link type="primary" :loading="downloading===row.id" @click="downloadExport(row.id)">下载</el-button></template></el-table-column>
       </el-table>
       <template #footer><el-button :loading="jobsLoading" @click="loadJobs">刷新任务</el-button><el-button @click="jobsDialog=false">关闭</el-button></template>
     </el-dialog>

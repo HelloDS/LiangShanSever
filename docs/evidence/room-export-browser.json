@@ -1,0 +1,29 @@
+{
+  "executedAt": "2026-11-07T00:29:02.305811+00:00",
+  "result": "PASS",
+  "scope": "本地非 root QA，在真实 Admin 页面创建单行测试元数据导出；重载新构建后下载并撤权刷新。不是公网或生产浏览器验收。",
+  "checks": [
+    "浏览器创建任务并显示已完成、1 行",
+    "743px 窄屏下载列固定可见",
+    "真实浏览器下载文件，UTF-8 BOM、12 列、1 数据行、测试房号及 UID 正确",
+    "CSV 不含房间私有快照",
+    "撤回 game:room:export 后刷新被拒绝，旧行与下载按钮清空",
+    "临时 QA 已停用、数据范围撤回、原菜单恢复"
+  ],
+  "download": {
+    "bytes": 257,
+    "sha256": "4755d64a9681b2365537dcec7ab3397dd91e026ef5ebac985474df8e0c0ec41a",
+    "dataRows": 1,
+    "columns": 12
+  },
+  "screenshots": [
+    "room-export-browser-done.jpg",
+    "room-export-browser-revoked.jpg"
+  ],
+  "layoutVerification": {
+    "javaClassCount": 459,
+    "javaClassDigestsUnchanged": true,
+    "uiTypecheck": "PASS",
+    "uiBuild": "PASS"
+  }
+}

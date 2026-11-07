@@ -1,0 +1,16 @@
+{
+  "executedAt": "2026-11-07T00:29:49.847Z",
+  "scope": "已完成 CSV 在不同 Java PID 重启后重新鉴权下载，字节摘要一致；如含硬杀证据则已在被杀 PID 中再次实际下载；不覆盖生成中的文件恢复或主机掉电",
+  "oldPid": "40262",
+  "newPid": "40414",
+  "beforeCrashObservedAt": "2026-11-07T00:29:17.746Z",
+  "crashEvidence": {
+    "pid": 40262,
+    "signal": "SIGKILL",
+    "observedExitCode": 137,
+    "observedAt": "2026-11-07T00:29:33.560343+00:00"
+  },
+  "jobId": "5d309039-4466-444f-98f4-eef73a8a9261",
+  "fileSha256": "4755d64a9681b2365537dcec7ab3397dd91e026ef5ebac985474df8e0c0ec41a",
+  "result": "PASS"
+}

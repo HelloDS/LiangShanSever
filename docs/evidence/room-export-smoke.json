@@ -1,0 +1,18 @@
+{
+  "executedAt": "2026-11-07T00:23:16.779Z",
+  "scope": "显式测试元数据夹具的真实 HTTP 创建、worker 生成及下载；不代表公开房间创建或十并发导出容量",
+  "base": "http://localhost:8080",
+  "jobId": "5d309039-4466-444f-98f4-eef73a8a9261",
+  "operationId": "1068acfd-4fcc-4b9e-b9d6-ed9d6764a3b1",
+  "rowCount": 1,
+  "fileBytes": 257,
+  "fileSha256": "4755d64a9681b2365537dcec7ab3397dd91e026ef5ebac985474df8e0c0ec41a",
+  "checks": [
+    "真实创建接口重复请求复用同一任务及其唯一业务审计",
+    "实际 worker 完成一行测试房间元数据，文件有效期为完成后 24 小时",
+    "下载包含实际记录、固定白名单及 no-store，不包含私有快照、任务令牌或路径",
+    "任务列表可查询，非法筛选由服务端拒绝",
+    "游戏会话不能读取后台任务或领取 CSV"
+  ],
+  "result": "PASS"
+}
