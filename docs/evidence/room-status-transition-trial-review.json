@@ -1,0 +1,70 @@
+{
+  "reviewedAt": "2026-11-07T00:56:23.089429+00:00",
+  "sourceReport": "room-storage-load-status-transition-trial.json",
+  "result": "FAIL",
+  "measurementMs": 600001.0935,
+  "actual": {
+    "sent": 119925,
+    "completed": 119925,
+    "failed": 0,
+    "busy": 74,
+    "missed": 0,
+    "played": 87260,
+    "passed": 30827,
+    "testRedeals": 1838,
+    "throughput": 199.8746357284764,
+    "latencyMs": {
+      "p95": 37.354542,
+      "p50": 13.13475,
+      "p99": 232.875292,
+      "max": 1147.652458
+    },
+    "errors": {}
+  },
+  "adminReads": {
+    "sessions": 10,
+    "httpWorkers": 10,
+    "peakConcurrentQueries": 10,
+    "latencyIncludesClientQueue": true,
+    "intervalSeconds": 10,
+    "sent": 600,
+    "completed": 600,
+    "failed": 0,
+    "busy": 0,
+    "pending": 0,
+    "latencyMs": {
+      "p95": 85.526625,
+      "p50": 43.688959,
+      "p99": 318.17225,
+      "max": 346.129166
+    }
+  },
+  "maxObservedOutboxLagSeconds": 1.052,
+  "persistentTotals": {
+    "events": 123124,
+    "walletTransactions": 0,
+    "consumerReceipts": 123124,
+    "projectedEvents": 123124,
+    "outboxDone": 123124
+  },
+  "pending": {
+    "reconciliations": 0,
+    "commands": 0,
+    "completions": 0,
+    "io": 0
+  },
+  "outboxAfterDrain": {
+    "claimed": 0,
+    "ready": 0,
+    "oldestSeconds": 0.0,
+    "dead": 0
+  },
+  "sourceCommit": "b7eb974cb2097e7454b0ecfe9973c50a69bb5436",
+  "snapshotSha256": "3ec19806800f9d5f25a77be68791367cb18bac28f3aaa14adef2e57fbbbc9883",
+  "frozenArtifactVerified": true,
+  "roomJournalClassMatchesRunningJar": true,
+  "lobbyCompanionCoversWholeMeasurement": true,
+  "flightRecordingEnabled": true,
+  "reason": "忙碌跳过 74 次且 P99 超过 100ms；P95 低于 50ms、已受理事件对齐及后台读取通过不改变整组 FAIL。",
+  "scope": "十分钟内部机械出牌及十路 HTTP，另一个 JVM 的千连接大厅覆盖整个测量；启用 JFR，不是完整 WS 牌局、一小时或 24 小时验收，不能将与旧短测的差异归因于单个改动。"
+}

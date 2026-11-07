@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-07T00:57:41.057Z",
+  "pid": 44389,
+  "jarSha256": "ebc8d0c1f65c2b5e976209226ae6cbb7d7470ab56472c1fa04daf7ed7ca82974",
+  "measuredSourceCommit": "b7eb974cb2097e7454b0ecfe9973c50a69bb5436",
+  "schema": "15",
+  "health": "UP",
+  "proxy": "host-native",
+  "metrics": {
+    "game.accepted.connections": 0,
+    "game.authenticated.connections": 0,
+    "game.inbound.bytes": 0,
+    "game.business.queue": 0,
+    "game.business.active": 0,
+    "game.reply.pending": 0,
+    "game.reply.active": 0,
+    "game.reply.queue": 0,
+    "game.push.pending": 0
+  },
+  "temporaryQaDisabled": true,
+  "temporaryQaScopes": 0,
+  "outboxPending": 0,
+  "exportsPending": 0,
+  "playerBuildHttpStatus": 200,
+  "result": "PASS"
+}

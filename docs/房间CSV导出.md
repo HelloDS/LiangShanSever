@@ -1,6 +1,6 @@
 # 房间记录 CSV 导出
 
-完整编译、严格 TypeScript/Vite 及 212 项 Java 测试已通过，包含真实数据库、私有文件和 worker 组合用例。运行环境 HTTP 五项、真实浏览器创建/下载/撤权，以及已完成文件在 SIGKILL 后新 PID 恢复下载均已通过。原始证据分别见 evidence/room-export-smoke.json、room-export-browser.json、room-export-restart.json；单元/集成用例与实际部署证据分开记录。
+完整编译、严格 TypeScript/Vite 及 215 项 Java 测试已通过，包含真实数据库、私有文件和 worker 组合用例。运行环境 HTTP 五项、真实浏览器创建/下载/撤权，以及已完成文件在 SIGKILL 后新 PID 恢复下载均已通过。原始证据分别见 evidence/room-export-smoke.json、room-export-browser.json、room-export-restart.json；单元/集成用例与实际部署证据分开记录。
 
 导出仅包含与房间列表相同授权范围内的 6003 元数据，不读取手牌、快照、事件载荷、完整回放或玩家联系方式。创建、任务查询及下载分别通过后台接口处理；玩家会话不可使用。后台需要同时具有 game:room:query、game:room:export 和对应平台/圈数据范围。
 

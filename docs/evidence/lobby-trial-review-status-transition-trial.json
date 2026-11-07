@@ -1,0 +1,23 @@
+{
+  "executedAt": "2026-11-07T00:56:06.843Z",
+  "sourceReport": "lobby-load-status-transition-trial.json",
+  "measurementMs": 720000.185,
+  "artifactSha256": "ebc8d0c1f65c2b5e976209226ae6cbb7d7470ab56472c1fa04daf7ed7ca82974",
+  "sourceCommit": "b7eb974cb2097e7454b0ecfe9973c50a69bb5436",
+  "scope": "本机千连接大厅 720 秒短测与九项测后资源检查；不是一小时、完整 WS 牌局或 24 小时验收。",
+  "afterClose": {
+    "asOf": "2026-11-07T00:56:06.836Z",
+    "metrics": {
+      "game.accepted.connections": 0,
+      "game.authenticated.connections": 0,
+      "game.inbound.bytes": 0,
+      "game.business.queue": 0,
+      "game.business.active": 0,
+      "game.reply.pending": 0,
+      "game.reply.active": 0,
+      "game.reply.queue": 0,
+      "game.push.pending": 0
+    }
+  },
+  "result": "PASS"
+}

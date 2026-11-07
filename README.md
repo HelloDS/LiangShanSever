@@ -101,3 +101,5 @@ RUN_LOBBY_LOAD=1 LOAD_SECONDS=3600 /opt/homebrew/opt/node@24/bin/node tools/lobb
 
 
 本机代理隔离模式：本次 Docker→宿主代理路径出现连接/采样超时，现使用已安装的本机 Nginx 1.31.3，仍仅监听 127.0.0.1:8080，上游直接为本机 Java。`scripts/host-proxy.sh start|stop|status` 管理此独立实例，配置 `deploy/nginx-host.conf`，日志与 PID 位于 .local/nginx-native；不影响 MySQL/Redis 容器或 Java。Docker Nginx 与本机 Nginx 只能二选一：恢复 Compose 代理前先执行 `scripts/host-proxy.sh stop`；使用本机代理前先停止 liangshan-nginx-1。两种拓扑的验收证据分别保留，不混用结果。
+
+九点交接的最新状态见 [本地开发交接](docs/交付状态与后续任务.md)：215 项 Java 测试通过；新版本十二分钟千连接大厅通过，十分钟内部混合写入仍因忙碌与 P99 超限失败。公开对局、收费与积分入库尚未完成。

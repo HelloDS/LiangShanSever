@@ -1,0 +1,132 @@
+{
+  "collectedAt": "2026-11-07T00:56:50.498411+00:00",
+  "sourceReport": "room-storage-load-status-transition-trial.json",
+  "sourceCommit": "b7eb974cb2097e7454b0ecfe9973c50a69bb5436",
+  "snapshotSha256": "3ec19806800f9d5f25a77be68791367cb18bac28f3aaa14adef2e57fbbbc9883",
+  "recordingSha256": "12704aec64797eca7ef8e1bdc1014be87cc38d9d175dd1ce5f6face01ab31691",
+  "measurementStartedAt": "2026-11-07T00:44:44.598062Z",
+  "measurementEndedAt": "2026-11-07T00:54:44.630418Z",
+  "recordingBytes": 65550654,
+  "selectedEventCount": 26528,
+  "scope": "仅筛选真实测量时间段内被 JFR 阈值记录的 SocketRead、GC 与 CPU 栈采样；不包含未达录制阈值的全部 SQL，不是单动作全链路延迟或唯一根因证明。各线程等待会重叠，不能把总和当作墙钟耗时。",
+  "socketReadsByNearestProjectFrame": [
+    {
+      "frame": "com.ruoyi.web.game.RoomTransactionBoundary.execute",
+      "count": 8477,
+      "sumMs": 135031.733,
+      "p50Ms": 14.085,
+      "p95Ms": 25.316,
+      "maxMs": 273.103
+    },
+    {
+      "frame": "com.ruoyi.game.room.RoomEventConsumer$$SpringCGLIB$$0.consumeAndComplete",
+      "count": 5196,
+      "sumMs": 86130.209,
+      "p50Ms": 14.566,
+      "p95Ms": 25.522,
+      "maxMs": 238.71
+    },
+    {
+      "frame": "no_project_frame",
+      "count": 3668,
+      "sumMs": 67668.093,
+      "p50Ms": 14.557,
+      "p95Ms": 40.368,
+      "maxMs": 139.075
+    },
+    {
+      "frame": "com.ruoyi.game.outbox.OutboxStore$$SpringCGLIB$$0.claim",
+      "count": 1020,
+      "sumMs": 16870.69,
+      "p50Ms": 14.289,
+      "p95Ms": 27.897,
+      "maxMs": 280.401
+    },
+    {
+      "frame": "com.ruoyi.game.room.RoomAdminService$$SpringCGLIB$$0.list",
+      "count": 10,
+      "sumMs": 148.699,
+      "p50Ms": 15.317,
+      "p95Ms": 18.035,
+      "maxMs": 18.035
+    },
+    {
+      "frame": "com.ruoyi.game.outbox.OutboxStore$$SpringCGLIB$$0.backlog",
+      "count": 1,
+      "sumMs": 15.445,
+      "p50Ms": 15.445,
+      "p95Ms": 15.445,
+      "maxMs": 15.445
+    }
+  ],
+  "gcLongestPausePerCollection": {
+    "count": 602,
+    "sumMs": 1608.328,
+    "p50Ms": 1.916,
+    "p95Ms": 7.062,
+    "maxMs": 39.047
+  },
+  "topExecutionSampleFrames": [
+    {
+      "frame": "java.util.Collections$UnmodifiableCollection.contains",
+      "samples": 488
+    },
+    {
+      "frame": "java.lang.String.hashCode",
+      "samples": 227
+    },
+    {
+      "frame": "java.util.HashMap.getNode",
+      "samples": 223
+    },
+    {
+      "frame": "java.util.RegularEnumSet.contains",
+      "samples": 182
+    },
+    {
+      "frame": "tools.jackson.core.json.ReaderBasedJsonParser.nextToken",
+      "samples": 154
+    },
+    {
+      "frame": "java.util.Arrays.binarySearch0",
+      "samples": 149
+    },
+    {
+      "frame": "java.lang.String.charAt",
+      "samples": 142
+    },
+    {
+      "frame": "java.util.regex.Pattern$BmpCharPropertyGreedy.match",
+      "samples": 133
+    },
+    {
+      "frame": "java.util.concurrent.locks.ReentrantLock$NonfairSync.initialTryLock",
+      "samples": 129
+    },
+    {
+      "frame": "java.util.HashMap.putVal",
+      "samples": 109
+    },
+    {
+      "frame": "java.util.concurrent.ConcurrentHashMap.get",
+      "samples": 100
+    },
+    {
+      "frame": "com.alibaba.druid.sql.parser.SymbolTable.addSymbol",
+      "samples": 97
+    },
+    {
+      "frame": "java.lang.CharacterDataLatin1.toUpperCase",
+      "samples": 95
+    },
+    {
+      "frame": "java.util.stream.AbstractPipeline.wrapSink",
+      "samples": 93
+    },
+    {
+      "frame": "java.util.Arrays.copyOf",
+      "samples": 82
+    }
+  ],
+  "result": "DIAGNOSTIC"
+}
