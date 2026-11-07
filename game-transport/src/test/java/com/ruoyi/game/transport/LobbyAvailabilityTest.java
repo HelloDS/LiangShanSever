@@ -31,8 +31,13 @@ class LobbyAvailabilityTest {
                 null, null, limiter, null, null, new ClubWireRouter(null));
 
         GameDispatcher.Result request(String command, ConnectionRegistry.Binding current) {
+            return request("freephone", command, Map.of(), current);
+        }
+        GameDispatcher.Result request(String api, String command, Map<String,Object> fields, ConnectionRegistry.Binding current) {
+            var data = new java.util.HashMap<>(fields);
+            data.putAll(Map.of("api", api, "c", command, "sessionToken", TOKEN));
             var packet = codec.request(codec.write(Map.of("path", "logic", "reqData",
-                    Map.of("api", "freephone", "c", command, "sessionToken", TOKEN))));
+                    data)));
             return dispatcher.dispatch(packet, current, channel);
         }
         @Override public void close() { registry.remove(binding); channel.finishAndReleaseAll(); }
@@ -58,6 +63,20 @@ class LobbyAvailabilityTest {
         try (var f = new Fixture()) {
             assertEquals(-2, assertThrows(GameFailure.class,
                     () -> f.request("receiveCard", f.binding)).state());
+        }
+    }
+
+    @Test void emptyClubRoomPageUsesLegacyResponseWithoutEnablingRoomLookups() {
+        try (var f = new Fixture()) {
+            var empty = Map.<String,Object>of("room_ids", java.util.List.of());
+            assertEquals(Map.of("state",0,"room",Map.of(),"roles",Map.of()),
+                    f.request("club","getRoomInfos",empty,f.binding).ack());
+            assertEquals(-5, assertThrows(GameFailure.class,
+                    () -> f.request("club","getRoomInfos",empty,null)).state());
+            assertEquals(-4, assertThrows(GameFailure.class,
+                    () -> f.request("club","getRoomInfos",Map.of("room_ids","123456"),f.binding)).state());
+            assertEquals(-18, assertThrows(GameFailure.class,
+                    () -> f.request("club","getRoomInfos",Map.of("room_ids",java.util.List.of("123456")),f.binding)).state());
         }
     }
 }

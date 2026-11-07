@@ -1007,7 +1007,11 @@ class GameFoundationIntegrationTest {
         }
         @Test void pendingJoinProfilesAreVisibleOnlyToManagers(){
             long owner=player(),member=player(),applicant=player(),id=existingClub(owner,5,1);join(owner,id,member);clubs.apply(applicant,id,"JOIN");
-            assertTrue(((Map<?,?>)clubs.roles(owner,id,List.of(applicant)).get("roles")).containsKey(Long.toString(applicant)));
+            var legacyRole=(Map<?,?>)((Map<?,?>)clubs.roles(owner,id,List.of(applicant)).get("roles")).get(Long.toString(applicant));
+            assertNotNull(legacyRole);
+            assertEquals(0,legacyRole.get("strength"));
+            assertEquals(0,legacyRole.get("ore"));
+            assertEquals(0,legacyRole.get("is_partner"));
             assertThrows(GameFailure.class,()->clubs.roles(member,id,List.of(applicant)));
             var page=(Map<?,?>)clubs.applications(owner,id,1,5).get("list");assertEquals(1L,page.get("total_page"));
             clubs.review(owner,id,applicant,"JOIN",2);

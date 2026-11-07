@@ -49,7 +49,10 @@ public class ClubService {
             Map<String,Object> value=new LinkedHashMap<>(players.publicRole(target));
             value.put("club_level","OWNER".equals(role)?0:"MANAGER".equals(role)?1:2);
             // 尚无正式对局事实；字段来自成员消费者，不从登录次数推导游戏次数。
-            value.put("game_number",0);value.put("game_at",null);roles.put(Long.toString(target),value);
+            value.put("game_number",0);value.put("game_at",null);
+            // 建设和合伙人未启用，旧版踢出提示仍读取这三个字段。
+            value.put("strength",0);value.put("ore",0);value.put("is_partner",0);
+            roles.put(Long.toString(target),value);
         }
         return Map.of("state",0,"roles",roles);
     }

@@ -12,7 +12,7 @@ public class ClubWireRouter {
     private final ClubService clubs;
     public ClubWireRouter(ClubService clubs){this.clubs=clubs;}
     public record Reply(Map<String,Object> ack,List<ClubService.Notification> notifications){ }
-    private static final Set<String> ROUTES=Set.of("build/getAutoBuildConfig","club/getClubs","club/getClub","club/getClubMems","club/getRoles","club/getClubConfig","club/setClubConfig","club/apply","club/applyLeave","club/getApplyList","club/getApplyLeaveList","club/reviewApply","club/reviewApplyLeave","club/kick","club/setClubManager","club/removeClubManager","club/getClubMsgs","club/getRoomList","club/getClubZhanJi","club/getRoleZhanJi","room/getDefaultRoomConfig","club/getCreateNeedCard","club/createClub","club/rename","club/disbandClub","club/transferCard","club/clubUpgrade","cfg/getClubUpgradeConfig");
+    private static final Set<String> ROUTES=Set.of("build/getAutoBuildConfig","club/getClubs","club/getClub","club/getClubMems","club/getRoles","club/getClubConfig","club/setClubConfig","club/apply","club/applyLeave","club/getApplyList","club/getApplyLeaveList","club/reviewApply","club/reviewApplyLeave","club/kick","club/setClubManager","club/removeClubManager","club/getClubMsgs","club/getRoomList","club/getRoomInfos","club/getClubZhanJi","club/getRoleZhanJi","room/getDefaultRoomConfig","club/getCreateNeedCard","club/createClub","club/rename","club/disbandClub","club/transferCard","club/clubUpgrade","cfg/getClubUpgradeConfig");
     public boolean supports(WireRequest req){return ROUTES.contains(req.api()+"/"+req.command());}
     public Reply dispatch(WireRequest req,long uid){
         JsonNode d=req.data();Map<String,Object> ack=null;ClubService.Change change=null;
@@ -35,6 +35,13 @@ public class ClubWireRouter {
             case "club/removeClubManager" -> change=clubs.manager(uid,id(d,"club_id"),id(d,"uid"),false);
             case "club/getClubMsgs" -> ack=clubs.messages(uid);
             case "club/getRoomList" -> ack=clubs.rooms(uid,id(d,"club_id"));
+            case "club/getRoomInfos" -> {
+                JsonNode ids=d.path("room_ids");
+                if(!ids.isArray())throw bad();
+                // 原大厅即使没有房间也会请求当前页详情。实际房间查询暂不开放。
+                if(!ids.isEmpty())throw new GameFailure(-18,"亲友圈房间详情暂未开放");
+                ack=Map.of("state",0,"room",Map.of(),"roles",Map.of());
+            }
             case "club/getClubZhanJi" -> ack=clubs.records(uid,id(d,"id"),true);
             case "club/getRoleZhanJi" -> ack=clubs.records(uid,id(d,"id"),false);
             case "room/getDefaultRoomConfig" -> ack=clubs.defaultRoom(uid,id(d,"club_id"));
