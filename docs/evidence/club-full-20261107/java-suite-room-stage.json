@@ -1,0 +1,11 @@
+{
+  "tests": 229,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "status": "PASS",
+  "commit": "f9db90a",
+  "finishedAt": "2026-11-07T12:52:41+08:00",
+  "command": "scripts/test.sh",
+  "scope": "房间生命周期阶段全量回归，后续翻页和推送版本单独追加验证"
+}

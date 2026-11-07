@@ -14,6 +14,8 @@ public final class LiveRoomProjection {
         state.seats().players().forEach((seat, uid) -> seats.put(Integer.toString(seat + 1), uid));
         var result = new LinkedHashMap<String, Object>();
         result.put("id", details.code());
+        result.put("room_key", details.roomKey());
+        result.put("room_revision", state.revision());
         result.put("owner", details.owner());
         result.put("players", seats);
         result.put("max_player", 3);

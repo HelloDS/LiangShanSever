@@ -1,0 +1,341 @@
+{
+  "status": "PASS",
+  "scope": "Creator 打包源文件字面路由核对，动态路由与实际浏览器行为单独验收",
+  "buildingScope": "用户暂缓体力、石材和开采，建设页面及其中备注入口保持隐藏",
+  "roomGameScope": "当前实际牌局接入 6003，其他玩法单独列为待接入",
+  "modules": [
+    {
+      "module": "club",
+      "creatorFile": "Client/creator/assets/source-data/files/04616d472a2ab55674ea5fa1621dd524b14ab096456b5d70328cbb4778237332.txt",
+      "sha256": "04616d472a2ab55674ea5fa1621dd524b14ab096456b5d70328cbb4778237332",
+      "routes": [
+        {
+          "route": "build/getAutoBuildConfig",
+          "classification": "关闭资源状态查询已实现"
+        },
+        {
+          "route": "build/setAutoBuildConfig",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "cfg/getClubUpgradeConfig",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/apply",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/applyLeave",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/clubUpgrade",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/createClub",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/disbandClub",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getApplyLeaveList",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getApplyList",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClub",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClubConfig",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClubMems",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClubMsgs",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClubZhanJi",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getClubs",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getCreateNeedCard",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getRoleZhanJi",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getRoles",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getRoomInfos",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getRoomList",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/kick",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/removeClubManager",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/rename",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/reviewApply",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/reviewApplyLeave",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/setClubConfig",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/setClubManager",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/transferCard",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/removePartner",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "room/forceDisbandRoom",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "room/getDefaultRoomConfig",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "room/setAutoCreate",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "room/setDefaultRoomConfig",
+          "classification": "已有路由实现，行为验收另见证据"
+        }
+      ]
+    },
+    {
+      "module": "clubpartner",
+      "creatorFile": "Client/creator/assets/source-data/files/25e7957841828344f2a066f08fd759efe80d95d0145b0ea2cf707feab4e2d356.txt",
+      "sha256": "25e7957841828344f2a066f08fd759efe80d95d0145b0ea2cf707feab4e2d356",
+      "routes": [
+        {
+          "route": "club/getApplyList",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/reviewApply",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/addPartner",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/addPartnerMember",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getClubGameRecord",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getClubMemberGameRecords",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getClubMembers",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartner",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartnerAchievement",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartnerLogs",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartnerMember",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartnerMembers",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/getPartners",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/removePartner",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/removePartnerMember",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "partner/setPartnerAuth",
+          "classification": "已有路由实现，行为验收另见证据"
+        }
+      ]
+    },
+    {
+      "module": "clubbuild",
+      "creatorFile": "Client/creator/assets/source-data/files/22e365e20fc25113f419348fbb72acac2140f51c0147b22ae62b3c872efd1c8a.txt",
+      "sha256": "22e365e20fc25113f419348fbb72acac2140f51c0147b22ae62b3c872efd1c8a",
+      "routes": [
+        {
+          "route": "build/adjust",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/agree",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/apply",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getApplyList",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getAutoBuildConfig",
+          "classification": "关闭资源状态查询已实现"
+        },
+        {
+          "route": "build/getAutoBuildConfigs",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getBuildConfigChangeLogs",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getClubBuildLogList",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getHandleList",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getInfo",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/getRoleBuildLogList",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/logs",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/mining",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/refuse",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "build/setAutoBuildConfig",
+          "classification": "随建设页面暂缓"
+        },
+        {
+          "route": "club/getClubMems",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/getRoles",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/setClubMemComment",
+          "classification": "随建设页面暂缓"
+        }
+      ]
+    },
+    {
+      "module": "diamond",
+      "creatorFile": "Client/creator/assets/source-data/files/f8c877d2a7955b105dc3ccb2cc3bf2b7e17fc088d1ed81b680d8f1a9ee4c12c9.txt",
+      "sha256": "f8c877d2a7955b105dc3ccb2cc3bf2b7e17fc088d1ed81b680d8f1a9ee4c12c9",
+      "routes": [
+        {
+          "route": "cfg/getExchangeRate",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/exchangeCard",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/exchangeDiamond",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/transferCard",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/transferDiamond",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "club/transferToClub",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "role/exchangeCard",
+          "classification": "已有路由实现，行为验收另见证据"
+        },
+        {
+          "route": "role/exchangeDiamond",
+          "classification": "已有路由实现，行为验收另见证据"
+        }
+      ]
+    }
+  ],
+  "missingRoutes": []
+}

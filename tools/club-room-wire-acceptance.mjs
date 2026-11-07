@@ -22,22 +22,23 @@ try {
     const operationId=randomUUID();
     const fields={game_id:'6003',createData:{club_id:club,playNumber:6,cardType:4,aa:false},operationId};
     const creation=await owner.send('room','createRoom',fields);assert.equal(creation.state,0);
-    const code=creation.room.id;report.roomCode=code;
+    const code=creation.room.id;report.roomCode=code;const permanentKey=creation.room.room_key;assert.match(permanentKey,/^[0-9a-f-]{36}$/);
     const replay=await owner.send('room','createRoom',fields);assert.equal(replay.room.id,code);
-    const latest=new Map();
+    const latest=new Map(),revisions=new Map();
     for(const person of people)person.client.ws.on('message',raw=>{const packet=JSON.parse(raw);if(packet.cmd==='gameMessage')latest.set(person.uid,packet);});
     for(const person of people)assert.equal((await person.send('room','joinRoom',{room_id:code})).state,0);
     for(const person of people)assert.equal((await person.send('game','checkGameCreate')).state,0);
     async function action(person,fields) {
         const waiting=people.map(target=>new Promise((resolve,reject)=>{
             const timer=setTimeout(()=>{target.client.ws.off('message',listen);reject(Error('未收到牌桌推送'));},8000);
-            function listen(raw) {const packet=JSON.parse(raw);if(packet.cmd==='gameMessage'){clearTimeout(timer);target.client.ws.off('message',listen);resolve(packet);}}
+            function listen(raw) {const packet=JSON.parse(raw);if(packet.cmd==='gameMessage' && packet.sender===person.uid && (packet.tag===fields.tag || fields.tag==='ready' && packet.tag==='startGame')){clearTimeout(timer);target.client.ws.off('message',listen);resolve(packet);}}
             target.client.ws.on('message',listen);
         }));
         const ack=await person.send('room','gameMessage',fields);assert.equal(ack.state,0,JSON.stringify(ack));
         const packets=await Promise.all(waiting);
         for(let index=0;index<people.length;index++) {
             const packet=packets[index],self=people[index].uid;
+            assert.equal(packet.room_key,permanentKey);assert.ok(Number.isSafeInteger(packet.room_revision));assert.ok(packet.room_revision>(revisions.get(self)??-1));revisions.set(self,packet.room_revision);
             for(const other of people)if(other.uid!==self && packet.game.currentState!==0)assert.equal(typeof packet.cardsInfo[other.uid],'number','其他玩家手牌泄露');
             latest.set(self,packet);
         }
@@ -76,7 +77,7 @@ try {
     const movie=await owner.send('movie','getMovie',{movie_id:room});assert.equal(movie.state,0);assert.equal(movie.movie.data.length,6);
     for(const round of movie.movie.data)assert.ok(round.opreate.length>0&&round.game&&round.cards);
     assert.equal((await owner.send('club','disbandClub',{club_id:club})).state,0);
-    report.feeTransactions=1;report.cardCost=3;report.circleFinalCards=97;report.partnerRecords=1;report.movieRounds=6;report.finishedAt=new Date().toISOString();report.status='PASS';
+    report.monotonicRevisions=true;report.feeTransactions=1;report.cardCost=3;report.circleFinalCards=97;report.partnerRecords=1;report.movieRounds=6;report.finishedAt=new Date().toISOString();report.status='PASS';
     await writeFile('docs/evidence/club-full-20261107/room-wire.json',JSON.stringify(report,null,2)+'\n');
     console.log(JSON.stringify(report));
 }finally{for(const person of people)person.client.close();}

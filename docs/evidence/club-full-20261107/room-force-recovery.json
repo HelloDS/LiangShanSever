@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "closingMode": "staff-force",
+  "roomId": "37198882-32ed-4433-b5b1-6ef21582b0d1",
+  "roomCode": "100003",
+  "club": 100009,
+  "players": [
+    101064,
+    101065,
+    101066
+  ],
+  "preparedAt": "2026-11-07T05:09:22.038Z",
+  "finishedAt": "2026-11-07T05:09:38.979Z",
+  "stateHashUnchanged": true,
+  "privateHandsUnchanged": true,
+  "version": 7,
+  "previousEpoch": 2,
+  "recoveredEpoch": 3,
+  "feeTransactions": 1,
+  "circleFinalCards": 97
+}

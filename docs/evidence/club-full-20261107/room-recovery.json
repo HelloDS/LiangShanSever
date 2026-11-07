@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "roomId": "dade8a81-bd77-4781-b76a-a94914b7e452",
+  "roomCode": "100002",
+  "club": 100008,
+  "players": [
+    101061,
+    101062,
+    101063
+  ],
+  "preparedAt": "2026-11-07T05:01:43.920Z",
+  "finishedAt": "2026-11-07T05:02:05.749Z",
+  "stateHashUnchanged": true,
+  "privateHandsUnchanged": true,
+  "version": 7,
+  "previousEpoch": 2,
+  "recoveredEpoch": 3,
+  "feeTransactions": 1,
+  "circleFinalCards": 97
+}

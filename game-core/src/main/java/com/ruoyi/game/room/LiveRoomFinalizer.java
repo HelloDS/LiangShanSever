@@ -1,5 +1,6 @@
 package com.ruoyi.game.room;
 
+import com.ruoyi.game.lobby.PlayerService;
 import com.ruoyi.game.persistence.mapper.ClubRecordMapper;
 import com.ruoyi.game.protocol.GameJsonCodec;
 
@@ -13,10 +14,12 @@ import java.util.*;
 public class LiveRoomFinalizer {
     private final ClubRecordMapper records;
     private final GameJsonCodec codec;
+    private final PlayerService players;
 
-    public LiveRoomFinalizer(ClubRecordMapper records, GameJsonCodec codec) {
+    public LiveRoomFinalizer(ClubRecordMapper records, GameJsonCodec codec, PlayerService players) {
         this.records = records;
         this.codec = codec;
+        this.players = players;
     }
 
     public void closing(RoomJournalCommand command, LocalDateTime now) {
@@ -41,12 +44,12 @@ public class LiveRoomFinalizer {
             roles.put(Long.toString(uid), role);
         }
         long initiator =
-                state.vote() != null
-                        ? state.vote().initiator()
-                        : "CLOSE".equals(command.eventKind()) && command.actor() != null
-                                ? command.actor().uid()
-                                : 0;
+                Set.of("CLOSE", "FORCE_CLOSE").contains(command.eventKind())
+                                && command.actor() != null
+                        ? command.actor().uid()
+                        : state.vote() != null ? state.vote().initiator() : 0;
         var source = state.seats().roles().get(initiator);
+        if (source == null && initiator != 0) source = players.publicRole(initiator);
         var detail = new LinkedHashMap<String, Object>();
         detail.put("game_record", roles);
         detail.put("movie_id", command.candidate().roomId());

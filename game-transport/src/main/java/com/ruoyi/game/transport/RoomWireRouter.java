@@ -24,6 +24,7 @@ public class RoomWireRouter {
                     "room/joinRoom",
                     "room/leaveRoom",
                     "room/disbandRoom",
+                    "room/forceDisbandRoom",
                     "room/gameMessage",
                     "room/voteEndGame",
                     "room/checkVoteEndGame",
@@ -96,6 +97,9 @@ public class RoomWireRouter {
             case "room/disbandRoom" -> {
                 return rooms.close(
                         actor, data.hasNonNull("room_id") ? code(data, "room_id") : null);
+            }
+            case "room/forceDisbandRoom" -> {
+                return rooms.forceClose(actor, code(data, "room_id"));
             }
             case "room/gameMessage" -> {
                 return rooms.action(actor, LandlordWireActions.parse(data));

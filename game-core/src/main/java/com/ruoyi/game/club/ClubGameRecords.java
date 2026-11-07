@@ -28,10 +28,26 @@ public class ClubGameRecords {
 
     @Transactional(readOnly=true)
     public Map<String,Object> club(long actor,long club,String date,boolean all) {
+        return club(actor,club,date,all,"");
+    }
+    @Transactional(readOnly=true)
+    public Map<String,Object> club(long actor,long club,String date,boolean all,String cursor) {
         access(actor,club);
         if(all && !manager(actor,club))throw denied();
         var start=start(date);
-        var rows=records.clubRecords(club,all?null:actor,start,start.plusDays(1));
+        LocalDateTime before=null;Long beforeId=null;
+        if(cursor!=null && !cursor.isEmpty()) {
+            try {
+                if(cursor.length()>96)throw new IllegalArgumentException();
+                String[] values=new String(Base64.getUrlDecoder().decode(cursor),java.nio.charset.StandardCharsets.UTF_8).split("\\|",-1);
+                if(values.length!=2 || !values[1].matches("[1-9][0-9]{0,18}"))throw new IllegalArgumentException();
+                before=LocalDateTime.parse(values[0]);beforeId=Long.parseLong(values[1]);
+                if(before.isBefore(start) || !before.isBefore(start.plusDays(1)))throw new IllegalArgumentException();
+            } catch(RuntimeException invalid) {throw new GameFailure(-4,"战绩翻页参数无效");}
+        }
+        var fetched=records.clubRecords(club,all?null:actor,start,start.plusDays(1),before,beforeId);
+        boolean more=fetched.size()>100;
+        var rows=fetched.subList(0,Math.min(100,fetched.size()));
         var result=new ArrayList<Map<String,Object>>();
         var roles=new LinkedHashMap<String,Object>();
         for(var row:rows) {
@@ -56,7 +72,13 @@ public class ClubGameRecords {
             value.put("sqName",detail.get("sq_name"));
             result.add(value);
         }
-        return Map.of("state",0,"zhanjis",result,"roles",roles);
+        String next="";
+        if(more) {
+            var last=rows.getLast();
+            String value=utc(last.get("finishedAt"))+"|"+last.get("id");
+            next=Base64.getUrlEncoder().withoutPadding().encodeToString(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return Map.of("state",0,"zhanjis",result,"roles",roles,"has_more",more,"next_cursor",next);
     }
 
     @Transactional(readOnly=true)
@@ -101,5 +123,6 @@ public class ClubGameRecords {
     private static Map<String,Object> players(Map<String,Object> record){return (Map<String,Object>)record.get("game_record");}
     private static String gameName(String id){return "6003".equals(id)?"斗地主":id;}
     private static GameFailure denied(){return new GameFailure(-90,"没有此战绩范围的权限");}
-    private static String time(Object value){var utc=value instanceof java.sql.Timestamp ts?ts.toLocalDateTime():(LocalDateTime)value;return utc.atOffset(ZoneOffset.UTC).atZoneSameInstant(ZONE).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));}
+    private static LocalDateTime utc(Object value){return value instanceof java.sql.Timestamp ts?ts.toLocalDateTime():(LocalDateTime)value;}
+    private static String time(Object value){return utc(value).atOffset(ZoneOffset.UTC).atZoneSameInstant(ZONE).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));}
 }

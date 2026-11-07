@@ -56,7 +56,9 @@ public final class LiveRoomEngine
 
     @Override
     public RoomTransition<String, Event> apply(RoomSnapshot<String> before, Command command) {
-        var state = codec.value(before.state(), LiveRoomState.class);
+        var state =
+                codec.value(before.state(), LiveRoomState.class)
+                        .withRuntimeIdentity(before.roomId(), before.version());
         var round = state.round();
         if ("CLOSED".equals(round.phase())) throw rejected("ROOM_CLOSED");
         LiveRoomState next;
@@ -83,7 +85,8 @@ public final class LiveRoomEngine
                                 round,
                                 totals,
                                 state.partners(),
-                                null);
+                                null,
+                                state.revision());
                 seat =
                         new RoomJournalCommand.SeatChange(
                                 RoomJournalCommand.SeatAction.JOIN, uid, index);
@@ -127,18 +130,20 @@ public final class LiveRoomEngine
                                 waiting,
                                 totals,
                                 state.partners(),
-                                null);
+                                null,
+                                state.revision());
                 seat =
                         new RoomJournalCommand.SeatChange(
                                 RoomJournalCommand.SeatAction.LEAVE, uid, index);
                 tag = "leaveRoom";
             }
-            case "CLOSE" -> {
+            case "CLOSE", "FORCE_CLOSE" -> {
                 if (!command.authorized()) throw rejected("FORBIDDEN");
-                if ("BIDDING".equals(round.phase()) || "PLAYING".equals(round.phase()))
+                if ("CLOSE".equals(command.kind())
+                        && ("BIDDING".equals(round.phase()) || "PLAYING".equals(round.phase())))
                     throw rejected("VOTE_REQUIRED");
                 next = close(state);
-                tag = "disbandRoom";
+                tag = "FORCE_CLOSE".equals(command.kind()) ? "forceDisbandRoom" : "disbandRoom";
             }
             case "VOTE" -> {
                 requirePlayer(state, uid);
@@ -207,7 +212,7 @@ public final class LiveRoomEngine
         return new RoomTransition<>(
                 next.round().number(),
                 next.round().phase(),
-                codec.write(next),
+                codec.write(next.withRevision(before.version() + 1)),
                 new Event(command.kind(), tag, uid, seat, postings));
     }
 
@@ -248,7 +253,13 @@ public final class LiveRoomEngine
                         command.now() + 30_000);
         var affiliations = state.partners().isEmpty() ? command.partners() : state.partners();
         return new LiveRoomState(
-                state.details(), state.seats(), next, state.totals(), affiliations, null);
+                state.details(),
+                state.seats(),
+                next,
+                state.totals(),
+                affiliations,
+                null,
+                state.revision());
     }
 
     private LiveRoomState bid(LiveRoomState state, long uid, int score, long now) {
@@ -348,7 +359,13 @@ public final class LiveRoomEngine
                         true,
                         now + 30 * 60_000);
         return new LiveRoomState(
-                state.details(), state.seats(), finished, totals, state.partners(), null);
+                state.details(),
+                state.seats(),
+                finished,
+                totals,
+                state.partners(),
+                null,
+                state.revision());
     }
 
     private static LandlordAction automatic(LandlordPlayState play, long uid) {

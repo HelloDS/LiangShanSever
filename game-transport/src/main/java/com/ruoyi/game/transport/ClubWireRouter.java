@@ -56,8 +56,8 @@ public class ClubWireRouter {
                 if(!ids.isEmpty())throw new GameFailure(-18,"亲友圈房间详情暂未开放");
                 ack=Map.of("state",0,"room",Map.of(),"roles",Map.of());
             }
-            case "club/getClubZhanJi" -> ack=records.club(uid,id(d,"id"),com.ruoyi.game.protocol.GameJsonCodec.text(d,"date",10),true);
-            case "club/getRoleZhanJi" -> ack=records.club(uid,id(d,"id"),com.ruoyi.game.protocol.GameJsonCodec.text(d,"date",10),false);
+            case "club/getClubZhanJi" -> ack=records.club(uid,id(d,"id"),com.ruoyi.game.protocol.GameJsonCodec.text(d,"date",10),true,cursor(d));
+            case "club/getRoleZhanJi" -> ack=records.club(uid,id(d,"id"),com.ruoyi.game.protocol.GameJsonCodec.text(d,"date",10),false,cursor(d));
             case "room/getDefaultRoomConfig" -> ack=clubs.defaultRoom(uid,id(d,"club_id"));
             default -> clubs.unavailableEconomy();
         }
@@ -70,4 +70,5 @@ public class ClubWireRouter {
     private static String operation(JsonNode d){return com.ruoyi.game.protocol.GameJsonCodec.text(d,"operationId",36);}
     private static long amount(JsonNode d,String key){JsonNode value=d.path(key);if(!value.isIntegralNumber()||!value.canConvertToLong()||value.asLong()<0||value.asLong()>com.ruoyi.game.economy.WalletPosting.MAX_CLIENT_INTEGER)throw bad();return value.asLong();}
     private static GameFailure bad(){return new GameFailure(-4,"亲友圈请求参数无效");}
+    private static String cursor(JsonNode data){var value=data.path("cursor");if(value.isMissingNode())return "";if(!value.isString()||value.asString().length()>96)throw bad();return value.asString();}
 }

@@ -239,6 +239,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         var state =
                 new LiveRoomState(
                         new Details(
+                                id,
                                 code,
                                 owner,
                                 club,
@@ -260,7 +261,8 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                 clock.millis() + 30 * 60_000),
                         seated ? Map.of(creator, 0L) : Map.of(),
                         Map.of(),
-                        null);
+                        null,
+                        0L);
         String json = codec.write(state);
         var values = new HashMap<String, Object>();
         values.put("id", id);
@@ -367,11 +369,12 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         String id = bound(actor.uid());
         var current = state(own(id));
         var affiliations = new LinkedHashMap<Long, Long>();
-        long root =
-                current.details().club() == null
-                        ? current.details().owner()
-                        : ((Number) clubs.club(current.details().club()).get("owner")).longValue();
-        if (action instanceof LandlordAction.Ready && current.partners().isEmpty())
+        if (action instanceof LandlordAction.Ready && current.partners().isEmpty()) {
+            long root =
+                    current.details().club() == null
+                            ? current.details().owner()
+                            : ((Number) clubs.club(current.details().club()).get("owner"))
+                                    .longValue();
             for (long uid : current.seats().ordered()) {
                 Long parent =
                         current.details().club() == null
@@ -386,6 +389,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                         ? uid
                                         : root);
             }
+        }
         return submit(id, command(actor, "ACTION", action, Map.of(), affiliations, 0, false))
                 .thenApply(
                         next -> {
@@ -406,6 +410,19 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                                                     : "chupai";
                             return new Reply(Map.of("state", 0), changed(next, tag, actor.uid()));
                         });
+    }
+
+    public CompletionStage<Reply> forceClose(GuestIdentity actor, String code) {
+        String id = roomId(code);
+        var current = state(own(id));
+        if (current.details().club() == null) throw denied();
+        access(actor.uid(), current.details().club(), false, true);
+        return submit(id, command(actor, "FORCE_CLOSE", null, Map.of(), Map.of(), 0, true))
+                .thenApply(
+                        next ->
+                                new Reply(
+                                        Map.of("state", 0),
+                                        changed(next, "forceDisbandRoom", actor.uid())));
     }
 
     public CompletionStage<Reply> vote(GuestIdentity actor, int value) {
@@ -582,7 +599,9 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
     }
 
     private LiveRoomState state(RoomMailboxes.Handle handle) {
-        return codec.value(rooms.snapshot(handle).state(), LiveRoomState.class);
+        var snapshot = rooms.snapshot(handle);
+        return codec.value(snapshot.state(), LiveRoomState.class)
+                .withRuntimeIdentity(snapshot.roomId(), snapshot.version());
     }
 
     private LiveRoomEngine.Command command(
@@ -634,6 +653,13 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         boolean game =
                 Set.of("ready", "startGame", "score", "chupai", "buchu", "auto").contains(tag);
         for (long uid : state.seats().ordered()) {
+            if ("forceDisbandRoom".equals(tag)) {
+                var closing = new LinkedHashMap<String, Object>();
+                closing.put("cmd", "disbandRoom");
+                closing.put("sender", sender);
+                stamp(closing, state);
+                notices.add(new Notification(List.of(uid), closing));
+            }
             Map<String, Object> packet;
             if (game) packet = gamePacket(state, uid, tag, sender);
             else if ("voteEndGame".equals(tag)) packet = votePacket(state, sender);
@@ -648,11 +674,17 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
                                 state.seats().roles(),
                                 "sender",
                                 sender);
-            notices.add(new Notification(List.of(uid), packet));
-            if ("CLOSED".equals(state.round().phase()) && "voteEndGame".equals(tag))
-                notices.add(
-                        new Notification(
-                                List.of(uid), Map.of("cmd", "disbandRoom", "sender", sender)));
+            var versioned = new LinkedHashMap<>(packet);
+            if ("forceDisbandRoom".equals(tag)) versioned.put("role", players.publicRole(sender));
+            stamp(versioned, state);
+            notices.add(new Notification(List.of(uid), versioned));
+            if ("CLOSED".equals(state.round().phase()) && "voteEndGame".equals(tag)) {
+                var closing = new LinkedHashMap<String, Object>();
+                closing.put("cmd", "disbandRoom");
+                closing.put("sender", sender);
+                stamp(closing, state);
+                notices.add(new Notification(List.of(uid), closing));
+            }
         }
         String circleTag =
                 switch (tag) {
@@ -672,6 +704,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
             LiveRoomState state, long viewer, String tag, long sender) {
         var packet = new LinkedHashMap<String, Object>();
         packet.put("cmd", "gameMessage");
+        stamp(packet, state);
         packet.put("tag", tag);
         packet.put("sender", sender);
         packet.put("uid", sender);
@@ -688,6 +721,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
     private Map<String, Object> votePacket(LiveRoomState state, long sender) {
         var packet = new LinkedHashMap<String, Object>();
         packet.put("cmd", "voteEndGame");
+        stamp(packet, state);
         packet.put("sender", sender);
         packet.put("room", LiveRoomProjection.room(state));
         packet.put("roles", state.seats().roles());
@@ -710,6 +744,7 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         String defaultCode = defaultId == null ? null : (String) mapper.byId(defaultId).get("code");
         var packet = new LinkedHashMap<String, Object>();
         packet.put("cmd", cmd);
+        stamp(packet, state);
         packet.put("club_id", club);
         packet.put("room", LiveRoomProjection.room(state));
         packet.put("roles", state.seats().roles());
@@ -719,6 +754,11 @@ public class LiveRoomService implements InitializingBean, DisposableBean {
         // 原大厅每次房间变更会同步 default_room。无可用桌时明确给 null。
         packet.put("default_room", defaultCode);
         return List.of(new Notification(clubs.members(club), packet));
+    }
+
+    private static void stamp(Map<String, Object> packet, LiveRoomState state) {
+        if (state.details().roomKey() != null) packet.put("room_key", state.details().roomKey());
+        packet.put("room_revision", state.revision());
     }
 
     private String availableDefault(long club) {

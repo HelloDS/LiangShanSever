@@ -50,7 +50,14 @@ class LiveRoomEngineTest {
 
     void initial() {
         var details =
-                new Details("100001", 101L, 5L, 6, false, Map.of("playNumber", 6, "aa", false));
+                new Details(
+                        UUID.randomUUID().toString(),
+                        "100001",
+                        101L,
+                        5L,
+                        6,
+                        false,
+                        Map.of("playNumber", 6, "aa", false));
         var seats =
                 new Seats(
                         Map.of(0, 101L, 1, 102L, 2, 103L),
@@ -76,7 +83,7 @@ class LiveRoomEngineTest {
                         now + 60_000);
         snapshot =
                 new RoomSnapshot<>(
-                        UUID.randomUUID().toString(),
+                        details.roomKey(),
                         1,
                         0,
                         0,
@@ -88,7 +95,8 @@ class LiveRoomEngineTest {
                                         round,
                                         Map.of(101L, 0L, 102L, 0L, 103L, 0L),
                                         Map.of(),
-                                        null)));
+                                        null,
+                                        0L)));
     }
 
     @Test
@@ -128,5 +136,19 @@ class LiveRoomEngineTest {
         apply(103, new LandlordAction.Ready());
         assertThrows(RoomRejected.class, () -> apply(102, new LandlordAction.Bid(3)));
         assertThrows(SecurityException.class, () -> LiveRoomProjection.game(state(), 999));
+    }
+
+    @Test
+    void olderSnapshotWithoutTransportFieldsGetsItsPermanentIdentityAndRevision() {
+        initial();
+        var legacy = codec.object(snapshot.state());
+        legacy.remove("revision");
+        @SuppressWarnings("unchecked")
+        var details = (Map<String, Object>) legacy.get("details");
+        details.remove("roomKey");
+        snapshot = new RoomSnapshot<>(snapshot.roomId(), 1, 0, 0, "WAITING", codec.write(legacy));
+        apply(101, new LandlordAction.Ready());
+        assertEquals(snapshot.roomId(), state().details().roomKey());
+        assertEquals(1L, state().revision().longValue());
     }
 }

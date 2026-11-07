@@ -987,6 +987,50 @@ class GameFoundationIntegrationTest {
             return id;
         }
         private void join(long owner,long id,long uid){clubs.apply(uid,id,"JOIN");clubs.review(owner,id,uid,"JOIN",1);}
+        @Test void circleStaffCanForceCloseAfterOneRealRoundWithoutLosingHistoricalScores() throws Exception {
+            var owner=auth.verify(auth.createGuest());var a=auth.verify(auth.createGuest());var b=auth.verify(auth.createGuest());var c=auth.verify(auth.createGuest());
+            wallets.post(new WalletPosting(Kind.REWARD,"force_room_fund:"+owner.uid(),"fixture-v1","player/"+owner.uid(),List.of(
+                    new Entry(new Account(OwnerType.PERSONAL,owner.uid(),Currency.CARD),500,0),
+                    new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-500,0))));
+            var circle=(Map<?,?>)clubs.create(owner.uid(),"强"+UUID.randomUUID().toString().substring(0,6)).get("club");
+            long club=((Number)circle.get("id")).longValue();
+            var actors=Map.of(a.uid(),a,b.uid(),b,c.uid(),c);
+            for(var actor:actors.values())join(owner.uid(),club,actor.uid());
+            var options=Map.<String,Object>of("club_id",club,"playNumber",6,"cardType",4,"aa",false);
+            var creation=liveRooms.create(owner,"6003",options,UUID.randomUUID().toString());
+            String code=(String)((Map<?,?>)creation.ack().get("room")).get("id"),id=(String)liveRoomMapper.byCode(code).get("roomId");
+            for(var actor:actors.values())liveRooms.join(actor,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            for(var actor:actors.values())liveRooms.action(actor,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            var state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+            liveRooms.action(actors.get(state.round().currentUid()),new LandlordAction.Bid(3)).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            int actions=0;
+            while(true) {
+                state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+                if(!"PLAYING".equals(state.round().phase()))break;
+                long uid=state.round().play().currentUid();LandlordAction action;
+                if(state.round().play().target()!=null)action=new LandlordAction.Pass();
+                else {var cards=List.of(state.round().play().hands().get(uid).getFirst());action=new LandlordAction.Play(cards,LandlordPatterns.classifyAs(cards,1).orElseThrow());}
+                liveRooms.action(actors.get(uid),action).toCompletableFuture().get(10,TimeUnit.SECONDS);assertTrue(++actions<200);
+            }
+            for(var actor:actors.values())liveRooms.action(actor,new LandlordAction.Ready()).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            state=codec.value((String)liveRoomMapper.byId(id).get("snapshot"),LiveRoomState.class);
+            liveRooms.action(actors.get(state.round().currentUid()),new LandlordAction.Bid(3)).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertThrows(GameFailure.class,()->liveRooms.forceClose(a,code));
+            var closed=liveRooms.forceClose(owner,code).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            assertTrue(closed.notifications().stream().anyMatch(notice->"forceDisbandRoom".equals(notice.packet().get("cmd")) && ((Map<?,?>)notice.packet().get("role")).get("uid").equals(owner.uid())));
+            assertEquals(1,number("SELECT round_count FROM club_game_record WHERE room_id=?",id));
+            assertEquals(owner.uid(),number("SELECT JSON_EXTRACT(record_json,'$.sq_uid') FROM club_game_record WHERE room_id=?",id));
+            assertFalse(jdbc.queryForObject("SELECT JSON_UNQUOTE(JSON_EXTRACT(record_json,'$.sq_name')) FROM club_game_record WHERE room_id=?",String.class,id).isEmpty());
+            assertEquals(0,number("SELECT SUM(s.score) FROM club_game_score s JOIN club_game_record g ON g.id=s.record_id WHERE g.room_id=?",id));
+            assertEquals(1,((List<?>)((Map<?,?>)liveMovies.movie(owner.uid(),id).get("movie")).get("data")).size());
+            assertEquals(97,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",club));
+            clubs.manager(owner.uid(),club,b.uid(),true);
+            var waiting=liveRooms.create(owner,"6003",options,UUID.randomUUID().toString());
+            String waitingCode=(String)((Map<?,?>)waiting.ack().get("room")).get("id");
+            liveRooms.forceClose(b,waitingCode).toCompletableFuture().get(10,TimeUnit.SECONDS);
+            clubs.disband(owner.uid(),club);
+        }
+
         @Test void automaticRoomsReplenishOnceAndFailedStartKeepsWalletAndReadyStateAtomic() throws Exception {
             var owner=auth.verify(auth.createGuest());var a=auth.verify(auth.createGuest());var b=auth.verify(auth.createGuest());
             long club=existingClub(owner.uid(),10,3);
@@ -1054,6 +1098,31 @@ class GameFoundationIntegrationTest {
             clubs.kick(owner,id,partner);
             assertEquals(0,number("SELECT COUNT(*) FROM club_partner_member WHERE club_id=? AND partner_uid=?",id,partner));
             assertEquals(0,number("SELECT COUNT(*) FROM club_partner WHERE club_id=? AND uid=?",id,partner));
+        }
+
+        @Test void circleHistoryCursorPagesKeepEqualTimestampsAndMemberScope() {
+            long owner=player(),member=player(),club=existingClub(owner,10,3);join(owner,club,member);
+            var stamp=java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).withNano(0);
+            String today=stamp.atOffset(java.time.ZoneOffset.UTC).atZoneSameInstant(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate().toString();
+            // 仅验证翻页边界的隔离历史夹具，不作为实际牌局完成证据。
+            String detail=codec.write(Map.of("game_record",Map.of(Long.toString(owner),Map.of("uid",owner,"name","翻页夹具","head","","score",0)),"movie_id","","sq_uid",0,"sq_name","","total_round",6,"at_info",Map.of()));
+            for(int index=0;index<102;index++) {
+                String room=UUID.randomUUID().toString(),code=Integer.toString(ROOM_CODES.getAndIncrement());
+                jdbc.update("INSERT INTO room_record(room_id,room_code,game_id,owner_uid,creator_uid,club_id,options_json,rule_version,status,is_test,created_at) VALUES(?,?,'6003',?,?,?,'{}','history-page-fixture','CLOSED',TRUE,?)",room,code,owner,owner,club,stamp);
+                jdbc.update("INSERT INTO club_game_record(room_id,club_id,game_id,room_code,round_count,record_json,finished_at) VALUES(?,?,'6003',?,6,?,?)",room,club,code,detail,stamp);
+                long record=number("SELECT id FROM club_game_record WHERE room_id=?",room);
+                jdbc.update("INSERT INTO club_game_score(record_id,uid,partner_uid,score) VALUES(?,?,?,0)",record,owner,owner);
+            }
+            var first=clubRecords.club(owner,club,today,true,"");
+            assertEquals(100,((List<?>)first.get("zhanjis")).size());assertEquals(true,first.get("has_more"));
+            var second=clubRecords.club(owner,club,today,true,(String)first.get("next_cursor"));
+            assertEquals(2,((List<?>)second.get("zhanjis")).size());assertEquals(false,second.get("has_more"));
+            var ids=new HashSet<Object>();
+            for(var page:List.of(first,second))for(var row:(List<?>)page.get("zhanjis"))assertTrue(ids.add(((Map<?,?>)row).get("record_id")));
+            assertEquals(102,ids.size());
+            assertTrue(((List<?>)clubRecords.club(member,club,today,false,(String)first.get("next_cursor")).get("zhanjis")).isEmpty());
+            assertThrows(GameFailure.class,()->clubRecords.club(member,club,today,true,""));
+            assertThrows(GameFailure.class,()->clubRecords.club(owner,club,today,true,"invalid"));
         }
 
         @Test void historicalPartnerScoresKeepTheirOriginalAttributionAfterRebinding(){
