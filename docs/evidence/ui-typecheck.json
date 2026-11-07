@@ -1,10 +1,10 @@
 {
-  "collectedAt": "2026-11-07T00:19:03.837180+00:00",
+  "collectedAt": "2026-11-07T00:43:53.696182+00:00",
   "commands": [
     "pnpm typecheck (vue-tsc --noEmit)",
     "pnpm build:prod (Vite production)"
   ],
   "diagnostics": 0,
-  "scope": "全部后台源码，包含房间 CSV 导出任务、失败清理及重新鉴权下载；本记录不代表浏览器验收已完成",
+  "scope": "全部后台源码，包含房间 CSV 导出、窄屏固定下载列、失败清理及重新鉴权下载；最终 vue-tsc 实际零诊断退出，Vite 布局构建于 08:26 完成，浏览器证明另见 room-export-browser.json",
   "result": "PASS"
 }
