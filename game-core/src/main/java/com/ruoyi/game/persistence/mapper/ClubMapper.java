@@ -8,6 +8,31 @@ public interface ClubMapper {
     String COLUMNS="c.id,c.name,c.owner_uid AS owner,c.status,c.member_count AS current_mem,c.max_members AS max_mem,c.max_managers AS maxManagers,c.only_manager_open_room AS onlyManagerOpenRoom,c.version,c.created_at AS createdAt,c.updated_at AS updatedAt,COALESCE(w.balance,0) AS card,COALESCE(d.balance,0) AS diamond";
     String JOINS=" FROM club c LEFT JOIN club_wallet_account w ON w.club_id=c.id AND w.currency='card' LEFT JOIN club_wallet_account d ON d.club_id=c.id AND d.currency='diamond' ";
     @Select("SELECT "+COLUMNS+JOINS+"WHERE c.id=#{id}") Map<String,Object> club(long id);
+    @Select("SELECT a.is_test AS isTest FROM player_role r JOIN user_account a ON a.id=r.account_id WHERE r.uid=#{uid} AND a.status='ACTIVE' FOR UPDATE")
+    Map<String,Object> lockActivePlayer(long uid);
+    @Select("SELECT id FROM club WHERE owner_uid=#{uid} AND created_name=#{name}")
+    Long createdClub(@Param("uid") long uid,@Param("name") String name);
+    @Insert("INSERT INTO club(name,created_name,owner_uid,max_members,max_managers,is_test,created_at,updated_at) VALUES(#{name},#{name},#{uid},#{maxMembers},#{maxManagers},#{test},#{now},#{now})")
+    @Options(useGeneratedKeys=true,keyProperty="id")
+    int create(Map<String,Object> values);
+    @Insert("INSERT INTO club_member(club_id,uid,member_role,joined_at) VALUES(#{id},#{uid},'OWNER',#{now})")
+    int createOwner(@Param("id") long id,@Param("uid") long uid,@Param("now") LocalDateTime now);
+    @Insert("INSERT INTO club_wallet_account(club_id,currency) VALUES(#{id},'card'),(#{id},'diamond')")
+    int createWallets(long id);
+    @Update("UPDATE club SET name=#{name},version=version+1,updated_at=#{now} WHERE id=#{id}")
+    int rename(@Param("id") long id,@Param("name") String name,@Param("now") LocalDateTime now);
+    @Update("UPDATE club SET max_members=#{capacity},version=version+1,updated_at=#{now} WHERE id=#{id}")
+    int capacity(@Param("id") long id,@Param("capacity") int capacity,@Param("now") LocalDateTime now);
+    @Select("SELECT currency,balance FROM club_wallet_account WHERE club_id=#{id} ORDER BY currency FOR UPDATE")
+    List<Map<String,Object>> lockAssets(long id);
+    @Select("SELECT currency,balance FROM wallet_account WHERE uid=#{uid} ORDER BY currency FOR UPDATE")
+    List<Map<String,Object>> lockPersonalAssets(long uid);
+    @Select("SELECT EXISTS(SELECT 1 FROM room_record WHERE club_id=#{id} AND status IN ('WAITING','PLAYING','ROUND_FINISHED'))")
+    boolean hasLiveRooms(long id);
+    @Update("UPDATE club SET status='DISBANDED',version=version+1,updated_at=#{now} WHERE id=#{id} AND status='ACTIVE'")
+    int disband(@Param("id") long id,@Param("now") LocalDateTime now);
+    @Update("UPDATE club_application SET status='REJECTED',reviewed_by=#{actor},reviewed_by_type='PLAYER',reviewed_at=#{now} WHERE club_id=#{id} AND status='PENDING'")
+    int closeApplications(@Param("id") long id,@Param("actor") long actor,@Param("now") LocalDateTime now);
     @Select("SELECT id,name,owner_uid AS owner,status,member_count AS current_mem,max_members AS max_mem,max_managers AS maxManagers,version FROM club WHERE id=#{id} FOR UPDATE") Map<String,Object> lock(long id);
     @Select("SELECT "+COLUMNS+JOINS+"JOIN club_member m ON m.club_id=c.id WHERE m.uid=#{uid} AND c.status='ACTIVE' ORDER BY c.id") List<Map<String,Object>> mine(long uid);
     @Select("SELECT member_role FROM club_member WHERE club_id=#{id} AND uid=#{uid}") String memberRole(@Param("id") long id,@Param("uid") long uid);

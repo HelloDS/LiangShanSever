@@ -28,7 +28,7 @@ class LobbyAvailabilityTest {
             @Override public void account(long uid) { assertEquals(identity.uid(), uid); }
         };
         final GameDispatcher dispatcher = new GameDispatcher(null, sessions, null, registry,
-                null, null, limiter, null, null, new ClubWireRouter(null));
+                null, null, limiter, null, null, new ClubWireRouter(null,null), null, new PartnerWireRouter(null,null));
 
         GameDispatcher.Result request(String command, ConnectionRegistry.Binding current) {
             return request("freephone", command, Map.of(), current);

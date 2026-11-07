@@ -28,6 +28,10 @@ public final class GameJsonCodec {
     }
 
     public String write(Object value) { return mapper.writeValueAsString(value); }
+    public Map<String,Object> object(String json) {
+        read(json);
+        return mapper.readValue(json,new tools.jackson.core.type.TypeReference<Map<String,Object>>() { });
+    }
 
     /** 内部摘要专用；不改变线上协议序列化。保留大整数和十进制精度，递归排序对象键。 */
     public String canonicalObject(String json) {

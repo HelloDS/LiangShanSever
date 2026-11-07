@@ -36,7 +36,7 @@ import com.ruoyi.game.games.landlord.*;
 import com.ruoyi.game.room.*;
 
 @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false","game.online-history.enabled=false","game.exports.enabled=false"})
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"game.ws.port=0","game.outbox.worker-enabled=false","game.reconciliation.worker-enabled=false","game.online-history.enabled=false","game.exports.enabled=false","game.guest-starter-wallet-enabled=false"})
 class GameFoundationIntegrationTest {
     private static final String DB_PASSWORD=SecureTokens.create();
     private static final String REDIS_PASSWORD=SecureTokens.create();
@@ -79,8 +79,11 @@ class GameFoundationIntegrationTest {
     @MockitoSpyBean LobbyMapper lobby;
     @MockitoSpyBean IdentityMapper identities;
     @Autowired com.ruoyi.game.club.ClubService clubs;
+    @Autowired com.ruoyi.game.club.ClubPartnerService clubPartners;
+    @Autowired com.ruoyi.game.club.ClubGameRecords clubRecords;
     @Autowired com.ruoyi.game.club.ClubAdminService clubAdmin;
     @Autowired com.ruoyi.game.economy.WalletPostingService wallets;
+    @Autowired com.ruoyi.game.economy.PersonalEconomyService personalEconomy;
     @MockitoSpyBean WalletMapper walletMapper;
     @Autowired com.ruoyi.game.economy.WalletAdminService walletAdmin;
     @Autowired com.ruoyi.game.economy.WalletReconciliationJobs reconciliationJobs;
@@ -92,6 +95,22 @@ class GameFoundationIntegrationTest {
     @Autowired com.ruoyi.game.admin.OnlineHistoryService onlineHistory;
     @MockitoSpyBean OnlineHistoryMapper onlineHistoryMapper;
     @Autowired com.ruoyi.game.room.RoomExports roomExports;
+
+    @Test void confirmedStarterAssetsAreIssuedOnceAndRegistrationRollbackIsAtomic(){
+        var starterAuth=new GuestAuthService(identities,lobby,java.time.Clock.systemUTC(),wallets,365,true);
+        var transaction=new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        String token=transaction.execute(status->starterAuth.createGuest());
+        long uid=auth.verify(token).uid();
+        assertEquals(1000,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",Long.class,uid));
+        assertEquals(100,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));
+        auth.verify(token);
+        assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Long.class,"guest_starter:"+uid));
+        assertEquals("MATCH",wallets.reconcile(new Account(OwnerType.PERSONAL,uid,Currency.CARD)).get("status"));
+        long before=jdbc.queryForObject("SELECT COUNT(*) FROM user_account",Long.class);
+        doThrow(new IllegalStateException("starter rollback fixture")).when(lobby).createKoi(anyLong(),any());
+        assertThrows(IllegalStateException.class,()->transaction.execute(status->starterAuth.createGuest()));
+        assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM user_account",Long.class));
+    }
 
     @Autowired com.ruoyi.game.transport.ConnectionRegistry connections;
     @Autowired com.ruoyi.game.transport.OnlinePresence presence;
@@ -910,6 +929,58 @@ class GameFoundationIntegrationTest {
             return id;
         }
         private void join(long owner,long id,long uid){clubs.apply(uid,id,"JOIN");clubs.review(owner,id,uid,"JOIN",1);}
+        @Test void partnerMembershipAndDelegatedReviewStayWithinTheCircle(){
+            long owner=player(),partner=player(),otherPartner=player(),member=player(),outsider=player(),applicant=player();
+            long id=existingClub(owner,10,3);
+            for(long uid:List.of(partner,otherPartner,member))join(owner,id,uid);
+            clubPartners.add(owner,id,List.of(partner,otherPartner));
+            clubPartners.bind(owner,id,partner,List.of(member),false);
+            String today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+            assertEquals(1,((List<?>)clubPartners.team(partner,id,partner,today,1,Map.of(),false).get("rows")).size());
+            assertThrows(GameFailure.class,()->clubPartners.team(partner,id,otherPartner,today,1,Map.of(),false));
+            assertThrows(GameFailure.class,()->clubPartners.add(partner,id,List.of(member)));
+            assertThrows(GameFailure.class,()->clubPartners.add(owner,id,List.of(member,outsider)));
+            assertEquals(0,number("SELECT COUNT(*) FROM club_partner WHERE club_id=? AND uid=?",id,member));
+            clubs.apply(applicant,id,"JOIN");
+            assertThrows(GameFailure.class,()->clubs.review(partner,id,applicant,"JOIN",1));
+            clubPartners.permission(owner,id,List.of(partner),false,true);
+            clubs.review(partner,id,applicant,"JOIN",1);
+            assertEquals("MEMBER",jdbc.queryForObject("SELECT member_role FROM club_member WHERE club_id=? AND uid=?",String.class,id,applicant));
+            clubPartners.permission(owner,id,List.of(partner),false,false);
+            clubs.apply(outsider,id,"JOIN");
+            assertThrows(GameFailure.class,()->clubs.review(partner,id,outsider,"JOIN",1));
+            clubs.kick(owner,id,partner);
+            assertEquals(0,number("SELECT COUNT(*) FROM club_partner_member WHERE club_id=? AND partner_uid=?",id,partner));
+            assertEquals(0,number("SELECT COUNT(*) FROM club_partner WHERE club_id=? AND uid=?",id,partner));
+        }
+
+        @Test void historicalPartnerScoresKeepTheirOriginalAttributionAfterRebinding(){
+            long owner=player(),a=player(),b=player(),member=player(),id=existingClub(owner,10,3);
+            for(long uid:List.of(a,b,member))join(owner,id,uid);
+            clubPartners.add(owner,id,List.of(a,b));
+            clubPartners.bind(owner,id,a,List.of(member),false);
+            String room=UUID.randomUUID().toString(),code=Integer.toString(ROOM_CODES.getAndIncrement());
+            jdbc.update("INSERT INTO room_record(room_id,room_code,game_id,owner_uid,creator_uid,club_id,options_json,rule_version,status,is_test,created_at) VALUES(?,?,'6003',?,?,?,'{}','partner-fixture','CLOSED',TRUE,UTC_TIMESTAMP(6))",room,code,owner,owner,id);
+            var role=Map.of("uid",member,"name","隔离测试","head","","score",12);
+            String json=codec.write(Map.of("game_record",Map.of(Long.toString(member),role),"movie_id","","sq_uid","","sq_name","","total_round",6,"at_info",Map.of()));
+            jdbc.update("INSERT INTO club_game_record(room_id,club_id,game_id,room_code,round_count,record_json,finished_at) VALUES(?,?,'6003',?,6,?,UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE)",room,id,code,json);
+            long record=number("SELECT id FROM club_game_record WHERE room_id=?",room);
+            jdbc.update("INSERT INTO club_game_score(record_id,uid,partner_uid,score) VALUES(?,?,?,12)",record,member,a);
+            clubPartners.bind(owner,id,b,List.of(member),false);
+            String today=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai")).toString();
+            var oldTeam=(List<?>)clubPartners.team(a,id,a,today,1,Map.of(),false).get("rows");
+            assertEquals(1,oldTeam.size());
+            assertEquals(1,((Map<?,?>)oldTeam.getFirst()).get("lock"));
+            assertEquals(12L,((Map<?,?>)oldTeam.getFirst()).get("score"));
+            var newTeam=(List<?>)clubPartners.team(b,id,b,today,1,Map.of(),false).get("rows");
+            assertEquals(0L,((Map<?,?>)newTeam.getFirst()).get("score"));
+            assertEquals(1L,clubRecords.member(a,id,a,member,today,1).get("total"));
+            assertThrows(GameFailure.class,()->clubRecords.detail(b,id,record));
+            clubPartners.bind(owner,id,a,List.of(member),true);
+            var resetTeam=(List<?>)clubPartners.team(a,id,a,today,1,Map.of(),false).get("rows");
+            assertEquals(0L,((Map<?,?>)resetTeam.getFirst()).get("score"));
+            assertEquals(1,number("SELECT COUNT(*) FROM club_game_score WHERE record_id=?",record));
+        }
         @Test void confirmedClubCeilingLimitsLegacyCapacityAndRejectsFurtherAdmission(){
             long owner=player(),applicant=player(),id=existingClub(owner,2000,2);
             @SuppressWarnings("unchecked") var wire=(Map<String,Object>)clubs.get(owner,id).get("club");assertEquals(1000,((Number)wire.get("max_mem")).intValue());
@@ -999,11 +1070,75 @@ class GameFoundationIntegrationTest {
             assertEquals(0,jdbc.queryForObject("SELECT COUNT(*) FROM club_message WHERE uid=? AND read_at IS NULL",Integer.class,member));
             assertThrows(GameFailure.class,()->clubs.apply(owner,id,"LEAVE"));
         }
-        @Test void unknownManagerLimitDoesNotGrantUnlimitedManagers(){
-            long owner=player(),member=player(),id=existingClub(owner,5,null);join(owner,id,member);
-            assertThrows(GameFailure.class,()->clubs.manager(owner,id,member,true));
-            assertEquals("MEMBER",jdbc.queryForObject("SELECT member_role FROM club_member WHERE club_id=? AND uid=?",String.class,id,member));
+        @Test void legacyClubWithoutManagerLimitUsesConfirmedCeiling(){
+            long owner=player(),id=existingClub(owner,5,null);
+            for(int i=0;i<3;i++){long member=player();join(owner,id,member);clubs.manager(owner,id,member,true);}
+            long fourth=player();join(owner,id,fourth);
+            assertThrows(GameFailure.class,()->clubs.manager(owner,id,fourth,true));
+            assertEquals("MEMBER",jdbc.queryForObject("SELECT member_role FROM club_member WHERE club_id=? AND uid=?",String.class,id,fourth));
             assertThrows(GameFailure.class,clubs::unavailableEconomy);
+        }
+        @Test void creationTransfersCardsOnceAndDisbandPreservesHistoryWithoutRefund(){
+            long owner=player(), outsider=player();
+            String initial="圈"+UUID.randomUUID().toString().substring(0,6);
+            assertEquals(-8,assertThrows(GameFailure.class,()->clubs.create(owner,initial)).state());
+            assertEquals(0,number("SELECT COUNT(*) FROM club WHERE owner_uid=?",owner));
+            wallets.post(new WalletPosting(Kind.REWARD,"club_test_fund:"+owner,"fixture-v1","player/"+owner,List.of(
+                    new Entry(new Account(OwnerType.PERSONAL,owner,Currency.CARD),1000,0),
+                    new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-1000,0))));
+            var created=clubs.create(owner,initial);
+            var circle=(Map<?,?>)created.get("club");
+            long id=((Number)circle.get("id")).longValue();
+            assertEquals(100,circle.get("max_mem"));
+            assertEquals(900L,((Number)created.get("card")).longValue());
+            String newName="改"+UUID.randomUUID().toString().substring(0,6);
+            assertEquals(-41,assertThrows(GameFailure.class,()->clubs.rename(outsider,id,newName)).state());
+            clubs.rename(owner,id,newName);
+            assertEquals(newName,((Map<?,?>)clubs.create(owner,initial).get("club")).get("name"));
+            assertEquals(1,number("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?","club_creation:"+id));
+            assertEquals(-90,assertThrows(GameFailure.class,()->clubs.disband(outsider,id)).state());
+            clubs.apply(outsider,id,"JOIN");
+            clubs.disband(owner,id);
+            clubs.disband(owner,id);
+            assertEquals("DISBANDED",jdbc.queryForObject("SELECT status FROM club WHERE id=?",String.class,id));
+            assertEquals("REJECTED",jdbc.queryForObject("SELECT status FROM club_application WHERE club_id=? AND uid=?",String.class,id,outsider));
+            assertEquals(100,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
+            assertEquals(900,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",owner));
+            assertEquals(1,number("SELECT COUNT(*) FROM club_event WHERE club_id=? AND action='DISBAND'",id));
+            assertEquals(-38,assertThrows(GameFailure.class,()->clubs.create(owner,initial)).state());
+        }
+        @Test void circleDepositsUpgradeAndExchangeAreIdempotentAndOwnerScoped(){
+            long owner=player(),member=player();
+            wallets.post(new WalletPosting(Kind.REWARD,"club_economy_fund:"+owner,"fixture-v1","player/"+owner,List.of(
+                    new Entry(new Account(OwnerType.PERSONAL,owner,Currency.CARD),1000,0),
+                    new Entry(new Account(OwnerType.SYSTEM,0,Currency.CARD),-1000,0),
+                    new Entry(new Account(OwnerType.PERSONAL,owner,Currency.DIAMOND),100,0),
+                    new Entry(new Account(OwnerType.SYSTEM,0,Currency.DIAMOND),-100,0))));
+            var initial=(Map<?,?>)clubs.create(owner,"经"+UUID.randomUUID().toString().substring(0,6)).get("club");
+            long id=((Number)initial.get("id")).longValue();
+            join(owner,id,member);
+            clubs.manager(owner,id,member,true);
+            assertThrows(GameFailure.class,()->clubs.deposit(member,id,1,0,UUID.randomUUID().toString()));
+            String deposit=UUID.randomUUID().toString();
+            clubs.deposit(owner,id,200,10,deposit);
+            clubs.deposit(owner,id,200,10,deposit);
+            assertEquals(700,number("SELECT balance FROM wallet_account WHERE uid=? AND currency='card'",owner));
+            assertEquals(300,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
+            assertEquals(-4,assertThrows(GameFailure.class,()->clubs.deposit(owner,id,201,10,deposit)).state());
+            String upgrade=UUID.randomUUID().toString();
+            clubs.upgrade(owner,id,upgrade);
+            clubs.upgrade(owner,id,upgrade);
+            assertEquals(200,number("SELECT max_members FROM club WHERE id=?",id));
+            assertEquals(200,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
+            String exchange=UUID.randomUUID().toString();
+            clubs.exchange(owner,id,30,true,exchange);
+            clubs.exchange(owner,id,30,true,exchange);
+            assertEquals(230,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
+            assertEquals(7,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='diamond'",id));
+            clubs.exchange(owner,id,3,false,UUID.randomUUID().toString());
+            assertEquals(200,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='card'",id));
+            assertEquals(10,number("SELECT balance FROM club_wallet_account WHERE club_id=? AND currency='diamond'",id));
+            assertEquals("MATCH",wallets.reconcile(new Account(OwnerType.CLUB,id,Currency.CARD)).get("status"));
         }
         @Test void pendingJoinProfilesAreVisibleOnlyToManagers(){
             long owner=player(),member=player(),applicant=player(),id=existingClub(owner,5,1);join(owner,id,member);clubs.apply(applicant,id,"JOIN");
@@ -1199,6 +1334,24 @@ class GameFoundationIntegrationTest {
             var first=wallets.post(plan);var replay=wallets.post(plan);assertEquals(first.transactionId(),replay.transactionId());assertTrue(replay.replayed());assertEquals(30,balance(uid));assertEquals(2,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));
             assertEquals(4,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_ledger WHERE transaction_id=?",Integer.class,first.transactionId()));
             assertThrows(IllegalArgumentException.class,()->wallets.post(com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,2,order)));
+        }
+        @Test void legacyExchangeOutputAmountIsValidatedAndReplayUsesOneTransaction() throws Exception {
+            long uid=player();
+            fundDiamonds(uid,5);
+            String operation=UUID.randomUUID().toString();
+            try(var workers=Executors.newFixedThreadPool(4)){
+                var replies=workers.invokeAll(java.util.stream.IntStream.range(0,4)
+                        .<Callable<Map<String,Object>>>mapToObj(index->()->personalEconomy.exchangeCards(uid,30,operation)).toList());
+                for(var reply:replies)assertEquals(0,reply.get(10,TimeUnit.SECONDS).get("state"));
+            }
+            assertEquals(30,balance(uid));
+            assertEquals(2,jdbc.queryForObject("SELECT balance FROM wallet_account WHERE uid=? AND currency='diamond'",Long.class,uid));
+            assertEquals(1,jdbc.queryForObject("SELECT COUNT(*) FROM wallet_transaction WHERE business_key=?",Long.class,"exchange:personal:"+uid+":"+operation));
+            assertEquals(-4,assertThrows(GameFailure.class,()->personalEconomy.exchangeCards(uid,20,operation)).state());
+            for(long invalid:List.of(0L,1L,9L,11L,Long.MAX_VALUE))assertThrows(GameFailure.class,()->personalEconomy.exchangeCards(uid,invalid,UUID.randomUUID().toString()));
+            assertThrows(GameFailure.class,()->personalEconomy.exchangeCards(uid,10,"invalid"));
+            assertEquals(-109,assertThrows(GameFailure.class,()->personalEconomy.exchangeCards(uid,30,UUID.randomUUID().toString())).state());
+            assertEquals(30,balance(uid));
         }
         @Test void exchangeFailureCannotLeaveOnlyOneCurrencyChanged(){
             long uid=player();fundDiamonds(uid,3);var plan=com.ruoyi.game.economy.DiamondCardExchangePlan.prepare(uid,2,UUID.randomUUID().toString());

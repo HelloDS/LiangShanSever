@@ -6,6 +6,7 @@ import com.ruoyi.game.auth.*;
 import com.ruoyi.game.lobby.PlayerService;
 import com.ruoyi.game.lobby.LobbyService;
 import com.ruoyi.game.lobby.ReportService;
+import com.ruoyi.game.economy.PersonalEconomyService;
 import com.ruoyi.game.protocol.*;
 import tools.jackson.databind.JsonNode;
 import io.netty.channel.Channel;
@@ -22,10 +23,12 @@ public class GameDispatcher implements GameRequestDispatcher {
     private final ReportService reports;
     private final GameLoginService login;
     private final ClubWireRouter clubs;
+    private final PersonalEconomyService economy;
+    private final PartnerWireRouter partners;
     public GameDispatcher(GuestAuthService auth, GameSessionService sessions, PlayerService players,
-                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login,ClubWireRouter clubs) {
+                          ConnectionRegistry registry, OnlinePresence online, LobbyService lobby,GameRateLimiter limiter,ReportService reports,GameLoginService login,ClubWireRouter clubs,PersonalEconomyService economy,PartnerWireRouter partners) {
         this.auth=auth; this.sessions=sessions; this.players=players; this.registry=registry; this.online=online;this.lobby=lobby;this.limiter=limiter;
-        this.reports=reports;this.login=login;this.clubs=clubs;
+        this.reports=reports;this.login=login;this.clubs=clubs;this.economy=economy;this.partners=partners;
     }
     public record Result(Map<String,Object> ack,ConnectionRegistry.Binding binding,List<com.ruoyi.game.club.ClubService.Notification> notifications) {
         public Result{ack=Collections.unmodifiableMap(new LinkedHashMap<>(ack));notifications=List.copyOf(notifications);}
@@ -68,6 +71,9 @@ public class GameDispatcher implements GameRequestDispatcher {
         GuestIdentity identity=sessions.verify(token);
         if (identity.uid()!=binding.identity().uid()) throw new GameFailure(-5,"会话身份不匹配");
         limiter.account(identity.uid());
+        if(partners.supports(request)){
+            var reply=partners.dispatch(request,identity.uid());return new Result(reply.ack(),binding,reply.notifications());
+        }
         if(clubs.supports(request)){
             var reply=clubs.dispatch(request,identity.uid());return new Result(reply.ack(),binding,reply.notifications());
         }
@@ -76,7 +82,9 @@ public class GameDispatcher implements GameRequestDispatcher {
     private Map<String,Object> logic(WireRequest req,long uid) {
         JsonNode data=req.data();
         return switch(req.api()+"/"+req.command()) {
-            case "cfg/getExchangeRate","role/exchangeCard","role/exchangeDiamond" -> throw new GameFailure(-18,"已确认 1 钻石兑换 10 房卡，旧兑换页算法与订单恢复流程尚待适配");
+            case "cfg/getExchangeRate" -> economy.rate();
+            case "role/exchangeCard" -> economy.exchangeCards(uid,positiveInteger(data,"number"),GameJsonCodec.text(data,"operationId",36));
+            case "role/exchangeDiamond" -> economy.exchangeDiamonds(uid,positiveInteger(data,"number"),GameJsonCodec.text(data,"operationId",36));
             case "club/transferDiamond","club/transferToClub","club/exchangeCard","club/exchangeDiamond" -> throw new GameFailure(-18,"圈资金授权与订单恢复流程尚未确认，暂不可执行");
             case "role/syncCard" -> { var role=players.ownRole(uid); yield Map.of("state",0,"card",role.get("card"),"diamond",role.get("diamond")); }
             case "role/getRoleInfo" -> Map.of("state",0,"role",players.publicRole(uid(data,"targetUid")));
@@ -115,6 +123,14 @@ public class GameDispatcher implements GameRequestDispatcher {
         };
     }
     private static long uid(JsonNode data,String field) { return uid(data.path(field)); }
+    private static long positiveInteger(JsonNode data,String field) {
+        JsonNode value=data.path(field);
+        if(!value.isIntegralNumber()||!value.canConvertToLong()||value.asLong()<1
+                ||value.asLong()>com.ruoyi.game.economy.WalletPosting.MAX_CLIENT_INTEGER) {
+            throw new GameFailure(-4,"数量必须是有效正整数");
+        }
+        return value.asLong();
+    }
     private static String optionalText(JsonNode data,String field,int max){
         JsonNode value=data.get(field);if(value==null||value.isNull())return "";
         if(!value.isString()||value.asString().length()>max)throw new GameFailure(-4,"字段无效："+field);
