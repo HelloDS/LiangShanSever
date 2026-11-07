@@ -33,8 +33,14 @@ if admin_sessions:
     require(admin.get('sent') == admin.get('completed') and admin.get('completed', 0) >= 10 * (requested['seconds'] // 10 - 1), '后台读取数量不足')
     require(all(admin.get(key, -1) == 0 for key in ['failed', 'busy', 'pending']), '后台读取失败、跳过或未排空')
     require(admin.get('latencyMs', {}).get('p95', 999999) <= 300, '后台读取 P95 超出预算')
+    if 'httpWorkers' in admin:
+        require(admin.get('httpWorkers') == 10 and admin.get('peakConcurrentQueries') == 10 and admin.get('latencyIncludesClientQueue') is True, '新夹具没有证明十路并行读取及完整客户端排队耗时')
+    # 旧冻结结果没有此字段；保留其窄范围，但不能升级成十并发 HTTP 证据。
+    admin_concurrency = str(admin['peakConcurrentQueries']) if 'httpWorkers' in admin else '未记录，不构成十并发 HTTP 证据'
+else:
+    admin_concurrency = '未启用'
 require(actual['played'] + actual['passed'] + actual['testRedeals'] == actual['completed'], '动作分类数量不守恒')
-require(actual['latencyMs']['p95'] <= 300, '内部持久确认 P95 超出 300ms')
+require(actual['latencyMs']['p95'] <= 50 and actual['latencyMs']['p99'] <= 100, '内部持久确认未满足 P95 50ms / P99 100ms；这仍不代替完整帧接入测量')
 require(result['sampleFailures'] == 0 and result['maxObservedOutboxLagSeconds'] <= 10, '采样失败或 outbox 超出预算')
 require(all(value == 0 for value in result['pending'].values()), '队列未排空')
 require(all(result['outboxAfterDrain'][key] == 0 for key in ['ready', 'claimed', 'dead']), '持久任务未处理完毕')
@@ -75,6 +81,7 @@ payload_mean = sum(row['bytes'] * row['events'] for row in histogram) / totals['
 growth = result['mysqlDirectoryAfterBytes'] - result['mysqlDirectoryBeforeBytes']
 recovery = result['recoverySamples']
 summary = dict(executedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(), result='PASS', scope=result['scope'],
+               sourceReport=args.input.name, adminSessions=admin_sessions, adminHttpConcurrency=admin_concurrency,
                sourceCommit=result['sourceCommit'], snapshotSha256=result['snapshotSha256'], artifactVerified=True,
                heapMiB=interval('heapUsedBytes', 1024**2), nonHeapMiB=interval('nonHeapUsedBytes', 1024**2),
                threads=interval('threads'), roomSqlActive=interval('roomSqlactive'), roomSqlWaiters=interval('roomSqlwaiters'),
@@ -93,7 +100,7 @@ markdown = f'''# 内部房间持久写入一小时复核
 
 200 个内部房间、600 个持久测试身份，每秒目标 200 次状态提交。已确定地主的牌局通过合法单张/过牌推进，结束后按测试规则轮换地主并保存新发牌结果。每次动作都经过房间邮箱、真实 MySQL 事务、提交确认与状态安装；不含 WS、叫分、费用或积分结算。
 
-本组后台会话数：{admin_sessions}。若启用十会话，使用隔离库真实管理员的十个独立 JWT，经 HTTP 权限链每十秒查询真实房间、指定玩家及看板；不包含圈在线排序或异步导出，不能当成方案完整混合负载通过。实际后台统计见原始结果 adminReads。
+本组后台会话数：{admin_sessions}。HTTP 查询实测并发峰值：{admin_concurrency}。若启用十会话，使用隔离库真实管理员的十个独立 JWT，经 HTTP 权限链每十秒查询真实房间、指定玩家及看板；不包含圈在线排序或异步导出，不能当成方案完整混合负载通过。旧夹具的 HTTP 工作池只有两个线程且延迟不含客户端排队，不能把十个 JWT 当成十路并行读取。实际后台统计见原始结果 adminReads。
 
 | 项目 | 实际结果 |
 | --- | --- |
@@ -117,6 +124,8 @@ JVM 堆已用采样 {summary['heapMiB']['min']}–{summary['heapMiB']['max']} Mi
 环境：{result['environment']['os']} / {result['environment']['arch']}，JVM 可见 {result['environment']['availableProcessors']} 个 CPU，堆上限 {result['environment']['maxHeapBytes']/1024**2:.0f} MiB，Java {result['environment']['java']}。MySQL flushAtCommit / syncBinlog / logBin 均为 1；固定 MySQL/Redis 镜像摘要见原始结果。源码提交 `{result['sourceCommit']}`，冻结快照 SHA-256 `{result['snapshotSha256']}`。
 
 这是一组内部持久机械出牌负载，不等于方案中的千人 WS、200 次/秒完整合法牌局与结算、后台混合写入、WSS、公网或 24 小时验收。前三轮短测及其失败、竞争测试干扰和判定差异原样保留，见房间持久写入测量.md；不拼接运行时长。
+
+原始结果：evidence/{args.input.name}。该报告记录测量版本，不包含 CSV 导出负载验证。
 '''
 (root / 'docs/房间持久写入验收.md').write_text(markdown)
 print(f"已复核完整内部持久负载：{actual['completed']} 次，P95 {latency['p95']:.3f}ms，PASS")

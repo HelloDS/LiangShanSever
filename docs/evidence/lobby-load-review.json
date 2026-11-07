@@ -1,0 +1,91 @@
+{
+  "executedAt": "2026-11-07T00:15:43.955Z",
+  "sourceReport": "lobby-load-native.json",
+  "artifactSha256": "b4a50777077cefc320389c2aab6cc9029307e43e53ac44c298ebcc0fd32295c4",
+  "sourceCommit": "217ed82512eebc82ad9ea016af265183b9a5e730",
+  "hostCompetition": "isolated_room_200commits_10admin_separate_jvm",
+  "scope": "本机明文 WS 大厅查询；无牌局动作、结算、TLS 或 24 小时稳定性结论",
+  "measurementSummary": {
+    "authenticated": {
+      "min": 1000,
+      "max": 1000,
+      "first": 1000,
+      "last": 1000
+    },
+    "accepted": {
+      "min": 1000,
+      "max": 1000,
+      "first": 1000,
+      "last": 1000
+    },
+    "inboundBytes": {
+      "min": 0,
+      "max": 6416,
+      "first": 0,
+      "last": 0
+    },
+    "businessQueue": {
+      "min": 0,
+      "max": 42,
+      "first": 0,
+      "last": 0
+    },
+    "businessActive": {
+      "min": 0,
+      "max": 16,
+      "first": 0,
+      "last": 0
+    },
+    "replyPending": {
+      "min": 0,
+      "max": 58,
+      "first": 0,
+      "last": 0
+    },
+    "replyActive": {
+      "min": 0,
+      "max": 1,
+      "first": 0,
+      "last": 0
+    },
+    "replyQueue": {
+      "min": 0,
+      "max": 1,
+      "first": 0,
+      "last": 0
+    },
+    "pendingPushes": {
+      "min": 0,
+      "max": 0,
+      "first": 0,
+      "last": 0
+    },
+    "jvmUsedMiB": {
+      "min": 351.383,
+      "max": 685.042,
+      "first": 625.992,
+      "last": 381.724
+    },
+    "processCpuFraction": {
+      "min": 0,
+      "max": 0.083,
+      "first": 0,
+      "last": 0.017
+    }
+  },
+  "afterClose": {
+    "asOf": "2026-11-07T00:15:43.949Z",
+    "metrics": {
+      "game.accepted.connections": 0,
+      "game.authenticated.connections": 0,
+      "game.inbound.bytes": 0,
+      "game.business.queue": 0,
+      "game.business.active": 0,
+      "game.reply.pending": 0,
+      "game.reply.active": 0,
+      "game.reply.queue": 0,
+      "game.push.pending": 0
+    }
+  },
+  "result": "PASS"
+}

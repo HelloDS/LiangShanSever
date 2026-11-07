@@ -1,0 +1,53 @@
+{
+  "reviewedAt": "2026-11-07T00:16:25.479284+00:00",
+  "sourceReport": "room-storage-load-mixed.json",
+  "sourceCommit": "217ed82512eebc82ad9ea016af265183b9a5e730",
+  "snapshotSha256": "73f723a7b44558363ec43cc863c91dbdb36bb824d469c32c64b5f19559ff40dc",
+  "result": "FAIL",
+  "measurementMs": 3600000.297166,
+  "reasons": [
+    "outbox 最老采样 28.218 秒超过 10 秒预算",
+    "172 次忙碌跳过",
+    "内部确认 P95/P99 77.693/334.381ms 未达到方案 50/100ms 目标"
+  ],
+  "integrityAfterDrain": "PASS",
+  "persistentTotals": {
+    "events": 723026,
+    "walletTransactions": 0,
+    "consumerReceipts": 723026,
+    "projectedEvents": 723026,
+    "outboxDone": 723026
+  },
+  "adminSessions": 10,
+  "httpClientWorkers": 2,
+  "latencyIncludesClientQueue": false,
+  "adminReads": {
+    "sessions": 10,
+    "intervalSeconds": 10,
+    "sent": 3600,
+    "completed": 3600,
+    "failed": 0,
+    "busy": 0,
+    "pending": 0,
+    "latencyMs": {
+      "max": 291.388958,
+      "p95": 36.52475,
+      "p50": 15.6985,
+      "p99": 58.966791
+    }
+  },
+  "sampleFailures": 0,
+  "outboxCounters": {
+    "completed": 723026.0,
+    "failed": 0.0,
+    "lease.lost": 0.0,
+    "poll.failed": 0.0
+  },
+  "pending": {
+    "io": 0,
+    "reconciliations": 0,
+    "commands": 0,
+    "completions": 0
+  },
+  "scope": "内部机械出牌/测试换局与有限后台读取；同宿主另一 JVM 保持千连接大厅。不是完整 WS 牌局或十并发 HTTP 验收。"
+}
